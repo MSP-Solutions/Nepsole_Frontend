@@ -3,7 +3,7 @@ import React from "react";
 export default function Footer() {
   return (
     <footer className="border-t border-gray-100 bg-white text-slate-600 font-sans">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-10 sm:pt-12 pb-8">
+      <div className="max-w-[1400px] mx-auto px-3 sm:px-4 md:px-6 pt-10 sm:pt-12 pb-8">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 sm:gap-8">
           {/* Col 1: Brand Info */}
           <div className="col-span-2 sm:col-span-3 md:col-span-4 lg:col-span-1 flex flex-col space-y-4">
@@ -17,26 +17,26 @@ export default function Footer() {
               </div>
               <div>
                 <div className="font-bold text-slate-900 text-lg leading-tight">Nepsole</div>
-                <div className="text-[11px] text-slate-400 font-medium">Books, Knowledge & Beyond</div>
+                <div className="text-sm text-slate-400 font-medium">Books, Knowledge & Beyond</div>
               </div>
             </div>
 
-            <div className="text-xs text-slate-400 leading-relaxed space-y-1 max-w-sm">
+            <div className="text-sm text-slate-400 leading-relaxed space-y-1 max-w-sm">
               <p>Your trusted online bookstore for books, e-books, and audiobooks.</p>
               <p>Books, Knowledge & Beyond</p>
             </div>
 
             <div className="flex items-center gap-2.5 pt-1">
-              <a href="#" aria-label="Facebook" className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors text-xs font-semibold">
+              <a href="#" aria-label="Facebook" className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors text-sm font-semibold">
                 f
               </a>
-              <a href="#" aria-label="LinkedIn" className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors text-xs font-semibold">
+              <a href="#" aria-label="LinkedIn" className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors text-sm font-semibold">
                 in
               </a>
-              <a href="#" aria-label="YouTube" className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors text-[10px]">
+              <a href="#" aria-label="YouTube" className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors text-sm">
                 ▶
               </a>
-              <a href="#" aria-label="TikTok/Twitter" className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors text-xs">
+              <a href="#" aria-label="TikTok/Twitter" className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors text-sm">
                 ♪
               </a>
             </div>
@@ -45,7 +45,7 @@ export default function Footer() {
           {/* Col 2: Quick Links */}
           <div>
             <h4 className="font-bold text-slate-900 text-sm mb-3 sm:mb-4">Quick Links</h4>
-            <ul className="space-y-2 text-xs text-slate-500">
+            <ul className="space-y-2 text-sm text-slate-500">
               <li><a href="#" className="hover:text-slate-900 transition-colors">About Us</a></li>
               <li><a href="#" className="hover:text-slate-900 transition-colors">Contact Us</a></li>
               <li><a href="#" className="hover:text-slate-900 transition-colors">FAQs</a></li>
@@ -58,7 +58,7 @@ export default function Footer() {
           {/* Col 3: Customer Service */}
           <div>
             <h4 className="font-bold text-slate-900 text-sm mb-3 sm:mb-4">Customer Service</h4>
-            <ul className="space-y-2 text-xs text-slate-500">
+            <ul className="space-y-2 text-sm text-slate-500">
               <li><a href="#" className="hover:text-slate-900 transition-colors">Help & Support</a></li>
               <li><a href="#" className="hover:text-slate-900 transition-colors">Track Order</a></li>
               <li><a href="#" className="hover:text-slate-900 transition-colors">My Account</a></li>
@@ -71,7 +71,7 @@ export default function Footer() {
           {/* Col 4: My Account */}
           <div>
             <h4 className="font-bold text-slate-900 text-sm mb-3 sm:mb-4">My Account</h4>
-            <ul className="space-y-2 text-xs text-slate-500">
+            <ul className="space-y-2 text-sm text-slate-500">
               <li><a href="#" className="hover:text-slate-900 transition-colors">Login / Register</a></li>
               <li><a href="#" className="hover:text-slate-900 transition-colors">Orders</a></li>
               <li><a href="#" className="hover:text-slate-900 transition-colors">E-books Library</a></li>
@@ -84,7 +84,7 @@ export default function Footer() {
           {/* Col 5: Popular Categories */}
           <div>
             <h4 className="font-bold text-slate-900 text-sm mb-3 sm:mb-4">Popular Categories</h4>
-            <ul className="space-y-2 text-xs text-slate-500">
+            <ul className="space-y-2 text-sm text-slate-500">
               <li><a href="#" className="hover:text-slate-900 transition-colors">Fiction</a></li>
               <li><a href="#" className="hover:text-slate-900 transition-colors">Biography</a></li>
               <li><a href="#" className="hover:text-slate-900 transition-colors">Self Help</a></li>
@@ -97,7 +97,7 @@ export default function Footer() {
           {/* Col 6: Download Our App */}
           <div className="col-span-2 sm:col-span-1">
             <h4 className="font-bold text-slate-900 text-sm mb-1.5">Download Our App</h4>
-            <p className="text-xs text-slate-400 mb-4">Read Books Anywhere, Anytime!</p>
+            <p className="text-sm text-slate-400 mb-4">Read Books Anywhere, Anytime!</p>
 
             <div className="flex flex-col gap-2.5">
               <a href="#" className="inline-flex items-center gap-3 bg-[#0B132B] hover:bg-[#1E293B] text-white py-2.5 px-4 rounded-xl transition-colors shadow-sm w-full max-w-[200px]">
@@ -106,7 +106,7 @@ export default function Footer() {
                 </svg>
                 <div className="flex flex-col text-left leading-tight">
                   <span className="text-[9px] text-slate-300 uppercase tracking-wider font-medium">GET IT ON</span>
-                  <span className="text-xs font-semibold text-white">Google Play</span>
+                  <span className="text-sm font-semibold text-white">Google Play</span>
                 </div>
               </a>
 
@@ -116,7 +116,7 @@ export default function Footer() {
                 </svg>
                 <div className="flex flex-col text-left leading-tight">
                   <span className="text-[9px] text-slate-300 font-medium">Download on the</span>
-                  <span className="text-xs font-semibold text-white">App Store</span>
+                  <span className="text-sm font-semibold text-white">App Store</span>
                 </div>
               </a>
             </div>
@@ -124,7 +124,7 @@ export default function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-10 sm:mt-12 border-t border-gray-100 pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-4">
+        <div className="mt-10 sm:mt-12 border-t border-gray-100 pt-6 flex flex-col sm:flex-row items-center justify-between text-sm text-slate-400 gap-4">
           <div className="text-center sm:text-left">
             © 2025 <span className="text-blue-600 font-bold">Nepsole</span>. All Rights Reserved.
           </div>

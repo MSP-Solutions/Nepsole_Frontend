@@ -11,7 +11,7 @@ import {
 const TopHeader = () => {
   return (
     <div className="w-full bg-[#0F2557] text-white">
-      <div className="mx-auto flex min-h-[28px] max-w-[1400px] items-center justify-between px-3 sm:px-4 py-1 sm:py-0 text-[10px] sm:text-[11px] font-normal">
+      <div className="mx-auto flex min-h-[28px] max-w-[1400px] items-center justify-between px-3 sm:px-4 py-1 sm:py-0 text-sm font-normal">
         {/* Left Side */}
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-1.5">

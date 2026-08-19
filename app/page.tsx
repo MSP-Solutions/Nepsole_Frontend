@@ -6,7 +6,7 @@ import Hero from '@/components/hero'
 import TrendingBooks from '@/components/trendingBooks'
 const page = () => {
   return (
-    <div className="min-h-screen flex flex-col bg-[#F9FAFB] overflow-x-hidden w-full">
+    <div className="min-h-screen flex flex-col bg-[#F9FAFB] overflow-x-clip w-full">
       <TopHeader />
       <Headers />
       <main className="flex-1 w-full">

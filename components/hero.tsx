@@ -65,7 +65,7 @@ const Hero = () => {
         <aside className="hidden lg:block w-[150px] shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-white">
           {/* Header */}
           <div className="border-b border-gray-200 px-3 py-2 bg-gray-50">
-            <h2 className="text-[10px] font-bold text-gray-800 uppercase tracking-wider">
+            <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wider">
               Shop by Category
             </h2>
           </div>
@@ -175,7 +175,7 @@ const Hero = () => {
                     </div>
 
                     <div className="min-w-0">
-                      <p className="text-[9px] sm:text-[10px] font-bold text-white truncate">
+                      <p className="text-[9px] sm:text-sm font-bold text-white truncate">
                         {feature.title}
                       </p>
 

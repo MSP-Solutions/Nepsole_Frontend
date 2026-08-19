@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Search,
   UserRound,
@@ -12,15 +14,28 @@ import {
   X,
 } from "lucide-react";
 
+const navLinks = [
+  { name: "Home", href: "/" },
+  { name: "Books", href: "/books" },
+  { name: "Authors", href: "/authors" },
+  { name: "Publishers", href: "/publishers" },
+];
+
 const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
+
+  const isLinkActive = (href: string) => {
+    if (href === "/") return pathname === "/";
+    return pathname.startsWith(href);
+  };
 
   return (
-    <header className="w-full bg-white border-b border-gray-200 sticky top-0 z-50">
+    <header className="w-full bg-white border-b border-gray-200 sticky top-0 z-50 shadow-xs">
       {/* Main Header */}
       <div className="mx-auto flex min-h-[50px] md:h-[52px] max-w-[1400px] items-center justify-between gap-2 md:gap-4 px-3 md:px-4 py-2 md:py-0">
         {/* Logo */}
-        <div className="flex shrink-0 items-center gap-2">
+        <Link href="/" className="flex shrink-0 items-center gap-2 hover:opacity-90 transition-opacity">
           <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-md bg-[#0F2557]">
             <div className="flex h-5 w-4 items-center justify-center rounded-sm bg-white">
               <BookOpen
@@ -32,14 +47,11 @@ const Header = () => {
           </div>
 
           <div className="leading-none">
-            <h1 className="text-sm sm:text-[16px] font-bold text-[#0F2557]">
+            <h1 className="text-sm font-bold text-[#0F2557]">
               Nepsole
             </h1>
-            <p className="mt-[2px] text-[6px] sm:text-[7px] text-gray-500 hidden xs:block">
-              Books, Knowledge & Beyond
-            </p>
           </div>
-        </div>
+        </Link>
 
         {/* Search Bar - Desktop & Tablet */}
         <div className="hidden sm:flex h-8 min-w-0 flex-1 overflow-hidden rounded-md border border-[#0F2557]">
@@ -49,7 +61,7 @@ const Header = () => {
             className="min-w-0 flex-1 px-3 text-xs text-gray-700 outline-none placeholder:text-gray-400"
           />
 
-          <button className="hidden lg:flex w-[110px] items-center justify-between border-l border-gray-200 bg-gray-50 px-3 text-[10px] text-gray-600">
+          <button className="hidden lg:flex w-[110px] items-center justify-between border-l border-gray-200 bg-gray-50 px-3 text-xs text-gray-600">
             <span>All Categories</span>
             <ChevronDown size={11} />
           </button>
@@ -65,8 +77,8 @@ const Header = () => {
           <div className="flex shrink-0 items-center gap-1.5 cursor-pointer hover:text-[#1749A0]">
             <UserRound size={18} strokeWidth={1.5} className="text-gray-600" />
             <div className="leading-none hidden md:block">
-              <p className="text-[7px] text-gray-500">Login / Register</p>
-              <p className="mt-0.5 text-[10px] font-semibold text-[#111827]">
+              <p className="text-gray-500 text-[11px]">Login / Register</p>
+              <p className="mt-0.5 text-xs font-semibold text-[#111827]">
                 My Account
               </p>
             </div>
@@ -79,7 +91,7 @@ const Header = () => {
               strokeWidth={1.5}
               className="text-gray-700"
             />
-            <span className="text-[10px] font-semibold text-gray-800 hidden lg:inline">
+            <span className="text-sm font-semibold text-gray-800 hidden lg:inline">
               Wishlist
             </span>
           </div>
@@ -96,7 +108,7 @@ const Header = () => {
                 3
               </span>
             </div>
-            <span className="text-[10px] font-semibold text-gray-800 hidden lg:inline">
+            <span className="text-sm font-semibold text-gray-800 hidden lg:inline">
               Cart
             </span>
           </div>
@@ -132,7 +144,7 @@ const Header = () => {
           {/* Left Navigation */}
           <div className="flex h-full items-center gap-2">
             {/* Browse Categories */}
-            <button className="flex h-[30px] items-center gap-2 rounded bg-[#0F2557] px-3 text-[10px] font-semibold text-white hover:bg-[#1749A0] transition-colors">
+            <button className="flex h-[30px] items-center gap-2 rounded bg-[#0F2557] px-3 text-sm font-semibold text-white hover:bg-[#1749A0] transition-colors">
               <Menu size={13} />
               <span>Browse Categories</span>
               <ChevronDown size={11} />
@@ -140,52 +152,24 @@ const Header = () => {
 
             {/* Links */}
             <nav className="flex items-center space-x-1">
-              <a
-                href="#"
-                className="flex h-[36px] items-center border-b-2 border-[#1749A0] px-3 text-[10px] font-semibold text-[#1749A0]"
-              >
-                Home
-              </a>
-              <a
-                href="#"
-                className="px-3 text-[10px] font-medium text-gray-700 hover:text-[#1749A0] transition-colors"
-              >
-                Books
-              </a>
-              <a
-                href="#"
-                className="px-3 text-[10px] font-medium text-gray-700 hover:text-[#1749A0] transition-colors"
-              >
-                Audiobooks
-              </a>
-              <a
-                href="#"
-                className="px-3 text-[10px] font-medium text-gray-700 hover:text-[#1749A0] transition-colors"
-              >
-                Authors
-              </a>
-              <a
-                href="#"
-                className="px-3 text-[10px] font-medium text-gray-700 hover:text-[#1749A0] transition-colors"
-              >
-                Publishers
-              </a>
-              <a
-                href="#"
-                className="flex items-center gap-1 px-3 text-[10px] font-medium text-gray-700 hover:text-[#1749A0] transition-colors"
-              >
-                Deals
-                <span className="rounded-[2px] bg-red-500 px-1 py-[1px] text-[7px] font-bold text-white leading-none">
-                  Hot
-                </span>
-              </a>
+              {navLinks.map((link) => {
+                const active = isLinkActive(link.href);
+                return (
+                  <Link
+                    key={link.name}
+                    href={link.href}
+                    className={`flex items-center gap-1 px-3 h-[36px] text-sm font-medium transition-colors ${active
+                      ? "border-b-2 border-[#1749A0] font-semibold text-[#1749A0]"
+                      : "text-gray-700 hover:text-[#1749A0]"
+                      }`}
+                  >
+                    <span>{link.name}</span>
+
+                  </Link>
+                );
+              })}
             </nav>
           </div>
-
-          {/* Bulk Order */}
-          <button className="rounded bg-[#F59E0B] px-3.5 py-1.5 text-[10px] font-bold text-white hover:bg-[#D97706] transition-colors shadow-sm">
-            Bulk Order
-          </button>
         </div>
       </div>
 
@@ -201,27 +185,20 @@ const Header = () => {
           </button>
 
           <nav className="flex flex-col space-y-2 text-xs text-gray-700 font-medium">
-            <a href="#" className="py-1 text-[#1749A0] font-semibold border-b border-gray-100">
-              Home
-            </a>
-            <a href="#" className="py-1 hover:text-[#1749A0] border-b border-gray-100">
-              Books
-            </a>
-            <a href="#" className="py-1 hover:text-[#1749A0] border-b border-gray-100">
-              Audiobooks
-            </a>
-            <a href="#" className="py-1 hover:text-[#1749A0] border-b border-gray-100">
-              Authors
-            </a>
-            <a href="#" className="py-1 hover:text-[#1749A0] border-b border-gray-100">
-              Publishers
-            </a>
-            <a href="#" className="flex items-center justify-between py-1 hover:text-[#1749A0]">
-              <span>Deals</span>
-              <span className="rounded bg-red-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
-                Hot
-              </span>
-            </a>
+            {navLinks.map((link) => {
+              const active = isLinkActive(link.href);
+              return (
+                <Link
+                  key={link.name}
+                  href={link.href}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`flex items-center justify-between py-1 border-b border-gray-100 ${active ? "text-[#1749A0] font-semibold" : "hover:text-[#1749A0]"
+                    }`}
+                >
+                  <span>{link.name}</span>
+                </Link>
+              );
+            })}
           </nav>
 
           <button className="w-full rounded bg-[#F59E0B] py-2 text-xs font-bold text-white hover:bg-[#D97706] transition-colors">

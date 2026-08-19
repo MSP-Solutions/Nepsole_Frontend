@@ -136,7 +136,7 @@ const TrendingBooks = () => {
                                         ))}
                                     </div>
 
-                                    <span className="text-[10px] text-gray-400">
+                                    <span className="text-sm text-gray-400">
                                         ({book.reviews})
                                     </span>
                                 </div>
@@ -147,14 +147,14 @@ const TrendingBooks = () => {
                                         Rs. {book.price}
                                     </span>
 
-                                    <span className="text-[10px] text-gray-400 line-through">
+                                    <span className="text-sm text-gray-400 line-through">
                                         Rs. {book.oldPrice}
                                     </span>
                                 </div>
 
                                 {/* Bottom Actions */}
                                 <div className="mt-2 flex items-center gap-2">
-                                    <button className="h-7 flex-1 rounded-full border border-indigo-500 text-[10px] font-medium text-indigo-500 transition hover:bg-indigo-500 hover:text-white">
+                                    <button className="h-7 flex-1 rounded-full border border-indigo-500 text-sm font-medium text-indigo-500 transition hover:bg-indigo-500 hover:text-white">
                                         Add to Cart
                                     </button>
 
