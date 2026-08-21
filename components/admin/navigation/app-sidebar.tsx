@@ -1,40 +1,39 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import {
-  LayoutGrid,
-  BookOpen,
-  ShoppingBag,
-  Feather,
-  Building2,
-  Users,
-  Settings,
-  LogOut,
-  ChevronLeft,
   AlertTriangle,
+  BookOpen,
+  Building2,
+  ChevronLeft,
+  Feather,
+  LayoutGrid,
   Loader2,
+  LogOut,
+  Settings,
+  ShoppingBag,
+  Users,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import NavMain, { NavItem } from "./nav-main";
 import SidebarLogo from "./sidebar-logo";
 
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
-  SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { clearCookies } from "@/utils/cookies";
 
 const navigation: NavItem[] = [
@@ -86,7 +85,9 @@ function SidebarFooterActions({ onLogout }: { onLogout: () => void }) {
         title={!open ? "Expand" : "Collapse"}
         className="flex w-full items-center gap-3.5 rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-all cursor-pointer select-none"
       >
-        <ChevronLeft className={`h-4 w-4 shrink-0 transition-transform duration-200 ${!open ? "rotate-180" : ""}`} />
+        <ChevronLeft
+          className={`h-4 w-4 shrink-0 transition-transform duration-200 ${!open ? "rotate-180" : ""}`}
+        />
         {open && <span>Collapse</span>}
       </button>
 
@@ -151,7 +152,8 @@ export default function AppSidebar() {
               Confirm Logout
             </DialogTitle>
             <DialogDescription className="text-center text-xs text-slate-400 leading-relaxed">
-              Are you sure you want to log out? Logging out will clear all stored session cookies and redirect you to the login page.
+              Are you sure you want to log out? Logging out will clear all
+              stored session cookies and redirect you to the login page.
             </DialogDescription>
           </DialogHeader>
 

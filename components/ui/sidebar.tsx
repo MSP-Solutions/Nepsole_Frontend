@@ -82,21 +82,36 @@ export function Sidebar({
   children,
   ...props
 }: SidebarProps) {
-  const { open } = useSidebar();
+  const { open, setOpen } = useSidebar();
 
   return (
-    <aside
-      data-state={open ? "expanded" : "collapsed"}
-      data-collapsible={collapsible}
-      className={cn(
-        "relative flex flex-col border-r bg-card text-card-foreground transition-all duration-200 ease-in-out z-30",
-        open ? "w-64" : collapsible === "icon" ? "w-16" : "w-0 overflow-hidden",
-        className
+    <>
+      {/* Mobile Backdrop Overlay */}
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm md:hidden transition-opacity"
+          onClick={() => setOpen(false)}
+        />
       )}
-      {...props}
-    >
-      {children}
-    </aside>
+
+      <aside
+        data-state={open ? "expanded" : "collapsed"}
+        data-collapsible={collapsible}
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 h-screen shrink-0 flex flex-col border-r bg-card text-card-foreground transition-all duration-300 ease-in-out",
+          "md:sticky md:top-0 md:z-30",
+          open
+            ? "w-64 translate-x-0"
+            : collapsible === "icon"
+            ? "w-16 md:translate-x-0 -translate-x-full"
+            : "w-0 -translate-x-full overflow-hidden",
+          className
+        )}
+        {...props}
+      >
+        {children}
+      </aside>
+    </>
   );
 }
 
@@ -108,7 +123,7 @@ export function SidebarInset({
   return (
     <div
       className={cn(
-        "relative flex flex-1 flex-col min-w-0 bg-[#f4f6fa] overflow-y-auto",
+        "relative flex flex-1 flex-col min-w-0 bg-[#f4f6fa] min-h-screen",
         className
       )}
       {...props}

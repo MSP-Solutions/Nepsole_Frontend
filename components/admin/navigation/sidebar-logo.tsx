@@ -21,11 +21,11 @@ export default function SidebarLogo() {
       </div>
 
       <div className="flex flex-col">
-        <span className="text-base font-bold text-white tracking-tight">
+        <span className="text-base font-bold text-white tracking-tight hidden sm:block">
           Nepsole
         </span>
 
-        <span className="text-xs text-slate-400 font-normal">
+        <span className="text-xs text-slate-400 font-normal hidden sm:block">
           Admin
         </span>
       </div>

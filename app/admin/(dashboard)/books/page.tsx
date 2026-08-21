@@ -1,13 +1,8 @@
 "use client";
 
+import AddBookDialog, { BookData } from "@/components/admin/AddBookDialog";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
-import {
-  Plus,
-  Search,
-  Pencil,
-  Trash2,
-  X,
-} from "lucide-react";
 
 interface Book {
   id: string;
@@ -200,15 +195,6 @@ export default function BooksPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  // New book form state
-  const [newTitle, setNewTitle] = useState("");
-  const [newIsbn, setNewIsbn] = useState("");
-  const [newAuthor, setNewAuthor] = useState("");
-  const [newPublisher, setNewPublisher] = useState("");
-  const [newCategory, setNewCategory] = useState("Self Help");
-  const [newPrice, setNewPrice] = useState("");
-  const [newStock, setNewStock] = useState("");
-
   const filteredBooks = books.filter((book) => {
     const term = searchTerm.toLowerCase();
     return (
@@ -219,38 +205,35 @@ export default function BooksPage() {
     );
   });
 
-  const handleAddBook = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTitle || !newAuthor) return;
-
-    const stockNum = parseInt(newStock) || 0;
+  const handleAddBook = (bookData: BookData) => {
+    const stockNum = Number(bookData.stock) || 0;
     let status: Book["status"] = "Active";
     if (stockNum === 0) status = "Out of Stock";
     else if (stockNum < 10) status = "Low Stock";
 
+    const priceStr =
+      typeof bookData.price === "number"
+        ? `Rs. ${bookData.price}`
+        : bookData.price?.startsWith("Rs.")
+          ? bookData.price
+          : `Rs. ${bookData.price || "0"}`;
+
     const newBook: Book = {
       id: String(books.length + 1),
-      title: newTitle,
-      isbn: newIsbn || "978-0000000000",
-      author: newAuthor,
-      publisher: newPublisher || "Nepsole Publishing",
-      category: newCategory,
-      price: newPrice.startsWith("Rs.") ? newPrice : `Rs. ${newPrice}`,
+      title: bookData.title,
+      isbn: bookData.isbn13 || bookData.isbn10 || "978-0000000000",
+      author: bookData.authors || "Unknown Author",
+      publisher: bookData.publisherName || "Nepsole Publishing",
+      category: bookData.genres || "General",
+      price: priceStr,
       stock: stockNum,
-      sales: 0,
+      sales: Number(bookData.soldCount) || 0,
       status,
       coverColor: "bg-[#0b1739]",
       coverAccent: "border-l-4 border-l-indigo-500",
     };
 
     setBooks([newBook, ...books]);
-    setIsAddModalOpen(false);
-    setNewTitle("");
-    setNewIsbn("");
-    setNewAuthor("");
-    setNewPublisher("");
-    setNewPrice("");
-    setNewStock("");
   };
 
   const handleDeleteBook = (id: string) => {
@@ -368,8 +351,8 @@ export default function BooksPage() {
                           book.stock === 0
                             ? "text-red-500 font-semibold"
                             : book.stock < 10
-                            ? "text-amber-500 font-semibold"
-                            : "text-gray-500"
+                              ? "text-amber-500 font-semibold"
+                              : "text-gray-500"
                         }
                       >
                         {book.stock}
@@ -388,8 +371,8 @@ export default function BooksPage() {
                           book.status === "Active"
                             ? "bg-emerald-50 text-emerald-600"
                             : book.status === "Low Stock"
-                            ? "bg-amber-50 text-amber-600"
-                            : "bg-rose-50 text-rose-500"
+                              ? "bg-amber-50 text-amber-600"
+                              : "bg-rose-50 text-rose-500"
                         }`}
                       >
                         {book.status}
@@ -420,7 +403,10 @@ export default function BooksPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-gray-400 text-xs">
+                  <td
+                    colSpan={9}
+                    className="py-12 text-center text-gray-400 text-xs"
+                  >
                     No books found matching &quot;{searchTerm}&quot;.
                   </td>
                 </tr>
@@ -430,136 +416,12 @@ export default function BooksPage() {
         </div>
       </div>
 
-      {/* Add New Book Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
-            onClick={() => setIsAddModalOpen(false)}
-          />
-          <div className="relative z-50 w-full max-w-lg bg-white rounded-2xl p-6 shadow-2xl space-y-4 border border-gray-100">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-              <h3 className="text-base font-bold text-gray-900">Add New Book</h3>
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddBook} className="space-y-4 text-xs">
-              <div className="space-y-1">
-                <label className="font-semibold text-gray-700">Book Title</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Atomic Habits"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs text-gray-800 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-semibold text-gray-700">Author</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. James Clear"
-                    value={newAuthor}
-                    onChange={(e) => setNewAuthor(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs text-gray-800 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-semibold text-gray-700">Publisher</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Penguin Books"
-                    value={newPublisher}
-                    onChange={(e) => setNewPublisher(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs text-gray-800 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <label className="font-semibold text-gray-700">Category</label>
-                  <select
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs text-gray-800 bg-white focus:outline-none focus:border-indigo-500"
-                  >
-                    <option value="Self Help">Self Help</option>
-                    <option value="Finance">Finance</option>
-                    <option value="Fiction">Fiction</option>
-                    <option value="Poetry">Poetry</option>
-                    <option value="Biography">Biography</option>
-                    <option value="Productivity">Productivity</option>
-                    <option value="History">History</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-semibold text-gray-700">Price (Rs.)</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. 855"
-                    value={newPrice}
-                    onChange={(e) => setNewPrice(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs text-gray-800 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-semibold text-gray-700">Stock Units</label>
-                  <input
-                    type="number"
-                    required
-                    placeholder="e.g. 50"
-                    value={newStock}
-                    onChange={(e) => setNewStock(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs text-gray-800 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-gray-700">ISBN Number</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 978-0735211292"
-                  value={newIsbn}
-                  onChange={(e) => setNewIsbn(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs text-gray-800 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors shadow-sm"
-                >
-                  Save Book
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Add New Book Dialog */}
+      <AddBookDialog
+        open={isAddModalOpen}
+        onOpenChange={setIsAddModalOpen}
+        onAddBook={handleAddBook}
+      />
     </div>
   );
 }

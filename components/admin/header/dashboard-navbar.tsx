@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Bell } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, Bell, ChevronRight } from "lucide-react";
 import UserMenu from "./user-menu";
 
 const routeTitles: Record<string, string> = {
@@ -30,26 +30,13 @@ export default function DashboardNavbar() {
     "Dashboard";
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-gray-200/80 bg-white/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-      {/* Left section: Admin > Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-gray-400 font-normal">Admin</span>
-        <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+    <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-gray-200/80 bg-white/95 px-4 sm:px-6 backdrop-blur supports-[backdrop-filter]:bg-white/80">
+      <div className="flex items-center gap-2.5 text-sm">
+        <SidebarTrigger className="text-gray-600 hover:bg-gray-100" />
         <span className="font-semibold text-gray-900">{currentTitle}</span>
       </div>
 
-      {/* Right section: View Store, Notifications & User Pill */}
       <div className="flex items-center gap-4">
-        {/* View Store Button */}
-        <Link
-          href="/"
-          className="flex items-center gap-1.5 rounded-xl bg-gray-100/90 px-3.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-200/80 transition-colors select-none"
-        >
-          <ArrowLeft className="h-3.5 w-3.5 text-gray-500" />
-          <span>View Store</span>
-        </Link>
-
-        {/* Notifications Bell with Red Indicator */}
         <button
           type="button"
           aria-label="Notifications"
