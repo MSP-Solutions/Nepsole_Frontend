@@ -74,7 +74,10 @@ const Header = () => {
         {/* Action Icons */}
         <div className="flex items-center gap-3 sm:gap-4">
           {/* Account */}
-          <div className="flex shrink-0 items-center gap-1.5 cursor-pointer hover:text-[#1749A0]">
+          <Link
+            href="/login"
+            className="flex shrink-0 items-center gap-1.5 cursor-pointer hover:text-[#1749A0] transition-colors"
+          >
             <UserRound size={18} strokeWidth={1.5} className="text-gray-600" />
             <div className="leading-none hidden md:block">
               <p className="text-gray-500 text-[11px]">Login / Register</p>
@@ -82,7 +85,7 @@ const Header = () => {
                 My Account
               </p>
             </div>
-          </div>
+          </Link>
 
           {/* Wishlist */}
           <div className="flex shrink-0 items-center gap-1 cursor-pointer hover:text-[#1749A0]">

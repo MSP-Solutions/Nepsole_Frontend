@@ -6,8 +6,6 @@ import {
   Building2,
   ChevronLeft,
   Feather,
-  ImageOffIcon,
-  ImagesIcon,
   LayoutGrid,
   Loader2,
   LogOut,
@@ -41,42 +39,17 @@ import { clearCookies } from "@/utils/cookies";
 const navigation: NavItem[] = [
   {
     title: "Dashboard",
-    url: "/admin/dashboard",
+    url: "/user/dashboard",
     icon: LayoutGrid,
   },
   {
-    title: "Banner",
-    url: "/admin/banner",
-    icon: ImagesIcon,
-  },
-  {
-    title: "Books",
-    url: "/admin/books",
-    icon: BookOpen,
-  },
-  {
     title: "Orders",
-    url: "/admin/orders",
+    url: "/user/orders",
     icon: ShoppingBag,
   },
   {
-    title: "Authors",
-    url: "/admin/authors",
-    icon: Feather,
-  },
-  {
-    title: "Publishers",
-    url: "/admin/publishers",
-    icon: Building2,
-  },
-  {
-    title: "Users",
-    url: "/admin/users",
-    icon: Users,
-  },
-  {
     title: "Settings",
-    url: "/admin/settings",
+    url: "/user/settings",
     icon: Settings,
   },
 ];
