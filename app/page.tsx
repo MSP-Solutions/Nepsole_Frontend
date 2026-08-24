@@ -1,9 +1,10 @@
-import TopHeader from '@/components/topHeader'
-import React from 'react'
-import Footer from '@/components/footer'
-import Headers from '@/components/header'
-import Hero from '@/components/hero'
-import TrendingBooks from '@/components/trendingBooks'
+import TopHeader from "@/components/topHeader";
+import React from "react";
+import Footer from "@/components/footer";
+import Headers from "@/components/header";
+import Hero from "@/components/hero";
+import TrendingBooks from "@/components/trendingBooks";
+import Terms from "@/components/terms";
 const page = () => {
   return (
     <div className="min-h-screen flex flex-col bg-[#F9FAFB] overflow-x-clip w-full">
@@ -12,10 +13,11 @@ const page = () => {
       <main className="flex-1 w-full">
         <Hero />
         <TrendingBooks />
+        <Terms />
       </main>
       <Footer />
     </div>
-  )
-}
+  );
+};
 
-export default page
+export default page;

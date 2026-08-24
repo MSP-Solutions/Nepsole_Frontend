@@ -13,6 +13,7 @@ import {
   BookOpen,
   X,
 } from "lucide-react";
+import Image from "next/image";
 
 const navLinks = [
   { name: "Home", href: "/" },
@@ -35,21 +36,18 @@ const Header = () => {
       {/* Main Header */}
       <div className="mx-auto flex min-h-[50px] md:h-[52px] max-w-[1400px] items-center justify-between gap-2 md:gap-4 px-3 md:px-4 py-2 md:py-0">
         {/* Logo */}
-        <Link href="/" className="flex shrink-0 items-center gap-2 hover:opacity-90 transition-opacity">
-          <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-md bg-[#0F2557]">
-            <div className="flex h-5 w-4 items-center justify-center rounded-sm bg-white">
-              <BookOpen
-                size={13}
-                className="text-[#0F2557]"
-                strokeWidth={2}
-              />
-            </div>
-          </div>
-
-          <div className="leading-none">
-            <h1 className="text-sm font-bold text-[#0F2557]">
-              Nepsole
-            </h1>
+        <Link
+          href="/"
+          className="flex shrink-0 items-center gap-2 hover:opacity-90 transition-opacity"
+        >
+          <div className="flex h-7 w-7 items-center justify-center rounded-md">
+            <Image
+              src="/logo.jpg"
+              alt="Logo"
+              width={60}
+              height={60}
+              className="object-contain"
+            />
           </div>
         </Link>
 
@@ -89,11 +87,7 @@ const Header = () => {
 
           {/* Wishlist */}
           <div className="flex shrink-0 items-center gap-1 cursor-pointer hover:text-[#1749A0]">
-            <Heart
-              size={18}
-              strokeWidth={1.5}
-              className="text-gray-700"
-            />
+            <Heart size={18} strokeWidth={1.5} className="text-gray-700" />
             <span className="text-sm font-semibold text-gray-800 hidden lg:inline">
               Wishlist
             </span>
@@ -161,13 +155,13 @@ const Header = () => {
                   <Link
                     key={link.name}
                     href={link.href}
-                    className={`flex items-center gap-1 px-3 h-[36px] text-sm font-medium transition-colors ${active
-                      ? "border-b-2 border-[#1749A0] font-semibold text-[#1749A0]"
-                      : "text-gray-700 hover:text-[#1749A0]"
-                      }`}
+                    className={`flex items-center gap-1 px-3 h-[36px] text-sm font-medium transition-colors ${
+                      active
+                        ? "border-b-2 border-[#1749A0] font-semibold text-[#1749A0]"
+                        : "text-gray-700 hover:text-[#1749A0]"
+                    }`}
                   >
                     <span>{link.name}</span>
-
                   </Link>
                 );
               })}
@@ -195,8 +189,11 @@ const Header = () => {
                   key={link.name}
                   href={link.href}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className={`flex items-center justify-between py-1 border-b border-gray-100 ${active ? "text-[#1749A0] font-semibold" : "hover:text-[#1749A0]"
-                    }`}
+                  className={`flex items-center justify-between py-1 border-b border-gray-100 ${
+                    active
+                      ? "text-[#1749A0] font-semibold"
+                      : "hover:text-[#1749A0]"
+                  }`}
                 >
                   <span>{link.name}</span>
                 </Link>

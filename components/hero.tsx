@@ -62,7 +62,7 @@ const Hero = () => {
     <section className="mx-auto w-full max-w-[1400px] px-3 py-3">
       <div className="flex gap-3">
         {/* ================= LEFT CATEGORY SIDEBAR ================= */}
-        <aside className="hidden lg:block w-[150px] shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <aside className="hidden lg:block w-[195px] shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-white">
           {/* Header */}
           <div className="border-b border-gray-200 px-3 py-2 bg-gray-50">
             <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wider">
@@ -87,7 +87,7 @@ const Hero = () => {
                       className="shrink-0 text-gray-500 group-hover:text-[#1749A0]"
                     />
 
-                    <span className="truncate text-[8px] font-medium text-gray-600 group-hover:text-[#1749A0]">
+                    <span className="truncate text-sm font-medium text-gray-600 group-hover:text-[#1749A0]">
                       {category.name}
                     </span>
                   </div>
@@ -101,7 +101,7 @@ const Hero = () => {
             })}
 
             {/* View All */}
-            <button className="flex w-full items-center gap-1.5 px-2.5 py-2 text-[8px] font-semibold text-[#1749A0] hover:bg-blue-50 transition-colors">
+            <button className="flex w-full items-center gap-1.5 px-2.5 py-2 text-sm font-semibold text-[#1749A0] hover:bg-blue-50 transition-colors">
               <BookOpen size={11} />
               <span>View All Categories</span>
               <ChevronRight size={10} className="ml-auto" />
@@ -130,7 +130,7 @@ const Hero = () => {
                 <span className="text-[#F59E0B]">पहिलो पाइला ।</span>
               </h1>
 
-              <p className="mt-3 sm:mt-4 max-w-[350px] text-xs sm:text-[9px] leading-relaxed text-gray-300">
+              <p className="mt-3 sm:mt-4 max-w-[350px] text-xs sm: leading-relaxed text-gray-300">
                 Explore Thousands of Books, E-books & Audiobooks
                 <br className="hidden sm:inline" />
                 All in One Place.
@@ -175,11 +175,11 @@ const Hero = () => {
                     </div>
 
                     <div className="min-w-0">
-                      <p className="text-[9px] sm:text-sm font-bold text-white truncate">
+                      <p className=" font-bold text-white truncate">
                         {feature.title}
                       </p>
 
-                      <p className="mt-0.5 text-[7px] sm:text-[8px] text-gray-400 truncate">
+                      <p className="mt-0.5 text-[7px] text-gray-400 truncate">
                         {feature.subtitle}
                       </p>
                     </div>
