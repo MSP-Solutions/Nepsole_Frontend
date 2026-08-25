@@ -14,7 +14,10 @@ import {
   RefreshCw,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { axiosAuthInstance, axiosMultipartInstance } from "@/utils/axiosInstances";
+import {
+  axiosAuthInstance,
+  axiosMultipartInstance,
+} from "@/utils/axiosInstances";
 
 interface Banner {
   id: string | number;
@@ -56,30 +59,19 @@ export default function BannerPage() {
     return `${baseUrl}${img.startsWith("/") ? "" : "/"}${img}`;
   };
 
-  // 1. Fetch Banners from API GET /v1/banner
   const fetchBanners = async () => {
-    setIsLoading(true);
     try {
-      let res;
-      try {
-        res = await axiosAuthInstance.get("/v1/banner");
-      } catch (err: any) {
-        if (err?.response?.status === 404) {
-          res = await axiosAuthInstance.get("/api/v1/banner");
-        } else {
-          throw err;
-        }
-      }
+      const response = await axiosAuthInstance.get("/v1/banner");
 
-      const data = res.data;
-      const list = Array.isArray(data)
+      const data = response.data;
+
+      const bannerList = Array.isArray(data)
         ? data
         : data?.data || data?.banners || [];
-      setBanners(list);
-    } catch (err: any) {
-      console.error("Fetch Banners Error:", err);
-    } finally {
-      setIsLoading(false);
+
+      setBanners(bannerList);
+    } catch (error) {
+      console.error("Failed to fetch banners:", error);
     }
   };
 
@@ -87,7 +79,6 @@ export default function BannerPage() {
     fetchBanners();
   }, []);
 
-  // Handle File Selection
   const handleFileChange = (file: File) => {
     if (!file.type.startsWith("image/")) {
       toast.error("Please upload a valid image file (PNG, JPG, WEBP).");
@@ -132,7 +123,6 @@ export default function BannerPage() {
     removeImage();
   };
 
-  // 2. Create / Edit Banner (POST / PUT /v1/banner)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -141,7 +131,7 @@ export default function BannerPage() {
       return;
     }
 
-    if (!editingId && !selectedFile && !imagePreview) {
+    if (!editingId && !selectedFile) {
       toast.error("Please upload a banner image.");
       return;
     }
@@ -150,45 +140,20 @@ export default function BannerPage() {
 
     try {
       const formData = new FormData();
+
       formData.append("title", title.trim());
+
       if (selectedFile) {
         formData.append("image", selectedFile);
-        formData.append("file", selectedFile);
       }
 
       if (editingId) {
-        // Edit Existing Banner
-        try {
-          await axiosMultipartInstance.put(`/v1/banner/${editingId}`, formData);
-        } catch (err: any) {
-          if (err?.response?.status === 404 || err?.response?.status === 405) {
-            try {
-              await axiosMultipartInstance.patch(
-                `/v1/banner/${editingId}`,
-                formData
-              );
-            } catch (err2: any) {
-              await axiosMultipartInstance.put(
-                `/api/v1/banner/${editingId}`,
-                formData
-              );
-            }
-          } else {
-            throw err;
-          }
-        }
+        await axiosMultipartInstance.put(`/v1/banner/${editingId}`, formData);
+
         toast.success("Banner updated successfully!");
       } else {
-        // Create New Banner
-        try {
-          await axiosMultipartInstance.post("/v1/banner", formData);
-        } catch (err: any) {
-          if (err?.response?.status === 404) {
-            await axiosMultipartInstance.post("/api/v1/banner", formData);
-          } else {
-            throw err;
-          }
-        }
+        await axiosMultipartInstance.post("/v1/banner", formData);
+
         toast.success("Banner uploaded successfully!");
       }
 
@@ -196,11 +161,13 @@ export default function BannerPage() {
       await fetchBanners();
     } catch (error: any) {
       console.error("Save Banner Error:", error);
+
       const message =
         error?.response?.data?.message ||
         error?.response?.data?.error ||
         error?.message ||
         "Failed to save banner. Please try again.";
+
       toast.error(message);
     } finally {
       setIsSubmitting(false);
@@ -217,28 +184,24 @@ export default function BannerPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // 4. Delete Banner (DELETE /v1/banner/{id})
   const handleDelete = async (id: string | number) => {
     if (!confirm("Are you sure you want to delete this banner?")) return;
 
     try {
-      try {
-        await axiosAuthInstance.delete(`/v1/banner/${id}`);
-      } catch (err: any) {
-        if (err?.response?.status === 404) {
-          await axiosAuthInstance.delete(`/api/v1/banner/${id}`);
-        } else {
-          throw err;
-        }
-      }
+      await axiosAuthInstance.delete(`/v1/banner/${id}`);
+
       toast.success("Banner deleted successfully.");
+
       await fetchBanners();
     } catch (error: any) {
       console.error("Delete Banner Error:", error);
+
       const message =
         error?.response?.data?.message ||
         error?.response?.data?.error ||
+        error?.message ||
         "Failed to delete banner.";
+
       toast.error(message);
     }
   };
@@ -246,30 +209,15 @@ export default function BannerPage() {
   return (
     <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8 font-sans">
       <div className="mx-auto max-w-5xl space-y-8">
-        
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
               {editingId ? "Edit Banner" : "Banner Setup"}
             </h1>
-            <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-              Upload and manage your store hero banners via API (/v1/banner).
-            </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={fetchBanners}
-              disabled={isLoading}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
-              title="Refresh banners"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
-              <span>Refresh</span>
-            </button>
-
             {editingId && (
               <button
                 type="button"
@@ -289,7 +237,6 @@ export default function BannerPage() {
           className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs"
         >
           <div className="grid gap-0 lg:grid-cols-12">
-            
             {/* Form Section */}
             <div className="lg:col-span-7 p-6 sm:p-8 space-y-6">
               <div>
@@ -322,7 +269,8 @@ export default function BannerPage() {
               {/* Banner Image Upload Area */}
               <div className="space-y-2">
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                  Banner Image {!editingId && <span className="text-rose-500">*</span>}
+                  Banner Image{" "}
+                  {!editingId && <span className="text-rose-500">*</span>}
                 </label>
 
                 {!imagePreview ? (
@@ -451,15 +399,7 @@ export default function BannerPage() {
                   </div>
                 </div>
               </div>
-
-              <div className="mt-6 rounded-xl border border-indigo-100 bg-indigo-50/60 p-3.5 text-xs text-indigo-900">
-                <p className="font-semibold">API Endpoint:</p>
-                <p className="mt-0.5 text-[11px] leading-relaxed text-indigo-700 font-mono">
-                  /v1/banner (GET, POST, PUT, DELETE)
-                </p>
-              </div>
             </div>
-
           </div>
         </form>
 
@@ -481,7 +421,9 @@ export default function BannerPage() {
           {!isLoading && banners.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-slate-400">
               <ImageIcon className="mx-auto h-8 w-8 mb-2 opacity-50" />
-              <p className="text-sm font-semibold text-slate-700">No banners found</p>
+              <p className="text-sm font-semibold text-slate-700">
+                No banners found
+              </p>
               <p className="text-xs text-slate-400 mt-1">
                 Upload your first banner using the form above.
               </p>
@@ -547,7 +489,6 @@ export default function BannerPage() {
             </div>
           )}
         </div>
-
       </div>
     </div>
   );

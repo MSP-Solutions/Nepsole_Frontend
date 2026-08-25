@@ -50,6 +50,16 @@ const navigation: NavItem[] = [
     icon: ImagesIcon,
   },
   {
+    title: "Genre",
+    url: "/admin/genre",
+    icon: BookOpen,
+  },
+  {
+    title: "Language",
+    url: "/admin/language",
+    icon: BookOpen,
+  },
+  {
     title: "Books",
     url: "/admin/books",
     icon: BookOpen,

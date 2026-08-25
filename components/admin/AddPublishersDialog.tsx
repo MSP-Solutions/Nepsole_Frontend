@@ -1,40 +1,56 @@
 "use client";
 
+import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Upload, X } from "lucide-react";
-import React, { useState } from "react";
+import { Upload, X, Plus, Globe, Loader2, Save } from "lucide-react";
+import toast from "react-hot-toast";
+import TextEditorEdit from "../TextEditor";
+import { axiosMultipartInstance } from "@/utils/axiosInstances";
+import { parseQuillContent } from "@/utils/quillDecoder";
+
+export interface SocialMedia {
+  platform: string;
+  url: string;
+}
 
 export interface PublisherData {
-  id?: number;
+  id?: number | string;
   name: string;
   about?: string;
-  establishedYear?: number | null;
+  establishedYear?: number | string | null;
   address?: string;
-  phoneNumbers?: string[];
+  phoneNumber?: string;
   email?: string;
   websiteUrl?: string;
+  logo?: string | null;
   publicationLogoUrl?: string | null;
-  booksPublished?: number;
-  authorsCount?: number;
-  booksSold?: number;
-  yearsOfPublishing?: number | null;
+  booksPublished?: number | string;
+  authorsCount?: number | string;
+  booksSold?: number | string;
+  yearsOfPublishing?: number | string | null;
+  socialLinks?: any[];
+  [key: string]: any;
 }
 
 interface AddPublishersDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddPublisher?: (publisher: PublisherData) => void;
+  onAddPublisher?: (publisher: any) => void;
+  onSuccess?: (publisher: any) => void;
+  publisherToEdit?: PublisherData | null;
 }
 
 export const AddPublishersDialog: React.FC<AddPublishersDialogProps> = ({
   open,
   onOpenChange,
   onAddPublisher,
+  onSuccess,
+  publisherToEdit,
 }) => {
   const initialFormData = {
     name: "",
@@ -44,7 +60,6 @@ export const AddPublishersDialog: React.FC<AddPublishersDialogProps> = ({
     phoneNumbers: "",
     email: "",
     websiteUrl: "",
-    publicationLogoUrl: null as string | null,
     booksPublished: "",
     authorsCount: "",
     booksSold: "",
@@ -52,409 +67,568 @@ export const AddPublishersDialog: React.FC<AddPublishersDialogProps> = ({
   };
 
   const [formData, setFormData] = useState(initialFormData);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [socialMedia, setSocialMedia] = useState<SocialMedia[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const resetForm = () => {
+    setFormData(initialFormData);
+    setSelectedFile(null);
+    setLogoPreview(null);
+    setSocialMedia([]);
+  };
+
+  useEffect(() => {
+    if (open) {
+      if (publisherToEdit) {
+        const decodedAbout = parseQuillContent(publisherToEdit.about);
+        setFormData({
+          name: publisherToEdit.name || "",
+          about: decodedAbout,
+          establishedYear: publisherToEdit.establishedYear
+            ? String(publisherToEdit.establishedYear)
+            : "",
+          address: publisherToEdit.address || "",
+          phoneNumbers:
+            publisherToEdit.phoneNumber ||
+            (Array.isArray(publisherToEdit.phoneNumbers) &&
+            publisherToEdit.phoneNumbers.length > 0
+              ? publisherToEdit.phoneNumbers[0]
+              : ""),
+          email: publisherToEdit.email || "",
+          websiteUrl: publisherToEdit.websiteUrl || "",
+          booksPublished:
+            publisherToEdit.booksPublished !== undefined &&
+            publisherToEdit.booksPublished !== null
+              ? String(publisherToEdit.booksPublished)
+              : publisherToEdit.booksPublished !== undefined &&
+                  publisherToEdit.booksPublished !== null
+                ? String(publisherToEdit.booksPublished)
+                : "",
+          authorsCount:
+            publisherToEdit.authorsCount !== undefined &&
+            publisherToEdit.authorsCount !== null
+              ? String(publisherToEdit.authorsCount)
+              : "",
+          booksSold:
+            publisherToEdit.booksSold !== undefined &&
+            publisherToEdit.booksSold !== null
+              ? String(publisherToEdit.booksSold)
+              : "",
+          yearsOfPublishing:
+            publisherToEdit.yearsOfPublishing !== undefined &&
+            publisherToEdit.yearsOfPublishing !== null
+              ? String(publisherToEdit.yearsOfPublishing)
+              : publisherToEdit.yearsOfPublishing !== undefined &&
+                  publisherToEdit.yearsOfPublishing !== null
+                ? String(publisherToEdit.yearsOfPublishing)
+                : "",
+        });
+        setLogoPreview(
+          publisherToEdit.publicationLogoUrl || publisherToEdit.logo || null,
+        );
+        setSelectedFile(null);
+
+        if (Array.isArray(publisherToEdit.socialLinks)) {
+          setSocialMedia(
+            publisherToEdit.socialLinks.map((s: any) => ({
+              platform: s.platform || "FACEBOOK",
+              url: s.url || "",
+            })),
+          );
+        } else {
+          setSocialMedia([]);
+        }
+      } else {
+        resetForm();
+      }
+    }
+  }, [open, publisherToEdit]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setLogoPreview(result);
-        setFormData((prev) => ({ ...prev, publicationLogoUrl: result }));
-      };
-      reader.readAsDataURL(file);
+    if (!file || !file.type.startsWith("image/")) {
+      if (file) toast.error("Please select a valid image file.");
+      return;
     }
+
+    setSelectedFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setLogoPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const addSocialMedia = () => {
+    setSocialMedia((prev) => [...prev, { platform: "FACEBOOK", url: "" }]);
+  };
 
-    const phoneNumbersArray = formData.phoneNumbers
-      ? formData.phoneNumbers
-          .split(",")
-          .map((p) => p.trim())
-          .filter(Boolean)
-      : [];
+  const updateSocialMedia = (
+    index: number,
+    field: keyof SocialMedia,
+    value: string,
+  ) => {
+    setSocialMedia((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)),
+    );
+  };
 
-    const newPublisher: PublisherData = {
-      id: Date.now(),
-      name: formData.name,
-      about: formData.about || undefined,
-      establishedYear: formData.establishedYear
-        ? Number(formData.establishedYear)
-        : null,
-      address: formData.address || undefined,
-      phoneNumbers: phoneNumbersArray,
-      email: formData.email || undefined,
-      websiteUrl: formData.websiteUrl || undefined,
-      publicationLogoUrl: formData.publicationLogoUrl,
-      booksPublished: Number(formData.booksPublished) || 0,
-      authorsCount: Number(formData.authorsCount) || 0,
-      booksSold: Number(formData.booksSold) || 0,
-      yearsOfPublishing: formData.yearsOfPublishing
-        ? Number(formData.yearsOfPublishing)
-        : null,
-    };
-
-    if (onAddPublisher) {
-      onAddPublisher(newPublisher);
-    }
-
-    setFormData(initialFormData);
-    setLogoPreview(null);
-    onOpenChange(false);
+  const removeSocialMedia = (index: number) => {
+    setSocialMedia((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleClose = () => {
-    setFormData(initialFormData);
-    setLogoPreview(null);
+    resetForm();
     onOpenChange(false);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name.trim()) {
+      toast.error("Publisher Name is required.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const data = new FormData();
+      data.append("name", formData.name.trim());
+      if (formData.about) data.append("about", formData.about);
+      if (formData.establishedYear)
+        data.append("establishedYear", formData.establishedYear);
+      if (formData.address) data.append("address", formData.address.trim());
+      if (formData.phoneNumbers)
+        data.append("phoneNumber", formData.phoneNumbers.trim());
+      if (formData.email) data.append("email", formData.email.trim());
+      if (formData.websiteUrl)
+        data.append("websiteUrl", formData.websiteUrl.trim());
+
+      if (selectedFile) {
+        data.append("logo", selectedFile);
+      }
+
+      if (formData.booksPublished)
+        data.append("booksPublished", formData.booksPublished);
+      if (formData.authorsCount)
+        data.append("authorsCount", formData.authorsCount);
+      if (formData.booksSold) data.append("booksSold", formData.booksSold);
+      if (formData.yearsOfPublishing)
+        data.append("yearsOfPublishing", formData.yearsOfPublishing);
+
+      const validSocialMedia = socialMedia.filter(
+        (item) => item.url.trim() !== "",
+      );
+      data.append("socialLinks", JSON.stringify(validSocialMedia));
+
+      let response;
+      if (publisherToEdit?.id) {
+        response = await axiosMultipartInstance.patch(
+          `/v1/publisher/${publisherToEdit.id}`,
+          data,
+        );
+        toast.success("Publisher updated successfully!");
+      } else {
+        response = await axiosMultipartInstance.post("/v1/publisher", data);
+        toast.success("Publisher added successfully!");
+      }
+
+      const resPublisher = response.data?.data || response.data;
+      onAddPublisher?.(resPublisher);
+      onSuccess?.(resPublisher);
+
+      handleClose();
+    } catch (error: any) {
+      console.error("Failed to save publisher:", error);
+      const errorMsg =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to save publisher.";
+      toast.error(errorMsg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="w-[100vw] md:max-w-4xl  max-h-[90vh] flex flex-col p-0 bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden"
+        className="w-[100vw] md:max-w-4xl max-h-[90vh] flex flex-col p-0 bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-white">
+        <div className="flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4">
           <div>
-            <DialogTitle className="text-base sm:text-lg font-semibold text-slate-900">
-              Add New Publisher
+            <DialogTitle className="text-base font-bold text-slate-900 sm:text-lg">
+              {publisherToEdit ? "Edit Publisher" : "Add New Publisher"}
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500 mt-0.5">
-              Enter details to register a new publishing house.
+            <DialogDescription className="mt-0.5 text-xs text-slate-500">
+              {publisherToEdit
+                ? "Update details of this publishing house."
+                : "Enter details to register a new publishing house."}
             </DialogDescription>
           </div>
+
           <button
             type="button"
             onClick={handleClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
             aria-label="Close"
           >
-            <X className="w-4 h-4" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Scrollable Form Body */}
+        {/* Scrollable Form */}
         <form
           id="add-publisher-form"
           onSubmit={handleSubmit}
-          className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 text-slate-800"
+          className="flex-1 space-y-5 overflow-y-auto p-4 sm:p-6 text-slate-800"
         >
-          {/* General Information */}
-          <div className="space-y-4">
+          {/* General Info & Logo */}
+          <div className="space-y-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
               General Information
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
-              {/* Publication Logo Uploader */}
-              <div className="md:col-span-1 flex flex-col items-center justify-center p-3 border border-dashed border-slate-300 rounded-lg bg-slate-50/50 hover:bg-slate-50 transition relative group cursor-pointer text-center min-h-[140px]">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+              {/* Logo Upload Box */}
+              <div className="relative flex h-32 w-full shrink-0 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/60 p-3 text-center transition hover:border-indigo-400 hover:bg-indigo-50/20 sm:w-36">
                 <input
                   type="file"
                   accept="image/*"
                   onChange={handleLogoChange}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                  id="publicationLogoInput"
+                  className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
                 />
                 {logoPreview ? (
-                  <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-slate-200 bg-white p-1">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <div className="relative h-full w-full overflow-hidden rounded-lg bg-white p-1">
                     <img
                       src={logoPreview}
-                      alt="Publication Logo Preview"
-                      className="w-full h-full object-contain"
+                      alt="Publication Logo"
+                      className="h-full w-full object-contain"
                     />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-white text-[10px] font-medium">
-                      Change
-                    </div>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center space-y-1.5">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
-                      <Upload className="w-4 h-4" />
+                  <div className="flex flex-col items-center gap-1 text-slate-500">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white shadow-sm text-slate-400">
+                      <Upload className="h-4 w-4" />
                     </div>
-                    <p className="text-xs font-medium text-slate-700">
+                    <span className="text-xs font-medium text-slate-700">
                       Upload Logo
-                    </p>
-                    <p className="text-[10px] text-slate-400">
+                    </span>
+                    <span className="text-[10px] text-slate-400">
                       PNG, JPG up to 5MB
-                    </p>
+                    </span>
                   </div>
                 )}
               </div>
 
-              {/* Form Inputs */}
-              <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {/* Publisher Name */}
-                <div className="sm:col-span-2 space-y-1">
-                  <label
-                    htmlFor="publisher-name"
-                    className="block text-xs font-medium text-slate-700"
-                  >
+              {/* Text Fields */}
+              <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-xs font-medium text-slate-700">
                     Publisher Name <span className="text-red-500">*</span>
                   </label>
                   <input
-                    id="publisher-name"
                     type="text"
                     name="name"
                     required
-                    placeholder="e.g. Sajha Prakashan"
+                    placeholder="Publisher Name"
                     value={formData.name}
                     onChange={handleInputChange}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
                   />
                 </div>
 
-                {/* Established Year */}
-                <div className="space-y-1">
-                  <label
-                    htmlFor="publisher-established-year"
-                    className="block text-xs font-medium text-slate-700"
-                  >
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-700">
                     Established Year
                   </label>
                   <input
-                    id="publisher-established-year"
                     type="number"
                     name="establishedYear"
-                    placeholder="e.g. 1964"
+                    placeholder="e.g. 2025"
                     value={formData.establishedYear}
                     onChange={handleInputChange}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
                   />
                 </div>
 
-                {/* Address */}
-                <div className="space-y-1">
-                  <label
-                    htmlFor="publisher-address"
-                    className="block text-xs font-medium text-slate-700"
-                  >
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-700">
                     Address / Location
                   </label>
                   <input
-                    id="publisher-address"
                     type="text"
                     name="address"
-                    placeholder="e.g. Kathmandu, Nepal"
+                    placeholder="Tinkune,Kathmandu, Nepal"
                     value={formData.address}
                     onChange={handleInputChange}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          <hr className="border-slate-200" />
+          <hr className="border-slate-100" />
 
-          {/* Contact Details */}
+          {/* Contact Info */}
           <div className="space-y-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
               Contact Information
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              {/* Email */}
-              <div className="space-y-1">
-                <label
-                  htmlFor="publisher-email"
-                  className="block text-xs font-medium text-slate-700"
-                >
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">
                   Email Address
                 </label>
                 <input
-                  id="publisher-email"
                   type="email"
                   name="email"
-                  placeholder="e.g. contact@publisher.com"
+                  placeholder="user@gmail.com"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
                 />
               </div>
 
-              {/* Website URL */}
-              <div className="space-y-1">
-                <label
-                  htmlFor="publisher-website-url"
-                  className="block text-xs font-medium text-slate-700"
-                >
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">
                   Website URL
                 </label>
                 <input
-                  id="publisher-website-url"
                   type="url"
                   name="websiteUrl"
-                  placeholder="https://publisher.com"
+                  placeholder="https://www.facebook.com/"
                   value={formData.websiteUrl}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
                 />
               </div>
 
-              {/* Phone Numbers */}
-              <div className="sm:col-span-2 space-y-1">
-                <label
-                  htmlFor="publisher-phone-numbers"
-                  className="block text-xs font-medium text-slate-700"
-                >
-                  Phone Numbers{" "}
-                  <span className="text-slate-400 font-normal">
-                    (comma-separated)
-                  </span>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-xs font-medium text-slate-700">
+                  Phone Number
                 </label>
                 <input
-                  id="publisher-phone-numbers"
                   type="text"
                   name="phoneNumbers"
-                  placeholder="e.g. +977 1-4222080, +977 9801234567"
+                  placeholder="9800000001"
                   value={formData.phoneNumbers}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
                 />
               </div>
             </div>
           </div>
 
-          <hr className="border-slate-200" />
+          <hr className="border-slate-100" />
 
-          {/* Publishing Statistics */}
+          {/* Social Media */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Social Media
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Add social profiles for this publisher.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addSocialMedia}
+                className="inline-flex items-center gap-1 rounded-lg bg-indigo-50 px-2.5 py-1.5 text-xs font-medium text-indigo-600 transition hover:bg-indigo-100"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Profile
+              </button>
+            </div>
+
+            {socialMedia.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-4 text-center">
+                <Globe className="mx-auto mb-1 h-5 w-5 text-slate-400" />
+                <p className="text-xs text-slate-500">
+                  No social media links added.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {socialMedia.map((social, index) => (
+                  <div
+                    key={index}
+                    className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:flex-row sm:items-center"
+                  >
+                    <div className="w-full sm:w-36 shrink-0">
+                      <select
+                        value={social.platform}
+                        onChange={(e) =>
+                          updateSocialMedia(index, "platform", e.target.value)
+                        }
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500"
+                      >
+                        <option value="FACEBOOK">Facebook</option>
+                        <option value="TWITTER">Twitter / X</option>
+                        <option value="INSTAGRAM">Instagram</option>
+                        <option value="LINKEDIN">LinkedIn</option>
+                        <option value="YOUTUBE">YouTube</option>
+                        <option value="TIKTOK">TikTok</option>
+                      </select>
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <input
+                        type="url"
+                        value={social.url}
+                        onChange={(e) =>
+                          updateSocialMedia(index, "url", e.target.value)
+                        }
+                        placeholder="https://facebook.com/dev"
+                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => removeSocialMedia(index)}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 self-end sm:self-center"
+                      title="Remove"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <hr className="border-slate-100" />
+
+          {/* Statistics */}
           <div className="space-y-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
               Publishing Statistics
             </h3>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-              <div className="space-y-1">
-                <label
-                  htmlFor="publisher-books-published"
-                  className="block text-xs font-medium text-slate-700"
-                >
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">
                   Books Published
                 </label>
                 <input
-                  id="publisher-books-published"
                   type="number"
                   name="booksPublished"
                   min="0"
-                  placeholder="e.g. 1240"
+                  placeholder="20"
                   value={formData.booksPublished}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label
-                  htmlFor="publisher-authors-count"
-                  className="block text-xs font-medium text-slate-700"
-                >
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">
                   Authors Count
                 </label>
                 <input
-                  id="publisher-authors-count"
                   type="number"
                   name="authorsCount"
                   min="0"
-                  placeholder="e.g. 45"
+                  placeholder="4"
                   value={formData.authorsCount}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label
-                  htmlFor="publisher-books-sold"
-                  className="block text-xs font-medium text-slate-700"
-                >
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">
                   Books Sold
                 </label>
                 <input
-                  id="publisher-books-sold"
                   type="number"
                   name="booksSold"
                   min="0"
-                  placeholder="e.g. 50000"
+                  placeholder="20"
                   value={formData.booksSold}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label
-                  htmlFor="publisher-years-of-publishing"
-                  className="block text-xs font-medium text-slate-700"
-                >
-                  Years of Publishing
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">
+                  Year of Publishing
                 </label>
                 <input
-                  id="publisher-years-of-publishing"
                   type="number"
                   name="yearsOfPublishing"
                   min="0"
-                  placeholder="e.g. 60"
+                  placeholder="2020"
                   value={formData.yearsOfPublishing}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
                 />
               </div>
             </div>
           </div>
 
-          <hr className="border-slate-200" />
+          <hr className="border-slate-100" />
 
-          {/* About / Summary */}
-          <div className="space-y-1">
-            <label
-              htmlFor="publisher-about"
-              className="block text-xs font-medium text-slate-700"
-            >
+          {/* About */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-700">
               About Publisher
             </label>
-            <textarea
-              id="publisher-about"
-              name="about"
-              rows={4}
-              placeholder="Write a summary of the publisher's history, catalog focus, and achievements..."
+            <TextEditorEdit
+              initialHtml={formData.about}
               value={formData.about}
-              onChange={handleInputChange}
-              className="w-full rounded-lg border border-slate-300 bg-white p-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-y"
+              onChange={(val) =>
+                setFormData((prev) => ({ ...prev, about: val }))
+              }
             />
           </div>
         </form>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-5 py-3.5 border-t border-slate-200 bg-slate-50/50">
+        <div className="flex items-center justify-end gap-3 border-t border-slate-100 bg-slate-50/50 px-5 py-3.5">
           <button
             type="button"
             onClick={handleClose}
-            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition"
+            disabled={isSubmitting}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             type="submit"
             form="add-publisher-form"
-            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm transition"
+            disabled={isSubmitting}
+            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50"
           >
-            Save Publisher
+            {isSubmitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            {isSubmitting
+              ? publisherToEdit
+                ? "Updating..."
+                : "Saving..."
+              : publisherToEdit
+                ? "Update Publisher"
+                : "Save Publisher"}
           </button>
         </div>
       </DialogContent>
