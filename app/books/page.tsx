@@ -1,411 +1,852 @@
-'use client'
-import React, { useState } from 'react'
-import Image from 'next/image'
-import Link from 'next/link'
-import TopHeader from '@/components/topHeader'
-import Header from '@/components/header'
-import Footer from '@/components/footer'
+"use client";
 
-// 📚 Sample Book Data
-const allBooks = [
-    {
-        id: 'atomic-habits',
-        title: 'Atomic Habits',
-        subtitle: 'Tiny Changes, Remarkable Results',
-        author: 'James Clear',
-        category: 'Self Help',
-        publisher: 'Avery',
-        price: 855,
-        originalPrice: 1250,
-        discount: '-32%',
-        rating: 4.8,
-        reviewsCount: 2145,
-        image: '/images/books/atomic-habits.jpg',
-        inStock: true,
-    },
-    {
-        id: 'psychology-of-money',
-        title: 'The Psychology of Money',
-        subtitle: 'Timeless lessons on wealth, greed, and happiness',
-        author: 'Morgan Housel',
-        category: 'Finance & Business',
-        publisher: 'Harriman House',
-        price: 765,
-        originalPrice: 900,
-        discount: '-15%',
-        rating: 4.7,
-        reviewsCount: 1876,
-        image: '/images/books/psychology-of-money.jpg',
-        inStock: true,
-    },
-    {
-        id: 'the-power-of-habit',
-        title: 'The Power of Habit',
-        subtitle: 'Why We Do What We Do in Life and Business',
-        author: 'Charles Duhigg',
-        category: 'Self Help',
-        publisher: 'Random House',
-        price: 680,
-        originalPrice: 800,
-        discount: '-15%',
-        rating: 4.6,
-        reviewsCount: 1542,
-        image: '/images/books/power-of-habit.jpg',
-        inStock: true,
-    },
-    {
-        id: 'how-to-win-friends',
-        title: 'How to Win Friends and Influence People',
-        subtitle: 'The only book you need to lead you to success',
-        author: 'Dale Carnegie',
-        category: 'Self Help',
-        publisher: 'Simon & Schuster',
-        price: 585,
-        originalPrice: 650,
-        discount: '-10%',
-        rating: 4.8,
-        reviewsCount: 1234,
-        image: '/images/books/how-to-win-friends.jpg',
-        inStock: true,
-    },
-    {
-        id: 'thinking-fast-and-slow',
-        title: 'Thinking, Fast and Slow',
-        subtitle: 'The groundbreaking international bestseller',
-        author: 'Daniel Kahneman',
-        category: 'Psychology',
-        publisher: 'Farrar, Straus and Giroux',
-        price: 810,
-        originalPrice: 900,
-        discount: '-10%',
-        rating: 4.7,
-        reviewsCount: 2001,
-        image: '/images/books/thinking-fast-slow.jpg',
-        inStock: true,
-    },
-    {
-        id: 'the-subtle-art',
-        title: 'The Subtle Art of Not Giving a F*ck',
-        subtitle: 'A Counterintuitive Approach to Living a Good Life',
-        author: 'Mark Manson',
-        category: 'Self Help',
-        publisher: 'HarperOne',
-        price: 510,
-        originalPrice: 600,
-        discount: '-15%',
-        rating: 4.6,
-        reviewsCount: 1876,
-        image: '/images/books/subtle-art.jpg',
-        inStock: true,
-    },
-    {
-        id: 'make-your-bed',
-        title: 'Make Your Bed',
-        subtitle: 'Little things that can change your life',
-        author: 'William H. McRaven',
-        category: 'Self Help',
-        publisher: 'Grand Central Publishing',
-        price: 495,
-        originalPrice: 550,
-        discount: '-10%',
-        rating: 4.8,
-        reviewsCount: 956,
-        image: '/images/books/make-your-bed.jpg',
-        inStock: true,
-    },
-    {
-        id: 'the-5-am-club',
-        title: 'The 5 AM Club',
-        subtitle: 'Own Your Morning. Elevate Your Life.',
-        author: 'Robin Sharma',
-        category: 'Self Help',
-        publisher: 'HarperCollins',
-        price: 650,
-        originalPrice: 740,
-        discount: '-12%',
-        rating: 4.9,
-        reviewsCount: 1105,
-        image: '/images/books/5am-club.jpg',
-        inStock: true,
-    },
-]
+import Footer from "@/components/footer";
+import Header from "@/components/header";
+import TopHeader from "@/components/topHeader";
+import { axiosInstance } from "@/utils/axiosInstances";
+import {
+  ArrowUpDown,
+  Bookmark,
+  BookOpen,
+  Building2,
+  Check,
+  ChevronRight,
+  Filter,
+  Heart,
+  Loader2,
+  Search,
+  ShoppingCart,
+  SlidersHorizontal,
+  Sparkles,
+  X,
+} from "lucide-react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
-const categories = [
-    'All Categories',
-    'Self Help',
-    'Finance & Business',
-    'Psychology',
-    'Biography & Memoir',
-    'Novels & Fiction',
-    'Nepali Literature',
-]
-
-const publishers = [
-    'All Publishers',
-    'Avery',
-    'HarperCollins',
-    'Random House',
-    'Simon & Schuster',
-    'FinePrint Publications',
-]
-
-const BooksPage = () => {
-    const [selectedCategory, setSelectedCategory] = useState('All Categories')
-    const [selectedPublisher, setSelectedPublisher] = useState('All Publishers')
-    const [sortBy, setSortBy] = useState('Featured')
-    const [searchQuery, setSearchQuery] = useState('')
-    const [showMobileFilter, setShowMobileFilter] = useState(false)
-
-    // 🔍 Filter logic
-    const filteredBooks = allBooks.filter((book) => {
-        const matchesCategory =
-            selectedCategory === 'All Categories' || book.category === selectedCategory
-        const matchesPublisher =
-            selectedPublisher === 'All Publishers' || book.publisher === selectedPublisher
-        const matchesSearch =
-            book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            book.author.toLowerCase().includes(searchQuery.toLowerCase())
-
-        return matchesCategory && matchesPublisher && matchesSearch
-    })
-
-    return (
-        <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800">
-            <TopHeader />
-            <Header />
-
-            <main className="flex-1 w-full max-w-[1400px] mx-auto px-3 sm:px-4 md:px-6 py-6">
-                {/* 🧭 Breadcrumb & Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-slate-200 gap-4">
-                    <div>
-                        <nav className="text-xs text-slate-400 flex items-center gap-2 mb-2">
-                            <Link href="/" className="hover:text-primary transition-colors">
-                                Home
-                            </Link>
-                            <span>/</span>
-                            <span className="text-slate-700 font-medium">Books</span>
-                        </nav>
-                        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
-                            Explore Books 📚
-                        </h1>
-                        <p className="text-xs text-slate-500 mt-1">
-                            Showing {filteredBooks.length} books found
-                        </p>
-                    </div>
-
-                    {/* 🔍 Search and Mobile Filter Toggle */}
-                    <div className="flex items-center gap-3">
-                        <div className="relative flex-1 sm:w-64">
-                            <input
-                                type="text"
-                                placeholder="Search by title or author..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-3 pr-8 py-2 text-xs rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
-                            />
-                            <span className="absolute right-2.5 top-2 text-slate-400 text-xs">
-                                🔍
-                            </span>
-                        </div>
-
-                        {/* Mobile Filter Button */}
-                        <button
-                            onClick={() => setShowMobileFilter(!showMobileFilter)}
-                            className="lg:hidden px-3 py-2 text-xs font-semibold bg-white border border-slate-300 rounded-lg flex items-center gap-1.5 shadow-sm"
-                        >
-                            <span>⚡</span> Filters
-                        </button>
-                    </div>
-                </div>
-
-                {/* 📄 Main Content: Sidebar + Books Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start mt-6">
-                    {/* 🎛️ Left Column: Filters Sidebar */}
-                    <aside
-                        className={`${showMobileFilter ? 'block' : 'hidden'
-                            } lg:block lg:col-span-1 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-6`}
-                    >
-                        {/* Category Filter */}
-                        <div>
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3">
-                                Categories
-                            </h3>
-                            <div className="space-y-1.5">
-                                {categories.map((cat) => (
-                                    <button
-                                        key={cat}
-                                        onClick={() => setSelectedCategory(cat)}
-                                        className={`w-full text-left text-xs px-2.5 py-1.5 rounded-md transition-colors ${selectedCategory === cat
-                                            ? 'bg-amber-50 text-amber-700 font-semibold border-l-2 border-amber-500'
-                                            : 'text-slate-600 hover:bg-slate-50'
-                                            }`}
-                                    >
-                                        {cat}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <hr className="border-slate-100" />
-
-                        {/* Publisher Filter */}
-                        <div>
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3">
-                                Publisher
-                            </h3>
-                            <div className="space-y-1.5">
-                                {publishers.map((pub) => (
-                                    <button
-                                        key={pub}
-                                        onClick={() => setSelectedPublisher(pub)}
-                                        className={`w-full text-left text-xs px-2.5 py-1.5 rounded-md transition-colors ${selectedPublisher === pub
-                                            ? 'bg-amber-50 text-amber-700 font-semibold border-l-2 border-amber-500'
-                                            : 'text-slate-600 hover:bg-slate-50'
-                                            }`}
-                                    >
-                                        {pub}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <hr className="border-slate-100" />
-
-                        {/* Reset Button */}
-                        <button
-                            onClick={() => {
-                                setSelectedCategory('All Categories')
-                                setSelectedPublisher('All Publishers')
-                                setSearchQuery('')
-                            }}
-                            className="w-full py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-                        >
-                            Reset All Filters
-                        </button>
-                    </aside>
-
-                    {/* 📖 Right Column: Catalog Grid & Sorting */}
-                    <section className="lg:col-span-3 space-y-6">
-                        {/* Top Toolbar */}
-                        <div className="flex items-center justify-between bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-sm text-xs">
-                            <span className="text-slate-500">
-                                Showing{' '}
-                                <strong className="text-slate-800">{filteredBooks.length}</strong>{' '}
-                                results
-                            </span>
-
-                            <div className="flex items-center gap-2">
-                                <span className="text-slate-500">Sort by:</span>
-                                <select
-                                    value={sortBy}
-                                    onChange={(e) => setSortBy(e.target.value)}
-                                    className="bg-slate-50 border border-slate-300 rounded-md px-2.5 py-1 text-slate-700 font-medium focus:ring-1 focus:ring-amber-500 focus:outline-none"
-                                >
-                                    <option>Featured</option>
-                                    <option>Price: Low to High</option>
-                                    <option>Price: High to Low</option>
-                                    <option>Highest Rated</option>
-                                    <option>Newest Arrivals</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* Books Grid */}
-                        {filteredBooks.length > 0 ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
-                                {filteredBooks.map((book) => (
-                                    <div
-                                        key={book.id}
-                                        className="bg-white rounded-2xl border border-slate-200 p-3.5 flex flex-col justify-between relative group hover:shadow-lg hover:border-amber-400 transition-all duration-200"
-                                    >
-                                        {/* Discount Badge */}
-                                        <span className="absolute top-3 left-3 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-md z-10 shadow-sm">
-                                            {book.discount}
-                                        </span>
-
-                                        <div>
-                                            {/* Clickable Image Container */}
-                                            <Link href={`/books/${book.id}`}>
-                                                <div className="relative h-48 sm:h-56 w-full bg-slate-100 rounded-xl overflow-hidden flex items-center justify-center mb-3 group-hover:scale-[1.02] transition-transform duration-300">
-                                                    <span className="text-4xl">📖</span>
-                                                </div>
-                                            </Link>
-
-                                            {/* Book Info */}
-                                            <Link href={`/books/${book.id}`}>
-                                                <h2
-                                                    className="text-xs font-bold text-slate-900 group-hover:text-amber-600 transition-colors line-clamp-1"
-                                                    title={book.title}
-                                                >
-                                                    {book.title}
-                                                </h2>
-                                            </Link>
-
-                                            <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                                                {book.author}
-                                            </p>
-
-                                            {/* Star Rating */}
-                                            <div className="flex items-center gap-1 mt-1 text-[11px] text-amber-500">
-                                                <span>★</span>
-                                                <span className="font-semibold text-slate-800">
-                                                    {book.rating}
-                                                </span>
-                                                <span className="text-slate-400 text-[10px]">
-                                                    ({book.reviewsCount})
-                                                </span>
-                                            </div>
-
-                                            {/* Pricing */}
-                                            <div className="mt-2.5 flex items-baseline gap-2">
-                                                <span className="text-sm font-bold text-red-600">
-                                                    Rs. {book.price}
-                                                </span>
-                                                <span className="text-[11px] text-slate-400 line-through">
-                                                    Rs. {book.originalPrice}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        {/* Actions: Add to Cart & Wishlist */}
-                                        <div className="flex items-center gap-2 mt-4 pt-2 border-t border-slate-100">
-                                            <button className="flex-1 bg-slate-900 hover:bg-amber-500 hover:text-slate-950 text-white text-xs font-semibold py-2 rounded-lg transition-colors shadow-xs">
-                                                Add to Cart
-                                            </button>
-                                            <button
-                                                title="Add to Wishlist"
-                                                className="p-2 border border-slate-200 rounded-lg hover:bg-slate-100 text-slate-600 text-xs transition-colors"
-                                            >
-                                                ♡
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
-                                <p className="text-sm text-slate-500">
-                                    No books found matching your selected filters.
-                                </p>
-                                <button
-                                    onClick={() => {
-                                        setSelectedCategory('All Categories')
-                                        setSelectedPublisher('All Publishers')
-                                        setSearchQuery('')
-                                    }}
-                                    className="mt-3 text-xs text-amber-600 font-semibold hover:underline"
-                                >
-                                    Clear Filters
-                                </button>
-                            </div>
-                        )}
-                    </section>
-                </div>
-            </main>
-
-            <Footer />
-        </div>
-    )
+export interface BookAuthor {
+  id: number | string;
+  name?: string;
+  englishName?: string;
+  author?: {
+    id: number | string;
+    name?: string;
+    englishName?: string;
+  };
+  [key: string]: any;
 }
 
-export default BooksPage
+export interface BookGenre {
+  id: number | string;
+  name?: string;
+  englishName?: string;
+  genre?: {
+    id: number | string;
+    name?: string;
+  };
+  [key: string]: any;
+}
+
+export interface BookPublisher {
+  id: number | string;
+  name?: string;
+  englishName?: string;
+  publicationLogoUrl?: string;
+  [key: string]: any;
+}
+
+export interface BookImage {
+  id?: number | string;
+  url?: string;
+  imageUrl?: string;
+  imageType?: string;
+  type?: string;
+  [key: string]: any;
+}
+
+export interface BookItem {
+  id: number | string;
+  title: string;
+  price: number | string;
+  discountPercent?: number | string;
+  stock: number;
+  soldCount?: number;
+  publicationDate?: string;
+  isbn10?: string;
+  isbn13?: string;
+  pages?: number | string;
+  description?: string;
+  widthCm?: number | string;
+  heightCm?: number | string;
+  depthCm?: number | string;
+  publisherId?: number | string;
+  publisher?: BookPublisher;
+  authors?: BookAuthor[];
+  authorBooks?: BookAuthor[];
+  genres?: BookGenre[];
+  genreBooks?: BookGenre[];
+  images?: (BookImage | string)[];
+  bookImages?: BookImage[];
+  createdAt?: string;
+  updatedAt?: string;
+  [key: string]: any;
+}
+
+export interface OptionItem {
+  id: number | string;
+  name: string;
+  englishName?: string;
+  publicationLogoUrl?: string;
+  [key: string]: any;
+}
+
+export default function BooksPage() {
+  const [books, setBooks] = useState<BookItem[]>([]);
+  const [genres, setGenres] = useState<OptionItem[]>([]);
+  const [publishers, setPublishers] = useState<OptionItem[]>([]);
+
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoadingFilters, setIsLoadingFilters] = useState<boolean>(true);
+
+  // Filter States
+  const [selectedGenreId, setSelectedGenreId] = useState<string>("all");
+  const [selectedPublisherId, setSelectedPublisherId] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>(" ");
+  const [sortBy, setSortBy] = useState<string>("featured");
+  const [showMobileFilter, setShowMobileFilter] = useState<boolean>(false);
+  const [wishlistedBookIds, setWishlistedBookIds] = useState<
+    Record<string, boolean>
+  >({});
+
+  // Fetch Filters
+  useEffect(() => {
+    const fetchFilterOptions = async () => {
+      setIsLoadingFilters(true);
+      try {
+        const [genRes, pubRes] = await Promise.allSettled([
+          axiosInstance.get("/v1/genre"),
+          axiosInstance.get("/v1/publisher"),
+        ]);
+
+        if (genRes.status === "fulfilled") {
+          const d = genRes.value.data;
+          const list = Array.isArray(d) ? d : d?.data || d?.genres || [];
+          setGenres(list);
+        }
+
+        if (pubRes.status === "fulfilled") {
+          const d = pubRes.value.data;
+          const list = Array.isArray(d) ? d : d?.data || d?.publishers || [];
+          setPublishers(list);
+        }
+      } catch (err) {
+        console.error("Failed to load filter options:", err);
+      } finally {
+        setIsLoadingFilters(false);
+      }
+    };
+
+    fetchFilterOptions();
+  }, []);
+
+  // Fetch Books
+  const fetchBooks = async () => {
+    setIsLoading(true);
+    try {
+      const response = await axiosInstance.get("/v1/book?limit=100");
+      const data = response.data?.data || response.data;
+      const list = Array.isArray(data)
+        ? data
+        : data?.books || data?.items || [];
+      setBooks(list);
+    } catch (err) {
+      console.error("Failed to fetch books:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBooks();
+  }, []);
+
+  // Helpers
+  const getCoverImage = (book: BookItem): string | null => {
+    const imagesList = book.images || book.bookImages || [];
+    if (imagesList.length === 0) return null;
+
+    const coverObj = imagesList.find((img: any) =>
+      typeof img === "object"
+        ? img.imageType === "COVER" || img.type === "COVER"
+        : false,
+    );
+    if (coverObj && typeof coverObj === "object") {
+      return coverObj.url || coverObj.imageUrl || null;
+    }
+
+    const first = imagesList[0];
+    if (typeof first === "string") return first;
+    if (typeof first === "object") return first.url || first.imageUrl || null;
+    return null;
+  };
+
+  const getPrimaryGenreName = (book: BookItem): string => {
+    const list = book.genres || book.genreBooks || [];
+    if (list.length === 0) return "";
+    return list[0].name || list[0].englishName || list[0].genre?.name || "";
+  };
+
+  const toggleWishlist = (id: number | string) => {
+    setWishlistedBookIds((prev) => ({
+      ...prev,
+      [String(id)]: !prev[String(id)],
+    }));
+  };
+
+  // Filter & Sort Logic
+  const filteredBooks = useMemo(() => {
+    return books
+      .filter((book) => {
+        if (selectedGenreId !== "all") {
+          const hasGenre = (book.genres || book.genreBooks || []).some((g) => {
+            const gId = String(g.id || g.genre?.id || "");
+            return gId === selectedGenreId;
+          });
+          if (!hasGenre) return false;
+        }
+
+        if (selectedPublisherId !== "all") {
+          const pubId = String(book.publisherId || book.publisher?.id || "");
+          if (pubId !== selectedPublisherId) return false;
+        }
+
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const titleMatch = book.title?.toLowerCase().includes(q);
+          const authorMatch = (book.authors || book.authorBooks || []).some(
+            (a) =>
+              (a.name || a.englishName || a.author?.name || "")
+                .toLowerCase()
+                .includes(q),
+          );
+          const publisherMatch = (
+            book.publisher?.name ||
+            book.publisher?.englishName ||
+            ""
+          )
+            .toLowerCase()
+            .includes(q);
+          const isbnMatch =
+            book.isbn13?.includes(q) || book.isbn10?.includes(q);
+
+          if (!titleMatch && !authorMatch && !publisherMatch && !isbnMatch) {
+            return false;
+          }
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        const priceA = Number(a.price) || 0;
+        const discountA = Number(a.discountPercent) || 0;
+        const netA =
+          discountA > 0 ? priceA - (priceA * discountA) / 100 : priceA;
+
+        const priceB = Number(b.price) || 0;
+        const discountB = Number(b.discountPercent) || 0;
+        const netB =
+          discountB > 0 ? priceB - (priceB * discountB) / 100 : priceB;
+
+        if (sortBy === "price-asc") return netA - netB;
+        if (sortBy === "price-desc") return netB - netA;
+        if (sortBy === "discount") return discountB - discountA;
+        if (sortBy === "newest") {
+          return (
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime()
+          );
+        }
+        return 0;
+      });
+  }, [books, selectedGenreId, selectedPublisherId, searchQuery, sortBy]);
+
+  const activeFiltersCount =
+    (selectedGenreId !== "all" ? 1 : 0) +
+    (selectedPublisherId !== "all" ? 1 : 0) +
+    (searchQuery.trim() ? 1 : 0);
+
+  const handleResetFilters = () => {
+    setSelectedGenreId("all");
+    setSelectedPublisherId("all");
+    setSearchQuery("");
+    setSortBy("featured");
+  };
+
+  const selectedGenreObj = genres.find((g) => String(g.id) === selectedGenreId);
+  const selectedPublisherObj = publishers.find(
+    (p) => String(p.id) === selectedPublisherId,
+  );
+
+  return (
+    <div className="min-h-screen flex flex-col bg-slate-50/60 text-slate-800">
+      <TopHeader />
+      <Header />
+
+      <main className="flex-1 w-full max-w-[1400px] mx-auto px-3.5 sm:px-6 lg:px-8 py-5 sm:py-6">
+        {/* Header Title & Breadcrumb */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between pb-4 sm:pb-5 border-b border-slate-200 gap-3.5">
+          <div className="space-y-1">
+            <nav className="text-[11px] text-slate-400 flex items-center gap-1">
+              <Link
+                href="/"
+                className="hover:text-amber-600 transition-colors font-medium"
+              >
+                Home
+              </Link>
+              <ChevronRight className="w-3 h-3 text-slate-300" />
+              <span className="text-slate-700 font-semibold">Books</span>
+            </nav>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-amber-500" />
+              Books Catalog
+            </h1>
+            <p className="text-xs text-slate-500">
+              Browse Nepali & International books, bestsellers, and publications
+            </p>
+          </div>
+
+          {/* Search bar & Mobile Filters trigger */}
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <div className="relative flex-1 md:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search books, authors..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-8 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition shadow-2xs"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowMobileFilter(true)}
+              className="lg:hidden shrink-0 px-3 py-2 text-xs font-semibold bg-white border border-slate-200 text-slate-700 rounded-xl flex items-center gap-1.5 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-amber-600" />
+              <span>Filter</span>
+              {activeFiltersCount > 0 && (
+                <span className="w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Active Filters */}
+        {activeFiltersCount > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-3">
+            <span className="text-[11px] font-semibold text-slate-400 mr-1 flex items-center gap-1">
+              <Filter className="w-2.5 h-2.5" /> Active:
+            </span>
+
+            {selectedGenreId !== "all" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200/80 text-amber-800 text-[11px] font-medium">
+                <span>
+                  {selectedGenreObj?.name || selectedGenreObj?.englishName}
+                </span>
+                <X
+                  className="w-3 h-3 cursor-pointer hover:text-amber-950"
+                  onClick={() => setSelectedGenreId("all")}
+                />
+              </span>
+            )}
+
+            {selectedPublisherId !== "all" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200/80 text-indigo-800 text-[11px] font-medium">
+                <span>
+                  {selectedPublisherObj?.name ||
+                    selectedPublisherObj?.englishName}
+                </span>
+                <X
+                  className="w-3 h-3 cursor-pointer hover:text-indigo-950"
+                  onClick={() => setSelectedPublisherId("all")}
+                />
+              </span>
+            )}
+
+            {searchQuery.trim() && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-medium">
+                <span>&quot;{searchQuery}&quot;</span>
+                <X
+                  className="w-3 h-3 cursor-pointer hover:text-slate-950"
+                  onClick={() => setSearchQuery("")}
+                />
+              </span>
+            )}
+
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="text-[11px] text-rose-600 hover:text-rose-700 font-semibold ml-1 cursor-pointer hover:underline"
+            >
+              Reset
+            </button>
+          </div>
+        )}
+
+        {/* Main Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 xl:grid-cols-5 gap-5 items-start mt-4">
+          {/* Sidebar */}
+          <aside className="hidden lg:block lg:col-span-1 bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-5 sticky top-20">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                <Filter className="w-3.5 h-3.5 text-amber-500" />
+                Refine Books
+              </h2>
+              {activeFiltersCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="text-[11px] text-amber-600 hover:text-amber-700 font-semibold cursor-pointer"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+
+            {/* Categories */}
+            <div className="space-y-1.5">
+              <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                <Bookmark className="w-3 h-3 text-amber-500" /> Genres
+              </h3>
+              <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
+                <button
+                  type="button"
+                  onClick={() => setSelectedGenreId("all")}
+                  className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center justify-between cursor-pointer ${
+                    selectedGenreId === "all"
+                      ? "bg-amber-500 text-white font-semibold shadow-2xs"
+                      : "text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <span>All Genres</span>
+                  <span
+                    className={`text-[10px] ${
+                      selectedGenreId === "all"
+                        ? "text-amber-100"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    {books.length}
+                  </span>
+                </button>
+
+                {isLoadingFilters ? (
+                  <div className="py-3 text-center text-xs text-slate-400 flex items-center justify-center gap-1.5">
+                    <Loader2 className="w-3 h-3 animate-spin text-amber-500" />
+                    Loading...
+                  </div>
+                ) : (
+                  genres.map((gen) => {
+                    const isSelected = String(gen.id) === selectedGenreId;
+                    return (
+                      <button
+                        key={gen.id}
+                        type="button"
+                        onClick={() => setSelectedGenreId(String(gen.id))}
+                        className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center justify-between cursor-pointer ${
+                          isSelected
+                            ? "bg-amber-500 text-white font-semibold shadow-2xs"
+                            : "text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="truncate">
+                          {gen.name || gen.englishName}
+                        </span>
+                        {isSelected && <Check className="w-3 h-3 shrink-0" />}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            <hr className="border-slate-100" />
+
+            {/* Publishers */}
+            <div className="space-y-1.5">
+              <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                <Building2 className="w-3 h-3 text-indigo-500" /> Publishers
+              </h3>
+              <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
+                <button
+                  type="button"
+                  onClick={() => setSelectedPublisherId("all")}
+                  className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center justify-between cursor-pointer ${
+                    selectedPublisherId === "all"
+                      ? "bg-indigo-600 text-white font-semibold shadow-2xs"
+                      : "text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <span>All Publishers</span>
+                </button>
+
+                {isLoadingFilters ? (
+                  <div className="py-3 text-center text-xs text-slate-400 flex items-center justify-center gap-1.5">
+                    <Loader2 className="w-3 h-3 animate-spin text-indigo-500" />
+                    Loading...
+                  </div>
+                ) : (
+                  publishers.map((pub) => {
+                    const isSelected = String(pub.id) === selectedPublisherId;
+                    return (
+                      <button
+                        key={pub.id}
+                        type="button"
+                        onClick={() => setSelectedPublisherId(String(pub.id))}
+                        className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center justify-between cursor-pointer ${
+                          isSelected
+                            ? "bg-indigo-600 text-white font-semibold shadow-2xs"
+                            : "text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="truncate">
+                          {pub.name || pub.englishName}
+                        </span>
+                        {isSelected && <Check className="w-3 h-3 shrink-0" />}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </aside>
+
+          {/* Right Column (Catalog) */}
+          <section className="lg:col-span-3 xl:col-span-4 space-y-3.5">
+            {/* Toolbar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white px-3.5 py-2.5 rounded-xl border border-slate-200 shadow-2xs text-xs gap-2">
+              <div className="text-slate-500">
+                Showing{" "}
+                <strong className="text-slate-900 font-bold">
+                  {filteredBooks.length}
+                </strong>{" "}
+                of <span className="text-slate-700">{books.length}</span> books
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-400 font-medium flex items-center gap-1 text-[11px]">
+                  <ArrowUpDown className="w-3 h-3" /> Sort:
+                </span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-800 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:outline-none cursor-pointer"
+                >
+                  <option value="featured">Featured</option>
+                  <option value="price-asc">Price: Low to High</option>
+                  <option value="price-desc">Price: High to Low</option>
+                  <option value="discount">Highest Discount</option>
+                  <option value="newest">Newest Arrivals</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Grid */}
+            {isLoading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="bg-white rounded-xl border border-slate-200 p-2.5 flex flex-col justify-between animate-pulse"
+                  >
+                    <div className="aspect-[4/5] w-full bg-slate-200 rounded-lg mb-2.5" />
+                    <div className="space-y-1.5">
+                      <div className="h-2.5 bg-slate-200 rounded w-1/3" />
+                      <div className="h-3.5 bg-slate-200 rounded w-4/5" />
+                      <div className="h-2.5 bg-slate-200 rounded w-1/2" />
+                      <div className="h-3 bg-slate-200 rounded w-2/5 pt-1" />
+                    </div>
+                    <div className="h-7 bg-slate-200 rounded-lg mt-3" />
+                  </div>
+                ))}
+              </div>
+            ) : filteredBooks.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                {filteredBooks.map((book) => {
+                  const coverUrl = getCoverImage(book);
+                  const priceNum = Number(book.price) || 0;
+                  const discountNum = Number(book.discountPercent) || 0;
+                  const discountedPrice =
+                    discountNum > 0
+                      ? priceNum - (priceNum * discountNum) / 100
+                      : priceNum;
+                  const genreName = getPrimaryGenreName(book);
+                  const isWishlisted = Boolean(
+                    wishlistedBookIds[String(book.id)],
+                  );
+                  const isOutOfStock = Number(book.stock) <= 0;
+
+                  return (
+                    <div
+                      key={book.id}
+                      className="bg-white rounded-xl border border-slate-200/90 p-2.5 sm:p-3 flex flex-col justify-between relative group hover:shadow-md hover:border-amber-400/70 transition-all duration-200"
+                    >
+                      {/* Discount and Wishlist overlay */}
+                      <div className="absolute top-2 left-2 right-2 flex items-center justify-between z-10 pointer-events-none">
+                        {discountNum > 0 ? (
+                          <span className="bg-rose-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-2xs pointer-events-auto">
+                            -{discountNum}%
+                          </span>
+                        ) : (
+                          <span />
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            toggleWishlist(book.id);
+                          }}
+                          className={`p-1.5 rounded-full shadow-2xs transition-colors cursor-pointer pointer-events-auto ${
+                            isWishlisted
+                              ? "bg-rose-50 text-rose-600 border border-rose-200"
+                              : "bg-white/90 text-slate-400 hover:text-rose-500 border border-slate-200/60 hover:bg-white"
+                          }`}
+                          title={
+                            isWishlisted
+                              ? "Remove from wishlist"
+                              : "Add to wishlist"
+                          }
+                        >
+                          <Heart
+                            className={`w-3 h-3 ${
+                              isWishlisted ? "fill-rose-500 text-rose-500" : ""
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      <div>
+                        {/* Compact Aspect Cover */}
+                        <Link href={`/books/${book.id}`} className="block">
+                          <div className="relative aspect-[4/5] sm:w-[230px] sm:h-[200px] bg-slate-50 rounded-lg overflow-hidden flex items-center justify-center mb-2 group-hover:scale-[1.01] transition-transform duration-200 border border-slate-100">
+                            {coverUrl ? (
+                              <img
+                                src={coverUrl}
+                                alt={book.title}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex flex-col items-center justify-center text-slate-300">
+                                <BookOpen className="w-7 h-7 mb-0.5" />
+                                <span className="text-[9px] text-slate-400 font-semibold tracking-wider uppercase">
+                                  Book
+                                </span>
+                              </div>
+                            )}
+
+                            {isOutOfStock && (
+                              <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-1.5">
+                                <span className="px-2 py-0.5 rounded bg-rose-600 text-white text-[9px] font-bold uppercase tracking-wider">
+                                  Out of Stock
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </Link>
+                        {genreName && (
+                          <span className="inline-block text-[9px] font-semibold uppercase tracking-wider text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded mb-1 border border-amber-100/80 truncate max-w-full">
+                            {genreName}
+                          </span>
+                        )}
+                        <Link href={`/books/${book.id}`}>
+                          <h2
+                            className="text-xs font-bold text-slate-900 group-hover:text-amber-600 transition-colors line-clamp-1 leading-snug"
+                            title={book.title}
+                          >
+                            {book.title}
+                          </h2>
+                        </Link>
+                        <div className="mt-1.5 flex items-baseline gap-1.5 flex-wrap">
+                          <span className="text-xs sm:text-sm font-bold text-slate-900">
+                            Rs. {discountedPrice.toLocaleString()}
+                          </span>
+                          {discountNum > 0 && (
+                            <span className="text-[10px] text-slate-400 line-through">
+                              Rs. {priceNum.toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-2.5 pt-2 border-t border-slate-100">
+                        <Link
+                          href={`/books/${book.id}`}
+                          className="w-full bg-slate-900 hover:bg-amber-500 hover:text-slate-950 text-white text-[11px] font-medium py-1.5 px-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer text-center"
+                        >
+                          <ShoppingCart className="w-3 h-3" />
+                          <span>View Details</span>
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-16 px-4 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-2 border border-amber-100">
+                  <BookOpen className="w-6 h-6" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-800">
+                  No books found
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5 max-w-sm mx-auto">
+                  We couldn&apos;t find any books matching your selected filters
+                  or search keyword.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg font-semibold transition cursor-pointer"
+                >
+                  <Sparkles className="w-3 h-3 text-amber-600" />
+                  Clear Filters
+                </button>
+              </div>
+            )}
+          </section>
+        </div>
+      </main>
+
+      {/* Mobile Drawer */}
+      {showMobileFilter && (
+        <div className="fixed inset-0 z-50 lg:hidden flex">
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
+            onClick={() => setShowMobileFilter(false)}
+          />
+
+          <div className="relative ml-auto w-full max-w-xs bg-white h-full shadow-2xl flex flex-col p-5 overflow-y-auto z-10 animate-in slide-in-from-right duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                <Filter className="w-4 h-4 text-amber-500" />
+                Filter Books
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowMobileFilter(false)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 py-3 space-y-4">
+              <div>
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-800 mb-2">
+                  Genres & Categories
+                </h4>
+                <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGenreId("all")}
+                    className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg flex items-center justify-between ${
+                      selectedGenreId === "all"
+                        ? "bg-amber-500 text-white font-bold"
+                        : "text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span>All Genres</span>
+                    <span>{books.length}</span>
+                  </button>
+                  {genres.map((gen) => (
+                    <button
+                      key={gen.id}
+                      type="button"
+                      onClick={() => setSelectedGenreId(String(gen.id))}
+                      className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg flex items-center justify-between ${
+                        selectedGenreId === String(gen.id)
+                          ? "bg-amber-500 text-white font-bold"
+                          : "text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      <span className="truncate">
+                        {gen.name || gen.englishName}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <hr className="border-slate-100" />
+
+              <div>
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-800 mb-2">
+                  Publishers
+                </h4>
+                <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPublisherId("all")}
+                    className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg flex items-center justify-between ${
+                      selectedPublisherId === "all"
+                        ? "bg-indigo-600 text-white font-bold"
+                        : "text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span>All Publishers</span>
+                  </button>
+                  {publishers.map((pub) => (
+                    <button
+                      key={pub.id}
+                      type="button"
+                      onClick={() => setSelectedPublisherId(String(pub.id))}
+                      className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg flex items-center justify-between ${
+                        selectedPublisherId === String(pub.id)
+                          ? "bg-indigo-600 text-white font-bold"
+                          : "text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      <span className="truncate">
+                        {pub.name || pub.englishName}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="flex-1 py-2 text-xs font-semibold text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowMobileFilter(false)}
+                className="flex-1 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition"
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Footer />
+    </div>
+  );
+}

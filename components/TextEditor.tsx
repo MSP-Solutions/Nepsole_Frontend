@@ -17,6 +17,8 @@ export default function TextEditorEdit({
   const editorRef = useRef<any>(null);
   const onChangeRef = useRef(onChange);
   const isReady = useRef(false);
+  const isInternalChangeRef = useRef(false);
+  const lastRawValueRef = useRef<string | null>(null);
   const lastLoadedContentRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -32,6 +34,19 @@ export default function TextEditorEdit({
         ? initialHtml
         : value;
 
+    // If change came from user typing, skip applying to prevent resetting cursor
+    if (isInternalChangeRef.current) {
+      isInternalChangeRef.current = false;
+      return;
+    }
+
+    if (
+      rawContent === lastRawValueRef.current &&
+      lastRawValueRef.current !== null
+    ) {
+      return;
+    }
+
     const decodedHtml = parseQuillContent(rawContent);
 
     if (
@@ -45,12 +60,14 @@ export default function TextEditorEdit({
     const htmlContentEl = editor.shadowRoot?.querySelector(".ql-editor");
 
     if (quill && htmlContentEl) {
+      lastRawValueRef.current = rawContent;
+      lastLoadedContentRef.current = decodedHtml;
+
       if (decodedHtml) {
         quill.clipboard.dangerouslyPasteHTML(decodedHtml);
       } else {
         editor.value = EMPTY_DELTA;
       }
-      lastLoadedContentRef.current = decodedHtml;
     } else if (retries > 0) {
       setTimeout(() => applyContent(retries - 1), 50);
     }
@@ -72,6 +89,8 @@ export default function TextEditorEdit({
 
       const handleChange = () => {
         const val = editor.value;
+        isInternalChangeRef.current = true;
+        lastRawValueRef.current = val;
         onChangeRef.current?.(val);
       };
 
