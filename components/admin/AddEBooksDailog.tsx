@@ -1,6 +1,5 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,24 +7,32 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Upload,
-  X,
-  Plus,
+  axiosAuthInstance,
+  axiosMultipartInstance,
+} from "@/utils/axiosInstances";
+import {
+  Bookmark,
+  BookOpen,
+  Building2,
   Check,
   ChevronDown,
-  Search,
-  BookOpen,
-  User,
-  Building2,
-  Bookmark,
+  ExternalLink,
+  FileText,
+  FileUp,
+  Gift,
+  Image as ImageIcon,
   Languages,
   Loader2,
-  Trash2,
-  Image as ImageIcon,
+  Lock,
+  Plus,
   Save,
+  Search,
+  Upload,
+  User,
+  X,
 } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { axiosAuthInstance, axiosMultipartInstance } from "@/utils/axiosInstances";
 import TextEditorEdit from "../TextEditor";
 
 export interface OptionItem {
@@ -47,12 +54,12 @@ export interface ExistingBookImage {
   type: string;
 }
 
-export interface BookData {
+export interface EBookFormData {
   id?: number | string;
   title: string;
+  plan?: "FREE" | "PAID" | string;
   price: number | string;
   discountPercent?: number | string;
-  stock: number | string;
   publicationDate?: string;
   isbn10?: string;
   isbn13?: string;
@@ -70,20 +77,22 @@ export interface BookData {
   existingImages?: ExistingBookImage[];
   imagesTypes?: string[];
   soldCount?: number | string;
+  pdfUrl?: any;
+  coverImageUrl?: string | null;
   [key: string]: any;
 }
 
-interface AddBookDialogProps {
+interface AddEBooksDailogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddBook?: (book: any) => void;
-  onSuccess?: (book: any) => void;
-  bookToEdit?: BookData | null;
+  onAddBook?: (ebook: any) => void;
+  onSuccess?: (ebook: any) => void;
+  bookToEdit?: EBookFormData | null;
 }
 
 const IMAGE_TYPE_OPTIONS = ["COVER", "BACK_COVER", "INSIDE", "PROMO", "OTHER"];
 
-export const AddBookDialog: React.FC<AddBookDialogProps> = ({
+export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
   open,
   onOpenChange,
   onAddBook,
@@ -92,26 +101,31 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
 }) => {
   const initialFormState = {
     title: "",
+    plan: "PAID" as "PAID" | "FREE",
     price: "",
     discountPercent: "0",
-    stock: "",
     publicationDate: "",
     isbn10: "",
     isbn13: "",
     pages: "",
     description: "",
-    widthCm: "",
-    heightCm: "",
-    depthCm: "",
     publisherId: "" as number | string,
     soldCount: "0",
   };
 
   const [formData, setFormData] = useState(initialFormState);
-  const [selectedAuthors, setSelectedAuthors] = useState<(number | string)[]>([]);
+  const [selectedAuthors, setSelectedAuthors] = useState<(number | string)[]>(
+    [],
+  );
   const [selectedGenres, setSelectedGenres] = useState<(number | string)[]>([]);
-  const [selectedLanguages, setSelectedLanguages] = useState<(number | string)[]>([]);
-  
+  const [selectedLanguages, setSelectedLanguages] = useState<
+    (number | string)[]
+  >([]);
+
+  // PDF Document File State
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [existingPdfUrl, setExistingPdfUrl] = useState<string>("");
+
   // Images state
   const [existingImages, setExistingImages] = useState<ExistingBookImage[]>([]);
   const [uploadedImages, setUploadedImages] = useState<BookImageItem[]>([]);
@@ -147,7 +161,10 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
   // Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (publisherRef.current && !publisherRef.current.contains(e.target as Node)) {
+      if (
+        publisherRef.current &&
+        !publisherRef.current.contains(e.target as Node)
+      ) {
         setPublisherOpen(false);
       }
       if (authorRef.current && !authorRef.current.contains(e.target as Node)) {
@@ -156,7 +173,10 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
       if (genreRef.current && !genreRef.current.contains(e.target as Node)) {
         setGenreOpen(false);
       }
-      if (languageRef.current && !languageRef.current.contains(e.target as Node)) {
+      if (
+        languageRef.current &&
+        !languageRef.current.contains(e.target as Node)
+      ) {
         setLanguageOpen(false);
       }
     };
@@ -208,12 +228,15 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
       if (bookToEdit) {
         setFormData({
           title: bookToEdit.title || "",
+          plan: (bookToEdit.plan?.toUpperCase() === "FREE"
+            ? "FREE"
+            : "PAID") as "PAID" | "FREE",
           price: bookToEdit.price !== undefined ? String(bookToEdit.price) : "",
           discountPercent:
             bookToEdit.discountPercent !== undefined
               ? String(bookToEdit.discountPercent)
               : "0",
-          stock: bookToEdit.stock !== undefined ? String(bookToEdit.stock) : "",
+
           publicationDate: bookToEdit.publicationDate
             ? bookToEdit.publicationDate.split("T")[0]
             : "",
@@ -221,12 +244,6 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
           isbn13: bookToEdit.isbn13 || "",
           pages: bookToEdit.pages !== undefined ? String(bookToEdit.pages) : "",
           description: bookToEdit.description || "",
-          widthCm:
-            bookToEdit.widthCm !== undefined ? String(bookToEdit.widthCm) : "",
-          heightCm:
-            bookToEdit.heightCm !== undefined ? String(bookToEdit.heightCm) : "",
-          depthCm:
-            bookToEdit.depthCm !== undefined ? String(bookToEdit.depthCm) : "",
           publisherId: bookToEdit.publisherId || "",
           soldCount:
             bookToEdit.soldCount !== undefined
@@ -236,6 +253,12 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
         setSelectedAuthors(bookToEdit.authorIds || []);
         setSelectedGenres(bookToEdit.genreIds || []);
         setSelectedLanguages(bookToEdit.languageIds || []);
+
+        // Load existing PDF link if available
+        setExistingPdfUrl(
+          typeof bookToEdit.pdfUrl === "string" ? bookToEdit.pdfUrl : "",
+        );
+        setPdfFile(null);
 
         // Load existing images
         const rawImgs =
@@ -255,6 +278,10 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
           })
           .filter(Boolean) as ExistingBookImage[];
 
+        if (loadedExisting.length === 0 && bookToEdit.coverImageUrl) {
+          loadedExisting.push({ url: bookToEdit.coverImageUrl, type: "COVER" });
+        }
+
         setExistingImages(loadedExisting);
         setUploadedImages([]);
       } else {
@@ -268,13 +295,15 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
     setSelectedAuthors([]);
     setSelectedGenres([]);
     setSelectedLanguages([]);
+    setPdfFile(null);
+    setExistingPdfUrl("");
     setExistingImages([]);
     uploadedImages.forEach((img) => URL.revokeObjectURL(img.preview));
     setUploadedImages([]);
   };
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -288,6 +317,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    // Check if there is already any image marked as COVER
     const hasAnyCover =
       existingImages.some((img) => img.type === "COVER") ||
       uploadedImages.some((img) => img.type === "COVER");
@@ -295,6 +325,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
     const newItems: BookImageItem[] = Array.from(files).map((file, idx) => ({
       file,
       preview: URL.createObjectURL(file),
+      // Only the first new image can become COVER if no COVER currently exists; all other images default to INSIDE
       type: !hasAnyCover && idx === 0 ? "COVER" : "INSIDE",
     }));
 
@@ -309,6 +340,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
         URL.revokeObjectURL(target.preview);
       }
       const next = prev.filter((_, i) => i !== index);
+      // If the removed image was COVER and no other COVER exists in existing images, promote first remaining image
       if (
         target?.type === "COVER" &&
         !existingImages.some((img) => img.type === "COVER") &&
@@ -322,6 +354,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
 
   const handleUploadedImageTypeChange = (index: number, newType: string) => {
     if (newType === "COVER") {
+      // Demote all existing and other uploaded images to INSIDE so only ONE is COVER
       setExistingImages((prev) =>
         prev.map((item) =>
           item.type === "COVER" ? { ...item, type: "INSIDE" } : item,
@@ -340,7 +373,9 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
       );
     } else {
       setUploadedImages((prev) =>
-        prev.map((item, i) => (i === index ? { ...item, type: newType } : item)),
+        prev.map((item, i) =>
+          i === index ? { ...item, type: newType } : item,
+        ),
       );
     }
   };
@@ -349,6 +384,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
     setExistingImages((prev) => {
       const target = prev[index];
       const next = prev.filter((_, i) => i !== index);
+      // If the removed image was COVER, promote first existing or uploaded image to COVER
       if (target?.type === "COVER") {
         if (next.length > 0) {
           next[0].type = "COVER";
@@ -366,6 +402,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
 
   const handleExistingImageTypeChange = (index: number, newType: string) => {
     if (newType === "COVER") {
+      // Demote all uploaded and other existing images to INSIDE so only ONE is COVER
       setUploadedImages((prev) =>
         prev.map((item) =>
           item.type === "COVER" ? { ...item, type: "INSIDE" } : item,
@@ -384,16 +421,31 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
       );
     } else {
       setExistingImages((prev) =>
-        prev.map((item, i) => (i === index ? { ...item, type: newType } : item)),
+        prev.map((item, i) =>
+          i === index ? { ...item, type: newType } : item,
+        ),
       );
     }
+  };
+
+  // PDF File Upload Handler
+  const handlePdfFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type !== "application/pdf" && !file.name.endsWith(".pdf")) {
+        toast.error("Please upload a valid PDF document.");
+        return;
+      }
+      setPdfFile(file);
+    }
+    e.target.value = "";
   };
 
   // Toggles for Multi-Selects
   const toggleSelection = (
     id: number | string,
     current: (number | string)[],
-    setter: React.Dispatch<React.SetStateAction<(number | string)[]>>
+    setter: React.Dispatch<React.SetStateAction<(number | string)[]>>,
   ) => {
     if (current.includes(id)) {
       setter(current.filter((item) => item !== id));
@@ -406,15 +458,14 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
     e.preventDefault();
 
     if (!formData.title.trim()) {
-      toast.error("Book Title is required.");
+      toast.error("E-Book Title is required.");
       return;
     }
-    if (!formData.price || Number(formData.price) < 0) {
-      toast.error("Valid Price is required.");
-      return;
-    }
-    if (!formData.stock || Number(formData.stock) < 0) {
-      toast.error("Valid Stock quantity is required.");
+    if (
+      formData.plan === "PAID" &&
+      (!formData.price || Number(formData.price) <= 0)
+    ) {
+      toast.error("Please provide a valid Price for a Paid E-Book.");
       return;
     }
     if (!formData.publisherId) {
@@ -427,9 +478,15 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
     try {
       const data = new FormData();
       data.append("title", formData.title.trim());
-      data.append("price", String(Number(formData.price)));
-      data.append("discountPercent", String(Number(formData.discountPercent) || 0));
-      data.append("stock", String(Number(formData.stock)));
+      data.append("plan", formData.plan);
+      data.append(
+        "price",
+        formData.plan === "FREE" ? "0" : String(Number(formData.price) || 0),
+      );
+      data.append(
+        "discountPercent",
+        String(Number(formData.discountPercent) || 0),
+      );
       data.append("soldCount", String(Number(formData.soldCount) || 0));
 
       if (formData.publicationDate) {
@@ -447,38 +504,26 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
       if (formData.description) {
         data.append("description", formData.description);
       }
-      data.append("widthCm", String(Number(formData.widthCm) || 0));
-      data.append("heightCm", String(Number(formData.heightCm) || 0));
-      data.append("depthCm", String(Number(formData.depthCm) || 0));
-
       data.append("publisherId", String(Number(formData.publisherId)));
-
-      // Append Author IDs as JSON array
       data.append(
         "authorIds",
-        JSON.stringify(selectedAuthors.map((id) => Number(id)))
+        JSON.stringify(selectedAuthors.map((id) => Number(id))),
       );
-
-      // Append Genre IDs as JSON array
       data.append(
         "genreIds",
-        JSON.stringify(selectedGenres.map((id) => Number(id)))
+        JSON.stringify(selectedGenres.map((id) => Number(id))),
       );
-
-      // Append Language IDs as JSON array
       data.append(
         "languageIds",
-        JSON.stringify(selectedLanguages.map((id) => Number(id)))
+        JSON.stringify(selectedLanguages.map((id) => Number(id))),
       );
-
-      // Append Newly Uploaded Images & Image Types
       uploadedImages.forEach((imgObj) => {
         data.append("images", imgObj.file);
       });
       if (uploadedImages.length > 0) {
         data.append(
           "imagesTypes",
-          JSON.stringify(uploadedImages.map((imgObj) => imgObj.type))
+          JSON.stringify(uploadedImages.map((imgObj) => imgObj.type)),
         );
       }
 
@@ -487,16 +532,21 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
         data.append("existingImages", JSON.stringify(existingImages));
       }
 
+      // Append PDF Document File under the "pdfUrl" key
+      if (pdfFile) {
+        data.append("pdfUrl", pdfFile);
+      }
+
       let response;
       if (bookToEdit?.id) {
         response = await axiosMultipartInstance.patch(
-          `/v1/book/${bookToEdit.id}`,
-          data
+          `/v1/ebook/${bookToEdit.id}`,
+          data,
         );
-        toast.success("Book updated successfully!");
+        toast.success("E-Book updated successfully!");
       } else {
-        response = await axiosMultipartInstance.post("/v1/book", data);
-        toast.success("Book created successfully!");
+        response = await axiosMultipartInstance.post("/v1/ebook", data);
+        toast.success("E-Book created successfully!");
       }
 
       const resData = response.data?.data || response.data;
@@ -506,12 +556,14 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
       resetForm();
       onOpenChange(false);
     } catch (error: any) {
-      console.error("Save book error:", error);
+      console.error("Save eBook error:", error);
       const errorMsg =
         error?.response?.data?.message ||
         error?.response?.data?.error ||
-        "Failed to save book.";
-      toast.error(typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg));
+        "Failed to save e-book.";
+      toast.error(
+        typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg),
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -524,20 +576,28 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
 
   // Filtered dropdown lists
   const filteredPublishers = publishers.filter((p) =>
-    (p.name || p.englishName || "").toLowerCase().includes(publisherSearch.toLowerCase())
+    (p.name || p.englishName || "")
+      .toLowerCase()
+      .includes(publisherSearch.toLowerCase()),
   );
   const filteredAuthors = authors.filter((a) =>
-    (a.name || a.englishName || "").toLowerCase().includes(authorSearch.toLowerCase())
+    (a.name || a.englishName || "")
+      .toLowerCase()
+      .includes(authorSearch.toLowerCase()),
   );
   const filteredGenres = genres.filter((g) =>
-    (g.name || g.englishName || "").toLowerCase().includes(genreSearch.toLowerCase())
+    (g.name || g.englishName || "")
+      .toLowerCase()
+      .includes(genreSearch.toLowerCase()),
   );
   const filteredLanguages = languages.filter((l) =>
-    (l.name || l.code || "").toLowerCase().includes(languageSearch.toLowerCase())
+    (l.name || l.code || "")
+      .toLowerCase()
+      .includes(languageSearch.toLowerCase()),
   );
 
   const selectedPublisherObj = publishers.find(
-    (p) => String(p.id) === String(formData.publisherId)
+    (p) => String(p.id) === String(formData.publisherId),
   );
 
   const hasAnyImages = existingImages.length > 0 || uploadedImages.length > 0;
@@ -546,20 +606,21 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="w-[98vw] md:max-w-4xl max-h-[92vh] flex flex-col p-0 bg-white rounded-xl border border-slate-200 shadow-2xl overflow-hidden"
+        className="w-[98vw] md:max-w-4xl max-h-[92vh] flex flex-col p-0 bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50/70">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50/80">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm">
               <BookOpen className="w-5 h-5" />
             </div>
             <div>
               <DialogTitle className="text-base sm:text-lg font-bold text-slate-900">
-                {bookToEdit ? "Edit Book" : "Add New Book"}
+                {bookToEdit ? "Edit E-Book" : "Add New E-Book"}
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500">
-                Enter comprehensive book details to catalog in the system.
+                Upload PDF document, configure access plan, and enter e-book
+                details.
               </DialogDescription>
             </div>
           </div>
@@ -575,11 +636,127 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
 
         {/* Form Body */}
         <form
-          id="add-book-form"
+          id="add-ebook-form"
           onSubmit={handleSubmit}
           className="flex-1 overflow-y-auto p-5 sm:p-7 space-y-7 text-slate-800"
         >
-          {/* 1. Basic Book Information & Dropdowns */}
+          {/* 1. Access Plan & PDF Document Upload */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-600 flex items-center gap-2">
+              <FileUp className="w-3.5 h-3.5" />
+              E-Book Plan & PDF Document
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Access Plan Selection */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Access Plan <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        plan: "FREE",
+                        price: "0",
+                      }))
+                    }
+                    className={`flex items-center justify-center gap-2 p-3 rounded-xl border text-xs font-bold transition cursor-pointer ${
+                      formData.plan === "FREE"
+                        ? "bg-emerald-50 border-emerald-500 text-emerald-800 ring-2 ring-emerald-500/20"
+                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    <Gift className="w-4 h-4 text-emerald-600" />
+                    <span>Free Access</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData((prev) => ({ ...prev, plan: "PAID" }))
+                    }
+                    className={`flex items-center justify-center gap-2 p-3 rounded-xl border text-xs font-bold transition cursor-pointer ${
+                      formData.plan === "PAID"
+                        ? "bg-indigo-50 border-indigo-500 text-indigo-800 ring-2 ring-indigo-500/20"
+                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    <Lock className="w-4 h-4 text-indigo-600" />
+                    <span>Paid Edition</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* PDF Document Upload Input */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-700 flex items-center justify-between">
+                  <span>PDF Document (pdfUrl)</span>
+                  {existingPdfUrl && (
+                    <a
+                      href={existingPdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-indigo-600 hover:underline font-normal inline-flex items-center gap-1"
+                    >
+                      <span>View Current PDF</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </label>
+
+                <div className="relative">
+                  <input
+                    type="file"
+                    id="ebook-pdf-input"
+                    accept=".pdf,application/pdf"
+                    onChange={handlePdfFileChange}
+                    className="hidden"
+                  />
+
+                  {pdfFile ? (
+                    <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-indigo-300 bg-indigo-50/60 text-xs text-indigo-900">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="w-4 h-4 text-indigo-600 shrink-0" />
+                        <span className="truncate font-semibold">
+                          {pdfFile.name}
+                        </span>
+                        <span className="text-[10px] text-indigo-500 shrink-0">
+                          ({(pdfFile.size / (1024 * 1024)).toFixed(2)} MB)
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPdfFile(null)}
+                        className="p-1 rounded-lg text-indigo-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                        title="Remove PDF"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label
+                      htmlFor="ebook-pdf-input"
+                      className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-indigo-50/50 hover:border-indigo-400 text-xs font-semibold text-slate-600 transition cursor-pointer"
+                    >
+                      <Upload className="w-4 h-4 text-indigo-600" />
+                      <span>
+                        {existingPdfUrl
+                          ? "Replace PDF Document"
+                          : "Upload PDF Document (.pdf)"}
+                      </span>
+                    </label>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <hr className="border-slate-200" />
+
+          {/* 2. General Information & Dropdowns */}
           <div className="space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-600 flex items-center gap-2">
               <BookOpen className="w-3.5 h-3.5" />
@@ -590,13 +767,13 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               {/* Title */}
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Book Title <span className="text-red-500">*</span>
+                  E-Book Title <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   name="title"
                   required
-                  placeholder="e.g. The Alchemist"
+                  placeholder="e.g. Good Boyes"
                   value={formData.title}
                   onChange={handleInputChange}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
@@ -626,7 +803,8 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                     }`}
                   >
                     {selectedPublisherObj
-                      ? selectedPublisherObj.name || selectedPublisherObj.englishName
+                      ? selectedPublisherObj.name ||
+                        selectedPublisherObj.englishName
                       : "Select a publisher..."}
                   </span>
                   <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 ml-2" />
@@ -648,7 +826,8 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                     <div className="max-h-48 overflow-y-auto mt-1 space-y-0.5">
                       {isLoadingOptions ? (
                         <div className="py-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading publishers...
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />{" "}
+                          Loading publishers...
                         </div>
                       ) : filteredPublishers.length === 0 ? (
                         <div className="py-3 text-center text-xs text-slate-400">
@@ -675,7 +854,9 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                                   : "text-slate-700 hover:bg-slate-50"
                               }`}
                             >
-                              <span className="truncate">{pub.name || pub.englishName}</span>
+                              <span className="truncate">
+                                {pub.name || pub.englishName}
+                              </span>
                               {isSelected && (
                                 <Check className="w-3.5 h-3.5 text-indigo-600" />
                               )}
@@ -711,14 +892,16 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                     ) : (
                       selectedAuthors.map((authId) => {
                         const authorObj = authors.find(
-                          (a) => String(a.id) === String(authId)
+                          (a) => String(a.id) === String(authId),
                         );
                         return (
                           <span
                             key={authId}
                             className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 text-xs font-medium border border-indigo-100"
                           >
-                            {authorObj ? authorObj.name || authorObj.englishName : `Author #${authId}`}
+                            {authorObj
+                              ? authorObj.name || authorObj.englishName
+                              : `Author #${authId}`}
                             <span
                               role="button"
                               onClick={(e) => {
@@ -726,7 +909,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                                 toggleSelection(
                                   authId,
                                   selectedAuthors,
-                                  setSelectedAuthors
+                                  setSelectedAuthors,
                                 );
                               }}
                               className="hover:text-indigo-900 cursor-pointer"
@@ -757,7 +940,8 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                     <div className="max-h-48 overflow-y-auto mt-1 space-y-0.5">
                       {isLoadingOptions ? (
                         <div className="py-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading authors...
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />{" "}
+                          Loading authors...
                         </div>
                       ) : filteredAuthors.length === 0 ? (
                         <div className="py-3 text-center text-xs text-slate-400">
@@ -773,7 +957,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                                 toggleSelection(
                                   auth.id,
                                   selectedAuthors,
-                                  setSelectedAuthors
+                                  setSelectedAuthors,
                                 )
                               }
                               className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs cursor-pointer transition ${
@@ -782,7 +966,9 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                                   : "text-slate-700 hover:bg-slate-50"
                               }`}
                             >
-                              <span className="truncate">{auth.name || auth.englishName}</span>
+                              <span className="truncate">
+                                {auth.name || auth.englishName}
+                              </span>
                               {isSelected && (
                                 <Check className="w-3.5 h-3.5 text-indigo-600" />
                               )}
@@ -818,14 +1004,16 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                     ) : (
                       selectedGenres.map((genId) => {
                         const genreObj = genres.find(
-                          (g) => String(g.id) === String(genId)
+                          (g) => String(g.id) === String(genId),
                         );
                         return (
                           <span
                             key={genId}
                             className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-xs font-medium border border-emerald-100"
                           >
-                            {genreObj ? genreObj.name || genreObj.englishName : `Genre #${genId}`}
+                            {genreObj
+                              ? genreObj.name || genreObj.englishName
+                              : `Genre #${genId}`}
                             <span
                               role="button"
                               onClick={(e) => {
@@ -833,7 +1021,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                                 toggleSelection(
                                   genId,
                                   selectedGenres,
-                                  setSelectedGenres
+                                  setSelectedGenres,
                                 );
                               }}
                               className="hover:text-emerald-900 cursor-pointer"
@@ -864,7 +1052,8 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                     <div className="max-h-48 overflow-y-auto mt-1 space-y-0.5">
                       {isLoadingOptions ? (
                         <div className="py-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading genres...
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />{" "}
+                          Loading genres...
                         </div>
                       ) : filteredGenres.length === 0 ? (
                         <div className="py-3 text-center text-xs text-slate-400">
@@ -880,7 +1069,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                                 toggleSelection(
                                   gen.id,
                                   selectedGenres,
-                                  setSelectedGenres
+                                  setSelectedGenres,
                                 )
                               }
                               className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs cursor-pointer transition ${
@@ -889,7 +1078,9 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                                   : "text-slate-700 hover:bg-slate-50"
                               }`}
                             >
-                              <span className="truncate">{gen.name || gen.englishName}</span>
+                              <span className="truncate">
+                                {gen.name || gen.englishName}
+                              </span>
                               {isSelected && (
                                 <Check className="w-3.5 h-3.5 text-emerald-600" />
                               )}
@@ -925,7 +1116,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                     ) : (
                       selectedLanguages.map((langId) => {
                         const langObj = languages.find(
-                          (l) => String(l.id) === String(langId)
+                          (l) => String(l.id) === String(langId),
                         );
                         return (
                           <span
@@ -940,7 +1131,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                                 toggleSelection(
                                   langId,
                                   selectedLanguages,
-                                  setSelectedLanguages
+                                  setSelectedLanguages,
                                 );
                               }}
                               className="hover:text-sky-900 cursor-pointer"
@@ -971,7 +1162,8 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                     <div className="max-h-48 overflow-y-auto mt-1 space-y-0.5">
                       {isLoadingOptions ? (
                         <div className="py-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading languages...
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />{" "}
+                          Loading languages...
                         </div>
                       ) : filteredLanguages.length === 0 ? (
                         <div className="py-3 text-center text-xs text-slate-400">
@@ -979,7 +1171,9 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                         </div>
                       ) : (
                         filteredLanguages.map((lang) => {
-                          const isSelected = selectedLanguages.includes(lang.id);
+                          const isSelected = selectedLanguages.includes(
+                            lang.id,
+                          );
                           return (
                             <div
                               key={lang.id}
@@ -987,7 +1181,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                                 toggleSelection(
                                   lang.id,
                                   selectedLanguages,
-                                  setSelectedLanguages
+                                  setSelectedLanguages,
                                 )
                               }
                               className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs cursor-pointer transition ${
@@ -1015,28 +1209,33 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
 
           <hr className="border-slate-200" />
 
-          {/* 2. Pricing & Inventory */}
+          {/* 3. Pricing & Sales */}
           <div className="space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-600">
-              Pricing, Stock & Sales
+              Pricing & Sales
             </h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {/* Price */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Price (Rs.) <span className="text-red-500">*</span>
+                  Price (Rs.){" "}
+                  {formData.plan === "PAID" && (
+                    <span className="text-red-500">*</span>
+                  )}
                 </label>
                 <input
                   type="number"
                   name="price"
                   step="0.01"
                   min="0"
-                  required
-                  placeholder="e.g. 750"
-                  value={formData.price}
+                  disabled={formData.plan === "FREE"}
+                  placeholder={
+                    formData.plan === "FREE" ? "0 (Free)" : "e.g. 1200"
+                  }
+                  value={formData.plan === "FREE" ? "0" : formData.price}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-400 shadow-sm"
                 />
               </div>
 
@@ -1051,27 +1250,13 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                   step="0.01"
                   min="0"
                   max="100"
+                  disabled={formData.plan === "FREE"}
                   placeholder="e.g. 10"
-                  value={formData.discountPercent}
+                  value={
+                    formData.plan === "FREE" ? "0" : formData.discountPercent
+                  }
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
-                />
-              </div>
-
-              {/* Stock */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-700">
-                  Stock Units <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  name="stock"
-                  min="0"
-                  required
-                  placeholder="e.g. 50"
-                  value={formData.stock}
-                  onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-400 shadow-sm"
                 />
               </div>
 
@@ -1084,7 +1269,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                   type="number"
                   name="soldCount"
                   min="0"
-                  placeholder="e.g. 100"
+                  placeholder="e.g. 10"
                   value={formData.soldCount}
                   onChange={handleInputChange}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
@@ -1095,7 +1280,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
 
           <hr className="border-slate-200" />
 
-          {/* 3. Book Details & Identifiers */}
+          {/* 4. Publishing Specs & Identifiers */}
           <div className="space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-600">
               Publishing Specs & Identifiers
@@ -1125,7 +1310,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                   type="number"
                   name="pages"
                   min="1"
-                  placeholder="e.g. 350"
+                  placeholder="e.g. 1200"
                   value={formData.pages}
                   onChange={handleInputChange}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
@@ -1140,7 +1325,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                 <input
                   type="text"
                   name="isbn10"
-                  placeholder="e.g. 0735211299"
+                  placeholder="e.g. 1234567892"
                   value={formData.isbn10}
                   onChange={handleInputChange}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
@@ -1155,7 +1340,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                 <input
                   type="text"
                   name="isbn13"
-                  placeholder="e.g. 978-0735211292"
+                  placeholder="e.g. 1234567890121"
                   value={formData.isbn13}
                   onChange={handleInputChange}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
@@ -1163,87 +1348,47 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               </div>
             </div>
           </div>
-
           <hr className="border-slate-200" />
 
-          {/* 4. Dimensions */}
-          <div className="space-y-4">
+          {/* 6. Description (Rich Text Editor) */}
+          <div className="space-y-2">
             <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-600">
-              Dimensions (cm)
+              E-Book Description
             </h3>
-
-            <div className="grid grid-cols-3 gap-4">
-              {/* Width */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-700">
-                  Width (cm)
-                </label>
-                <input
-                  type="number"
-                  name="widthCm"
-                  step="0.01"
-                  min="0"
-                  placeholder="e.g. 14.5"
-                  value={formData.widthCm}
-                  onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
-                />
-              </div>
-
-              {/* Height */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-700">
-                  Height (cm)
-                </label>
-                <input
-                  type="number"
-                  name="heightCm"
-                  step="0.01"
-                  min="0"
-                  placeholder="e.g. 21.0"
-                  value={formData.heightCm}
-                  onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
-                />
-              </div>
-
-              {/* Depth */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-700">
-                  Depth / Spine (cm)
-                </label>
-                <input
-                  type="number"
-                  name="depthCm"
-                  step="0.01"
-                  min="0"
-                  placeholder="e.g. 2.8"
-                  value={formData.depthCm}
-                  onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
-                />
-              </div>
+            <div className="min-h-[160px] rounded-xl border border-slate-200 overflow-hidden bg-white">
+              <TextEditorEdit
+                value={formData.description}
+                onChange={(content) =>
+                  setFormData((prev) => ({ ...prev, description: content }))
+                }
+              />
             </div>
           </div>
 
           <hr className="border-slate-200" />
 
-          {/* 5. Images Gallery & Uploads */}
+          {/* 7. Image Uploads & Image Types */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-600 flex items-center gap-2">
-                <ImageIcon className="w-3.5 h-3.5" />
-                Book Images & Covers
-              </h3>
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-600 flex items-center gap-1.5">
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  E-Book Covers & Promo Images
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  Upload cover and promo artwork. Assign accurate image types.
+                </p>
+              </div>
+
               <label
-                htmlFor="book-multi-images"
-                className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition border border-indigo-200 shadow-sm"
+                htmlFor="ebook-images-upload"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold transition cursor-pointer border border-indigo-200"
               >
                 <Plus className="w-3.5 h-3.5" />
-                Upload Images
+                <span>Add Image(s)</span>
               </label>
               <input
-                id="book-multi-images"
+                id="ebook-images-upload"
                 type="file"
                 multiple
                 accept="image/*"
@@ -1254,170 +1399,152 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
 
             {!hasAnyImages ? (
               <label
-                htmlFor="book-multi-images"
-                className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-xl bg-slate-50/60 hover:bg-indigo-50/30 transition cursor-pointer text-center"
+                htmlFor="ebook-images-upload"
+                className="flex flex-col items-center justify-center p-8 rounded-xl border-2 border-dashed border-slate-300 hover:border-indigo-400 bg-slate-50/50 hover:bg-indigo-50/20 transition cursor-pointer text-center"
               >
-                <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2 shadow-sm">
-                  <Upload className="w-5 h-5" />
-                </div>
-                <p className="text-sm font-semibold text-slate-800">
-                  Click to browse and upload book images
+                <Upload className="w-8 h-8 text-slate-400 mb-2" />
+                <p className="text-xs font-semibold text-slate-700">
+                  Click or drag images here
                 </p>
-                <p className="text-xs text-slate-400 mt-1">
-                  Upload cover, back cover, and preview pages (PNG, JPG, WEBP)
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Supports PNG, JPG, WEBP formats
                 </p>
               </label>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3.5">
-                {/* 1. Existing Saved Images */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+                {/* Existing Images */}
                 {existingImages.map((img, idx) => (
                   <div
                     key={`existing-${idx}`}
-                    className="relative group rounded-xl border border-slate-200 bg-white p-2 shadow-sm flex flex-col justify-between overflow-hidden ring-1 ring-slate-100"
+                    className={`relative group rounded-xl border p-2 space-y-2 transition shadow-2xs ${
+                      img.type === "COVER"
+                        ? "border-emerald-500 bg-emerald-50/40 ring-1 ring-emerald-500/30"
+                        : "border-slate-200 bg-slate-50"
+                    }`}
                   >
-                    <div className="relative aspect-[3/4] w-full rounded-lg overflow-hidden bg-slate-100 mb-2">
+                    <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-slate-200">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={img.url}
-                        alt={`Existing #${idx + 1}`}
+                        alt="E-Book existing preview"
                         className="w-full h-full object-cover"
                       />
-                      <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-bold uppercase tracking-wider shadow-xs">
-                        Saved
-                      </span>
+                      {img.type === "COVER" && (
+                        <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[9px] font-bold shadow-md">
+                          COVER ⭐
+                        </span>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleRemoveExistingImage(idx)}
-                        className="absolute top-1.5 right-1.5 p-1 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-md transition opacity-90 hover:opacity-100 cursor-pointer"
-                        title="Remove image"
+                        className="absolute top-1.5 right-1.5 p-1 rounded-full bg-rose-600 text-white opacity-0 group-hover:opacity-100 transition shadow-sm cursor-pointer"
+                        title="Remove Image"
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <X className="w-3 h-3" />
                       </button>
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
-                        Image Type
-                      </label>
-                      <select
-                        value={img.type}
-                        onChange={(e) =>
-                          handleExistingImageTypeChange(idx, e.target.value)
-                        }
-                        className="w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700 font-medium outline-none focus:border-indigo-500 cursor-pointer"
-                      >
-                        {IMAGE_TYPE_OPTIONS.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <select
+                      value={img.type}
+                      onChange={(e) =>
+                        handleExistingImageTypeChange(idx, e.target.value)
+                      }
+                      className={`w-full rounded-md border px-2 py-1 text-[11px] font-semibold outline-none transition cursor-pointer ${
+                        img.type === "COVER"
+                          ? "border-emerald-400 bg-white text-emerald-800"
+                          : "border-slate-200 bg-white text-slate-700"
+                      }`}
+                    >
+                      {IMAGE_TYPE_OPTIONS.map((t) => (
+                        <option key={t} value={t}>
+                          {t === "COVER" ? "⭐ COVER (Main)" : t}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 ))}
 
-                {/* 2. Newly Uploaded Images */}
+                {/* Newly Uploaded Images */}
                 {uploadedImages.map((img, idx) => (
                   <div
-                    key={`new-${idx}`}
-                    className="relative group rounded-xl border border-indigo-200 bg-indigo-50/20 p-2 shadow-sm flex flex-col justify-between overflow-hidden"
+                    key={`uploaded-${idx}`}
+                    className={`relative group rounded-xl border p-2 space-y-2 transition shadow-2xs ${
+                      img.type === "COVER"
+                        ? "border-emerald-500 bg-emerald-50/40 ring-1 ring-emerald-500/30"
+                        : "border-indigo-200 bg-indigo-50/40"
+                    }`}
                   >
-                    <div className="relative aspect-[3/4] w-full rounded-lg overflow-hidden bg-slate-100 mb-2">
+                    <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-slate-200">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={img.preview}
-                        alt={`New Upload #${idx + 1}`}
+                        alt="E-Book new upload"
                         className="w-full h-full object-cover"
                       />
-                      <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-indigo-600 text-white text-[9px] font-bold uppercase tracking-wider shadow-xs">
-                        New
-                      </span>
+                      {img.type === "COVER" && (
+                        <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[9px] font-bold shadow-md">
+                          COVER ⭐
+                        </span>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleRemoveUploadedImage(idx)}
-                        className="absolute top-1.5 right-1.5 p-1 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-md transition opacity-90 hover:opacity-100 cursor-pointer"
-                        title="Remove image"
+                        className="absolute top-1.5 right-1.5 p-1 rounded-full bg-rose-600 text-white opacity-0 group-hover:opacity-100 transition shadow-sm cursor-pointer"
+                        title="Remove Image"
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <X className="w-3 h-3" />
                       </button>
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wider block">
-                        Image Type
-                      </label>
-                      <select
-                        value={img.type}
-                        onChange={(e) =>
-                          handleUploadedImageTypeChange(idx, e.target.value)
-                        }
-                        className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 font-medium outline-none focus:border-indigo-500 cursor-pointer"
-                      >
-                        {IMAGE_TYPE_OPTIONS.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <select
+                      value={img.type}
+                      onChange={(e) =>
+                        handleUploadedImageTypeChange(idx, e.target.value)
+                      }
+                      className={`w-full rounded-md border px-2 py-1 text-[11px] font-semibold outline-none transition cursor-pointer ${
+                        img.type === "COVER"
+                          ? "border-emerald-400 bg-white text-emerald-800"
+                          : "border-slate-200 bg-white text-slate-700"
+                      }`}
+                    >
+                      {IMAGE_TYPE_OPTIONS.map((t) => (
+                        <option key={t} value={t}>
+                          {t === "COVER" ? "⭐ COVER (Main)" : t}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 ))}
-
-                {/* Add More button */}
-                <label
-                  htmlFor="book-multi-images"
-                  className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-xl bg-slate-50/50 hover:bg-indigo-50/30 cursor-pointer transition aspect-[3/4] text-slate-400 hover:text-indigo-600 p-2"
-                >
-                  <Plus className="w-6 h-6 mb-1" />
-                  <span className="text-xs font-semibold">Add More</span>
-                </label>
               </div>
             )}
           </div>
-
-          <hr className="border-slate-200" />
-
-          {/* 6. Description (Rich Text Editor) */}
-          <div className="space-y-2">
-            <label className="block text-xs font-bold uppercase tracking-wider text-indigo-600">
-              Book Description & Summary
-            </label>
-            <TextEditorEdit
-              key={bookToEdit?.id ? `edit-book-${bookToEdit.id}` : "new-book"}
-              initialHtml={formData.description}
-              value={formData.description}
-              onChange={(val) =>
-                setFormData((prev) => ({ ...prev, description: val }))
-              }
-            />
-          </div>
         </form>
 
-        {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50/80">
+        {/* Modal Footer */}
+        <div className="flex items-center justify-end gap-2.5 px-6 py-3.5 border-t border-slate-200 bg-slate-50/80">
           <button
             type="button"
             disabled={isSubmitting}
             onClick={handleClose}
-            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition shadow-sm disabled:opacity-50 cursor-pointer"
+            className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 transition disabled:opacity-50 cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
-            form="add-book-form"
+            form="add-ebook-form"
             disabled={isSubmitting}
-            className="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-md transition disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition disabled:opacity-50 cursor-pointer shadow-md shadow-indigo-600/20"
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Saving Book...
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Saving E-Book...</span>
               </>
             ) : (
               <>
-                <Save className="w-4 h-4" />
-                Save Book
+                <Save className="w-3.5 h-3.5" />
+                <span>{bookToEdit ? "Update E-Book" : "Save E-Book"}</span>
               </>
             )}
           </button>
@@ -1427,4 +1554,4 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
   );
 };
 
-export default AddBookDialog;
+export default AddEBooksDailog;

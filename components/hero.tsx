@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   BarChart3,
   BookMarked,
   BookOpen,
+  Bookmark,
   ChevronLeft,
   ChevronRight,
   CircleHelp,
@@ -21,7 +23,7 @@ import {
   UserRound,
 } from "lucide-react";
 
-import { axiosAuthInstance } from "@/utils/axiosInstances";
+import { axiosAuthInstance, axiosInstance } from "@/utils/axiosInstances";
 
 interface Banner {
   id: string | number;
@@ -32,21 +34,13 @@ interface Banner {
   imagePath?: string;
 }
 
-const categories = [
-  { name: "Fiction", icon: BookOpen },
-  { name: "Non-Fiction", icon: FileText },
-  { name: "Biography", icon: UserRound },
-  { name: "Self Help", icon: CircleHelp },
-  { name: "Business & Economics", icon: BarChart3 },
-  { name: "Children's Books", icon: UserRound },
-  { name: "Science & Technology", icon: BookOpen },
-  { name: "Education", icon: GraduationCap },
-  { name: "Health & Fitness", icon: Heart },
-  { name: "Nepali Literature", icon: Mountain },
-  { name: "Religious & Spirituality", icon: BookMarked },
-  { name: "Travel & Maps", icon: Plane },
-  { name: "Poetry & Drama", icon: PenTool },
-];
+export interface GenreItem {
+  id: string | number;
+  name: string;
+  englishName?: string;
+  icon?: string;
+  [key: string]: any;
+}
 
 const features = [
   {
@@ -116,10 +110,12 @@ const getBannerImage = (banner: Banner) => {
 
 export default function Hero() {
   const [banners, setBanners] = useState<Banner[]>([]);
+  const [genres, setGenres] = useState<GenreItem[]>([]);
   const [displayIndex, setDisplayIndex] = useState(1);
   const [withTransition, setWithTransition] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
 
+  // Fetch Banners
   useEffect(() => {
     const fetchBanners = async () => {
       try {
@@ -135,6 +131,26 @@ export default function Hero() {
     };
 
     fetchBanners();
+  }, []);
+
+  // Fetch Genres via /v1/genre
+  useEffect(() => {
+    const fetchGenres = async () => {
+      try {
+        const response = await axiosInstance.get("/v1/genre");
+        const data = response.data;
+        const genreList = Array.isArray(data)
+          ? data
+          : data?.data || data?.genres || [];
+        if (genreList.length > 0) {
+          setGenres(genreList);
+        }
+      } catch (error) {
+        console.error("Failed to fetch genres:", error);
+      }
+    };
+
+    fetchGenres();
   }, []);
 
   const slides =
@@ -166,27 +182,21 @@ export default function Hero() {
   }, [slides.length, isHovered]);
 
   const handleTransitionEnd = () => {
-    if (slides.length <= 1) return;
-
-    if (displayIndex === extendedSlides.length - 1) {
-      // Reached clone of the first slide -> jump back to real first slide invisibly
+    if (displayIndex >= extendedSlides.length - 1) {
       setWithTransition(false);
       setDisplayIndex(1);
-    } else if (displayIndex === 0) {
-      // Reached clone of the last slide -> jump forward to real last slide invisibly
+    } else if (displayIndex <= 0) {
       setWithTransition(false);
       setDisplayIndex(slides.length);
     }
   };
 
-  const handlePrevious = () => {
-    if (slides.length <= 1) return;
+  const handlePrev = () => {
     setWithTransition(true);
     setDisplayIndex((prev) => prev - 1);
   };
 
   const handleNext = () => {
-    if (slides.length <= 1) return;
     setWithTransition(true);
     setDisplayIndex((prev) => prev + 1);
   };
@@ -204,30 +214,40 @@ export default function Hero() {
   return (
     <section className="mx-auto w-full max-w-[1400px] px-3 py-3">
       <div className="flex gap-3">
-        {/* Categories */}
-        <aside className="hidden w-[195px] shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-white lg:block">
-          <div className="border-b border-gray-200 bg-gray-50 px-3 py-2">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-gray-800">
-              Shop by Category
+        {/* Categories / Genres Sidebar */}
+        <aside className="hidden w-[210px] shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-white lg:block shadow-2xs">
+          <div className="border-b border-gray-200 bg-gray-50 px-3 py-2 flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-gray-800 flex items-center gap-1.5">
+              <Bookmark className="w-3.5 h-3.5 text-[#1749A0]" />
+              <span>Shop by Genre</span>
             </h2>
           </div>
 
-          <div className="divide-y divide-gray-100">
-            {categories.map(({ name, icon: Icon }) => (
-              <button
-                key={name}
-                type="button"
-                className="group flex w-full items-center justify-between px-2.5 py-[6px] text-left transition hover:bg-gray-50"
+          <div className="divide-y divide-gray-100 max-h-[385px] overflow-y-auto">
+            {genres.slice(0, 13).map((genre) => (
+              <Link
+                key={genre.id}
+                href={`/books?genre=${genre.id}`}
+                className="group flex w-full items-center justify-between px-2.5 py-[7px] text-left transition hover:bg-gray-50"
               >
-                <span className="flex min-w-0 items-center gap-1.5">
-                  <Icon
-                    size={12}
-                    strokeWidth={1.5}
-                    className="shrink-0 text-gray-500 transition group-hover:text-[#1749A0]"
-                  />
+                <span className="flex min-w-0 items-center gap-2">
+                  {genre.icon ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={genre.icon}
+                      alt={genre.name || ""}
+                      className="w-3.5 h-3.5 object-contain shrink-0"
+                    />
+                  ) : (
+                    <Bookmark
+                      size={12}
+                      strokeWidth={1.5}
+                      className="shrink-0 text-gray-500 transition group-hover:text-[#1749A0]"
+                    />
+                  )}
 
-                  <span className="truncate text-sm font-medium text-gray-600 transition group-hover:text-[#1749A0]">
-                    {name}
+                  <span className="truncate text-xs font-medium text-gray-700 transition group-hover:text-[#1749A0]">
+                    {genre.name || genre.englishName}
                   </span>
                 </span>
 
@@ -235,23 +255,21 @@ export default function Hero() {
                   size={11}
                   className="shrink-0 text-gray-300 transition group-hover:text-[#1749A0]"
                 />
-              </button>
+              </Link>
             ))}
 
-            <button
-              type="button"
-              className="flex w-full items-center gap-1.5 px-2.5 py-2 text-sm font-semibold text-[#1749A0] transition hover:bg-blue-50"
+            <Link
+              href="/books"
+              className="flex w-full items-center gap-1.5 px-2.5 py-2 text-xs font-semibold text-[#1749A0] transition hover:bg-blue-50"
             >
               <BookOpen size={12} />
-
-              <span>View All Categories</span>
-
+              <span>View All Genres</span>
               <ChevronRight size={11} className="ml-auto" />
-            </button>
+            </Link>
           </div>
         </aside>
 
-        {/* Hero */}
+        {/* Hero Banner Carousel */}
         <div
           className="group relative flex min-h-[360px] flex-1 flex-col overflow-hidden rounded-lg bg-[#071020]"
           onMouseEnter={() => setIsHovered(true)}
@@ -260,155 +278,129 @@ export default function Hero() {
           {/* Slides */}
           <div className="relative min-h-[250px] flex-1 overflow-hidden">
             <div
-              onTransitionEnd={handleTransitionEnd}
-              className={`flex h-full ${
-                withTransition
-                  ? "transition-transform duration-700 ease-in-out"
-                  : ""
-              }`}
+              className="flex h-full"
               style={{
                 transform: `translateX(-${currentTranslateIndex * 100}%)`,
+                transition: withTransition
+                  ? "transform 700ms cubic-bezier(0.4, 0, 0.2, 1)"
+                  : "none",
               }}
+              onTransitionEnd={handleTransitionEnd}
             >
               {extendedSlides.map((slide, index) => (
                 <div
                   key={`${slide.id}-${index}`}
-                  className="relative flex h-full min-w-full items-center"
+                  className="relative flex h-full min-w-full shrink-0 items-center justify-between overflow-hidden px-5 py-6 sm:px-10"
                 >
-                  {slide.image ? (
-                    <>
-                      <img
-                        src={slide.image}
-                        alt={slide.title}
-                        loading="lazy"
-                        draggable={false}
-                        className="absolute inset-0 h-full w-full object-cover"
-                      />
-
-                      <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
-
-                      <div className="relative z-10 max-w-[500px] px-5 py-8 sm:px-8">
-                        <h1 className="text-xl font-extrabold leading-tight text-white sm:text-2xl md:text-[28px]">
-                          {slide.title}
-                        </h1>
-
-                        <p className="mt-2 text-xs text-gray-200 sm:text-sm">
-                          {slide.subtitle}
-                        </p>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="relative flex h-full w-full items-center px-5 py-8 sm:px-8">
-                      <div className="absolute inset-0 bg-gradient-to-r from-[#071020] via-[#071020]/90 to-[#071020]/40" />
-
-                      <div className="relative z-10 max-w-[420px]">
-                        <h1 className="text-xl font-extrabold leading-tight tracking-tight text-white sm:text-2xl md:text-[29px]">
-                          {slide.title.includes("पढ्ने बानी") ? (
-                            <>
-                              पढ्ने बानी, सफलताको
-                              <br />
-                              <span className="text-[#F59E0B]">
-                                पहिलो पाइला ।
-                              </span>
-                            </>
-                          ) : (
-                            slide.title
-                          )}
-                        </h1>
-
-                        <p className="mt-3 max-w-[350px] text-xs leading-relaxed text-gray-300 sm:text-sm">
-                          {slide.subtitle}
-                        </p>
-                      </div>
-
-                      <div className="relative z-10 ml-auto mr-4 hidden h-[118px] w-[80px] shrink-0 border-l-[3px] border-[#2774E8] bg-[#06101F] shadow-lg md:block">
-                        <div className="flex h-full flex-col items-center justify-center p-1">
-                          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#082969] p-1 text-center">
-                            <span className="text-[7px] font-bold leading-tight text-white">
-                              किताबलाई
-                              <br />
-                              घरमै लैजानुहोस्
-                            </span>
-                          </div>
-
-                          <span className="mt-2 text-[6px] font-medium text-gray-400">
-                            Nepsole
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+                  {slide.image && (
+                    <div
+                      className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-700 group-hover:scale-105"
+                      style={{ backgroundImage: `url("${slide.image}")` }}
+                    />
                   )}
+
+                  {slide.image && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-[#030914]/90 via-[#071020]/75 to-transparent" />
+                  )}
+
+                  <div className="relative z-10 max-w-[500px]">
+                    <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-medium text-blue-200 backdrop-blur-sm">
+                      <BookOpen size={11} />
+                      Welcome to Nepsole
+                    </span>
+
+                    <h1 className="text-xl font-bold leading-snug text-white sm:text-2xl md:text-3xl">
+                      {slide.title}
+                    </h1>
+
+                    <p className="mt-2 text-xs leading-relaxed text-blue-100 sm:text-sm">
+                      {slide.subtitle}
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap items-center gap-2.5">
+                      <Link
+                        href="/books"
+                        className="rounded-md bg-[#1749A0] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#123980]"
+                      >
+                        Explore Books
+                      </Link>
+
+                      <Link
+                        href="/eBooks"
+                        className="rounded-md border border-white/25 bg-white/10 px-4 py-2 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-white/20"
+                      >
+                        Browse E-Books
+                      </Link>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
 
-            {/* Navigation */}
+            {/* Arrows */}
             {slides.length > 1 && (
               <>
                 <button
                   type="button"
-                  onClick={handlePrevious}
-                  aria-label="Previous slide"
-                  className="absolute left-2 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white opacity-0 backdrop-blur-sm transition hover:bg-black/70 group-hover:opacity-100"
+                  onClick={handlePrev}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/40 p-1.5 text-white opacity-0 backdrop-blur-sm transition group-hover:opacity-100 hover:bg-black/60 cursor-pointer"
+                  aria-label="Previous Slide"
                 >
-                  <ChevronLeft size={20} />
+                  <ChevronLeft size={16} />
                 </button>
 
                 <button
                   type="button"
                   onClick={handleNext}
-                  aria-label="Next slide"
-                  className="absolute right-2 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white opacity-0 backdrop-blur-sm transition hover:bg-black/70 group-hover:opacity-100"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/40 p-1.5 text-white opacity-0 backdrop-blur-sm transition group-hover:opacity-100 hover:bg-black/60 cursor-pointer"
+                  aria-label="Next Slide"
                 >
-                  <ChevronRight size={20} />
+                  <ChevronRight size={16} />
                 </button>
               </>
             )}
+
+            {/* Dots */}
+            {slides.length > 1 && (
+              <div className="absolute bottom-2.5 left-1/2 flex -translate-x-1/2 items-center gap-1.5">
+                {slides.map((_, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => handleDotClick(index)}
+                    className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                      activeDotIndex === index
+                        ? "w-6 bg-white"
+                        : "w-1.5 bg-white/40 hover:bg-white/70"
+                    }`}
+                    aria-label={`Go to slide ${index + 1}`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Features */}
-          <div className="border-t border-gray-800/60 bg-[#061020]/95 px-4 py-3 sm:px-8 sm:py-4">
-            <div className="grid grid-cols-2 items-center gap-3 sm:grid-cols-4 sm:gap-6">
+          {/* Features Strip */}
+          <div className="relative z-10 border-t border-white/10 bg-white/5 backdrop-blur-sm">
+            <div className="grid grid-cols-2 divide-x divide-white/10 py-2 sm:grid-cols-4">
               {features.map(({ icon: Icon, title, subtitle }) => (
                 <div
                   key={title}
-                  className="flex min-w-0 items-center gap-2 sm:gap-3"
+                  className="flex items-center gap-2 px-3 py-1 text-white sm:px-4"
                 >
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gray-500/60 bg-[#172235] sm:h-8 sm:w-8">
-                    <Icon size={13} strokeWidth={1.5} className="text-white" />
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/10 text-blue-300">
+                    <Icon size={14} />
                   </div>
 
                   <div className="min-w-0">
-                    <p className="truncate text-xs font-bold text-white sm:text-sm">
-                      {title}
-                    </p>
-
-                    <p className="mt-0.5 truncate text-[10px] text-gray-400">
+                    <p className="truncate text-xs font-bold">{title}</p>
+                    <p className="truncate text-[10px] text-blue-200">
                       {subtitle}
                     </p>
                   </div>
                 </div>
               ))}
             </div>
-
-            {/* Dots */}
-            {slides.length > 1 && (
-              <div className="mt-3 flex justify-center gap-1.5">
-                {slides.map((slide, index) => (
-                  <button
-                    key={slide.id || index}
-                    type="button"
-                    onClick={() => handleDotClick(index)}
-                    aria-label={`Go to slide ${index + 1}`}
-                    className={`h-1.5 rounded-full transition-all ${
-                      activeDotIndex === index
-                        ? "w-6 bg-[#2879F0]"
-                        : "w-1.5 bg-gray-500 hover:bg-gray-400"
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
           </div>
         </div>
       </div>

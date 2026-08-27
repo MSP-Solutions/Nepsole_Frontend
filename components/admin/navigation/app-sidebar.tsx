@@ -2,6 +2,7 @@
 
 import {
   AlertTriangle,
+  Book,
   BookOpen,
   Building2,
   ChevronLeft,
@@ -60,6 +61,11 @@ const navigation: NavItem[] = [
     icon: BookOpen,
   },
   {
+    title: "E-Books",
+    url: "/admin/eBooks",
+    icon: Book,
+  },
+  {
     title: "Books",
     url: "/admin/books",
     icon: BookOpen,
@@ -96,7 +102,7 @@ function SidebarFooterActions({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div className="flex flex-col gap-1 px-1 py-1">
-      <button
+      {/* <button
         type="button"
         onClick={toggleSidebar}
         title={!open ? "Expand" : "Collapse"}
@@ -106,7 +112,7 @@ function SidebarFooterActions({ onLogout }: { onLogout: () => void }) {
           className={`h-4 w-4 shrink-0 transition-transform duration-200 ${!open ? "rotate-180" : ""}`}
         />
         {open && <span>Collapse</span>}
-      </button>
+      </button> */}
 
       <button
         type="button"

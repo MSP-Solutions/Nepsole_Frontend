@@ -20,6 +20,7 @@ const navLinks = [
   { name: "Books", href: "/books" },
   { name: "Authors", href: "/authors" },
   { name: "Publishers", href: "/publishers" },
+  { name: "E-Books", href: "/eBooks" },
 ];
 
 const Header = () => {
@@ -143,7 +144,7 @@ const Header = () => {
             {/* Browse Categories */}
             <button className="flex h-[30px] items-center gap-2 rounded bg-[#0F2557] px-3 text-sm font-semibold text-white hover:bg-[#1749A0] transition-colors">
               <Menu size={13} />
-              <span>Browse Categories</span>
+              <span>Browse Genre</span>
               <ChevronDown size={11} />
             </button>
 
