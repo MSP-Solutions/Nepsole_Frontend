@@ -1,14 +1,20 @@
 import Cookies from "js-cookie";
 
 const USER_COOKIE = "nepsole";
+export const AUTH_CHANGE_EVENT = "nepsole-auth-change";
+export const CART_CHANGE_EVENT = "nepsole-cart-change";
 
 export interface UserCookie {
   accessToken: string;
-  refreshToken: string;
-  tokenType: string;
-  id: number | string;
-  email: string;
+  refreshToken?: string;
+  tokenType?: string;
+  id?: number | string;
+  email?: string;
+  name?: string;
+  fullName?: string;
+  username?: string;
   role: "USER" | "ADMIN" | string;
+  [key: string]: any;
 }
 
 export const decodeJwt = (token: string): Record<string, any> | null => {
@@ -25,6 +31,29 @@ export const decodeJwt = (token: string): Record<string, any> | null => {
   } catch {
     return null;
   }
+};
+
+export const getUserDisplayName = (user: any): string => {
+  if (!user) return "";
+  const name =
+    user.name ||
+    user.fullName ||
+    user.fullname ||
+    user.username ||
+    user.userName ||
+    (user.firstName ? `${user.firstName} ${user.lastName || ""}`.trim() : "") ||
+    (user.email ? user.email.split("@")[0] : "") ||
+    "User";
+  return name;
+};
+
+export const getUserInitials = (name: string): string => {
+  if (!name) return "U";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
 };
 
 export const setUserCookie = async (
@@ -48,6 +77,10 @@ export const setUserCookie = async (
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
   });
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
+  }
 };
 
 export const getUserCookie = async (): Promise<UserCookie | null> => {
@@ -84,5 +117,9 @@ export const clearCookies = async () => {
       Cookies.remove(cookieName);
       Cookies.remove(cookieName, { path: "/" });
     });
+  }
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
   }
 };

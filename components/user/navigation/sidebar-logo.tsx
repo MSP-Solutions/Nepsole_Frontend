@@ -4,7 +4,8 @@ import Link from "next/link";
 export default function SidebarLogo() {
   return (
     <Link
-      href="/user/dashboard"
+      href="/"
+      title="Go to Bookstore Landing Page"
       className="flex items-center gap-3 px-2 py-2 group"
     >
       <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600/90 text-white font-bold shadow-md shrink-0">

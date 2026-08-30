@@ -34,8 +34,12 @@ export default function NavMain({ items }: NavMainProps) {
         <SidebarMenu className="gap-1.5">
           {items.map((item) => {
             const isActive =
-              pathname === item.url ||
-              (item.url !== "/admin/dashboard" && pathname.startsWith(item.url));
+              item.url === "/"
+                ? pathname === "/"
+                : pathname === item.url ||
+                  (item.url !== "/admin/dashboard" &&
+                    item.url !== "/user/dashboard" &&
+                    pathname.startsWith(item.url));
 
             return (
               <SidebarMenuItem key={item.title}>

@@ -3,7 +3,8 @@
 import Footer from "@/components/footer";
 import Header from "@/components/header";
 import TopHeader from "@/components/topHeader";
-import { axiosInstance } from "@/utils/axiosInstances";
+import { axiosAuthInstance, axiosInstance } from "@/utils/axiosInstances";
+import { CART_CHANGE_EVENT, getUserCookie } from "@/utils/cookies";
 import { parseQuillContent } from "@/utils/quillDecoder";
 import {
   Award,
@@ -30,6 +31,7 @@ import {
   User,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import React, { use, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -121,6 +123,7 @@ export default function BookDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
 
   const [book, setBook] = useState<BookDetail | null>(null);
   const [recommendedBooks, setRecommendedBooks] = useState<BookDetail[]>([]);
@@ -129,6 +132,7 @@ export default function BookDetailPage({
   const [quantity, setQuantity] = useState<number>(1);
   const [activeTab, setActiveTab] = useState<string>("Description");
   const [isWishlisted, setIsWishlisted] = useState<boolean>(false);
+  const [isAddingToCart, setIsAddingToCart] = useState<boolean>(false);
 
   // Fetch Book Details from /v1/book/:id
   useEffect(() => {
@@ -265,6 +269,114 @@ export default function BookDetailPage({
       sub: "Unbeatable Prices",
     },
   ];
+
+  // Helper for cover image
+  const getCoverImageForCart = (b: BookDetail): string | undefined => {
+    const list = b.images || b.bookImages || [];
+    if (!list.length) return undefined;
+    const cover: any = list.find((img: any) =>
+      typeof img === "object" && (img?.imageType === "COVER" || img?.type === "COVER")
+    );
+    if (cover && typeof cover === "object") return cover.url || cover.imageUrl;
+    const first: any = list[0];
+    if (typeof first === "string") return first;
+    if (typeof first === "object") return first?.url || first?.imageUrl;
+    return undefined;
+  };
+
+  // Add to Cart handler (/v1/cart)
+  const handleAddToCart = async (showToast = true): Promise<boolean> => {
+    if (!book) return false;
+    setIsAddingToCart(true);
+
+    try {
+      const user = await getUserCookie();
+      const numId = Number(book.id) || Number(id);
+
+      if (user?.accessToken) {
+        // User is logged in: Call POST /v1/cart
+        try {
+          await axiosAuthInstance.post("/v1/cart", {
+            bookId: !isNaN(numId) ? numId : id,
+            quantity: quantity,
+          });
+        } catch (err: any) {
+          if (err?.response?.status === 404) {
+            await axiosAuthInstance.post("/api/v1/cart", {
+              bookId: !isNaN(numId) ? numId : id,
+              quantity: quantity,
+            });
+          } else {
+            throw err;
+          }
+        }
+      }
+
+      // Sync local cart for fallback/guest support
+      try {
+        const coverImg = getCoverImageForCart(book);
+        const primaryAuthor = authorsList[0]?.name || "Nepsole Author";
+        const primaryGenre = genresList[0]?.name || "General";
+
+        const saved = localStorage.getItem("nepsole_cart");
+        let currentCart: any[] = [];
+        if (saved) {
+          try {
+            currentCart = JSON.parse(saved);
+          } catch {}
+        }
+        if (!Array.isArray(currentCart)) currentCart = [];
+
+        const existingIdx = currentCart.findIndex(
+          (c: any) => String(c.bookId) === String(book.id) || String(c.id) === String(book.id)
+        );
+
+        if (existingIdx >= 0) {
+          currentCart[existingIdx].quantity = (currentCart[existingIdx].quantity || 1) + quantity;
+        } else {
+          currentCart.push({
+            id: `item-${book.id}-${Date.now()}`,
+            bookId: book.id,
+            title: book.title,
+            author: primaryAuthor,
+            price: discountedPrice,
+            originalPrice: priceNum,
+            discountPercent: discountNum,
+            quantity: quantity,
+            coverImage: coverImg,
+            format: "Paperback",
+            stock: Number(book.stock) || 10,
+            genre: primaryGenre,
+          });
+        }
+
+        localStorage.setItem("nepsole_cart", JSON.stringify(currentCart));
+      } catch {}
+
+      // Notify header and other components
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event(CART_CHANGE_EVENT));
+      }
+
+      if (showToast) {
+        toast.success(`Added ${quantity} copy(ies) to cart!`);
+      }
+      return true;
+    } catch (error: any) {
+      console.error("Add to Cart Error:", error);
+      toast.error(error?.response?.data?.message || "Failed to add book to cart.");
+      return false;
+    } finally {
+      setIsAddingToCart(false);
+    }
+  };
+
+  const handleBuyNow = async () => {
+    const success = await handleAddToCart(false);
+    if (success) {
+      router.push("/cart");
+    }
+  };
 
   if (isLoading) {
     return (
@@ -662,18 +774,26 @@ export default function BookDetailPage({
               <div className="space-y-2 pt-2">
                 <button
                   type="button"
-                  disabled={isOutOfStock}
-                  onClick={() =>
-                    toast.success(`Added ${quantity} copy(ies) to cart!`)
-                  }
+                  disabled={isOutOfStock || isAddingToCart}
+                  onClick={() => handleAddToCart(true)}
                   className="w-full py-2.5 bg-amber-400 hover:bg-amber-500 font-bold text-slate-950 rounded-xl transition-all shadow-xs text-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <ShoppingCart className="w-4 h-4" /> Add to Cart
+                  {isAddingToCart ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Adding to Cart...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCart className="w-4 h-4" />
+                      <span>Add to Cart</span>
+                    </>
+                  )}
                 </button>
                 <button
                   type="button"
-                  disabled={isOutOfStock}
-                  onClick={() => toast.success("Proceeding to checkout...")}
+                  disabled={isOutOfStock || isAddingToCart}
+                  onClick={handleBuyNow}
                   className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 font-bold text-white rounded-xl transition-all shadow-xs text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Buy Now

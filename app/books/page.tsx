@@ -3,7 +3,9 @@
 import Footer from "@/components/footer";
 import Header from "@/components/header";
 import TopHeader from "@/components/topHeader";
-import { axiosInstance } from "@/utils/axiosInstances";
+import { axiosAuthInstance, axiosInstance } from "@/utils/axiosInstances";
+import { getUserCookie } from "@/utils/cookies";
+import toast from "react-hot-toast";
 import {
   ArrowUpDown,
   Bookmark,
@@ -169,6 +171,32 @@ export default function BooksPage() {
     fetchBooks();
   }, []);
 
+  // Fetch existing wishlist for authenticated user
+  useEffect(() => {
+    const fetchUserWishlist = async () => {
+      try {
+        const user = await getUserCookie();
+        if (!user?.accessToken) return;
+
+        const res = await axiosAuthInstance.get("/v1/wishlist");
+        const data =
+          res.data?.data || res.data?.wishlist || res.data?.items || res.data || [];
+        if (Array.isArray(data)) {
+          const map: Record<string, boolean> = {};
+          data.forEach((item: any) => {
+            const bId = item?.bookId || item?.book?.id || item?.id;
+            if (bId) map[String(bId)] = true;
+          });
+          setWishlistedBookIds(map);
+        }
+      } catch (err) {
+        // Silently ignore if not logged in or endpoint format differs
+      }
+    };
+
+    fetchUserWishlist();
+  }, []);
+
   // Helpers
   const getCoverImage = (book: BookItem): string | null => {
     const imagesList = book.images || book.bookImages || [];
@@ -195,11 +223,57 @@ export default function BooksPage() {
     return list[0].name || list[0].englishName || list[0].genre?.name || "";
   };
 
-  const toggleWishlist = (id: number | string) => {
-    setWishlistedBookIds((prev) => ({
-      ...prev,
-      [String(id)]: !prev[String(id)],
-    }));
+  const toggleWishlist = async (id: number | string) => {
+    try {
+      const user = await getUserCookie();
+      if (!user?.accessToken) {
+        toast.error("Please login to save books to your wishlist");
+        return;
+      }
+
+      const strId = String(id);
+      const isCurrentlyWishlisted = Boolean(wishlistedBookIds[strId]);
+
+      // Optimistic UI toggle
+      setWishlistedBookIds((prev) => ({
+        ...prev,
+        [strId]: !isCurrentlyWishlisted,
+      }));
+
+      const numId = Number(id);
+      let response;
+      try {
+        response = await axiosAuthInstance.post("/v1/wishlist/toggle", {
+          bookId: isNaN(numId) ? id : numId,
+        });
+      } catch (err: any) {
+        // Fallback with string id
+        response = await axiosAuthInstance.post("/v1/wishlist/toggle", {
+          bookId: id,
+        });
+      }
+
+      const resMsg = response?.data?.message;
+      if (resMsg) {
+        toast.success(resMsg);
+      } else if (!isCurrentlyWishlisted) {
+        toast.success("Added to wishlist!");
+      } else {
+        toast.success("Removed from wishlist");
+      }
+    } catch (error: any) {
+      console.error("Wishlist Toggle Error:", error);
+      // Revert optimistic update
+      setWishlistedBookIds((prev) => ({
+        ...prev,
+        [String(id)]: !prev[String(id)],
+      }));
+      const msg =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        "Failed to update wishlist. Please try again.";
+      toast.error(msg);
+    }
   };
 
   // Filter & Sort Logic

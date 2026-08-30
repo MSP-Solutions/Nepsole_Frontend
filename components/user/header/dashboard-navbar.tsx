@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Bell } from "lucide-react";
+import { Bell, BookOpen, ExternalLink } from "lucide-react";
 import { usePathname } from "next/navigation";
 import UserMenu from "./user-menu";
 
@@ -36,7 +37,18 @@ export default function DashboardNavbar() {
         <span className="font-semibold text-gray-900">{currentTitle}</span>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2.5 sm:gap-4">
+        {/* Visit Storefront Button */}
+        <Link
+          href="/"
+          title="Return to Bookstore Landing Page"
+          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-600 text-xs font-semibold transition cursor-pointer"
+        >
+          <BookOpen className="h-3.5 w-3.5" />
+          <span>Visit Store</span>
+          <ExternalLink className="h-3 w-3 opacity-60" />
+        </Link>
+
         <button
           type="button"
           aria-label="Notifications"

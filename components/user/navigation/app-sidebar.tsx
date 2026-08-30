@@ -3,15 +3,12 @@
 import {
   AlertTriangle,
   BookOpen,
-  Building2,
-  ChevronLeft,
-  Feather,
+  Heart,
   LayoutGrid,
   Loader2,
   LogOut,
   Settings,
   ShoppingBag,
-  Users,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -38,14 +35,26 @@ import { clearCookies } from "@/utils/cookies";
 
 const navigation: NavItem[] = [
   {
+    title: "Browse Store",
+    url: "/",
+    icon: BookOpen,
+  },
+  {
     title: "Dashboard",
     url: "/user/dashboard",
     icon: LayoutGrid,
   },
+
   {
     title: "Orders",
     url: "/user/orders",
     icon: ShoppingBag,
+  },
+
+  {
+    title: "Wishlist",
+    url: "/user/wishlist",
+    icon: Heart,
   },
   {
     title: "Settings",
