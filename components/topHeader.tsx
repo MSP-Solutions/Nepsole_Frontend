@@ -1,11 +1,10 @@
-import React from "react";
 import {
+  Headphones,
+  Info,
   MapPin,
   ShieldCheck,
-  Info,
-  Headphones,
-  Truck,
   Store,
+  Truck,
 } from "lucide-react";
 
 const TopHeader = () => {
@@ -42,15 +41,9 @@ const TopHeader = () => {
 
           {/* Original Books */}
           <div className="hidden items-center gap-1.5 md:flex">
-            <ShieldCheck
-              size={11}
-              strokeWidth={1.8}
-              className="shrink-0"
-            />
+            <ShieldCheck size={11} strokeWidth={1.8} className="shrink-0" />
 
-            <span className="whitespace-nowrap">
-              100% Original Books
-            </span>
+            <span className="whitespace-nowrap">100% Original Books</span>
           </div>
         </div>
 
@@ -85,30 +78,10 @@ const TopHeader = () => {
             "
           >
             <Headphones size={11} strokeWidth={1.8} />
-            <span className="whitespace-nowrap">
-              Help & Support
-            </span>
+            <span className="whitespace-nowrap">Help & Support</span>
           </a>
 
           <div className="hidden h-3 w-px bg-white/30 md:block" />
-
-          {/* Track Order */}
-          <a
-            href="#"
-            className="
-              hidden items-center gap-1.5
-              px-1.5
-              transition-colors
-              hover:text-gray-300
-              sm:flex
-            "
-          >
-            <Truck size={11} strokeWidth={1.8} />
-            <span className="whitespace-nowrap">
-              Track Order
-            </span>
-          </a>
-
           <div className="hidden h-3 w-px bg-white/30 sm:block" />
 
           {/* Sell on Nepsole */}
@@ -128,9 +101,7 @@ const TopHeader = () => {
               className="shrink-0 sm:h-3 sm:w-3"
             />
 
-            <span className="whitespace-nowrap">
-              Sell on Nepsole
-            </span>
+            <span className="whitespace-nowrap">Sell on Nepsole</span>
 
             {/* New Badge */}
             <span

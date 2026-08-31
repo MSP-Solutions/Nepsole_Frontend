@@ -35,11 +35,6 @@ import { clearCookies } from "@/utils/cookies";
 
 const navigation: NavItem[] = [
   {
-    title: "Browse Store",
-    url: "/",
-    icon: BookOpen,
-  },
-  {
     title: "Dashboard",
     url: "/user/dashboard",
     icon: LayoutGrid,

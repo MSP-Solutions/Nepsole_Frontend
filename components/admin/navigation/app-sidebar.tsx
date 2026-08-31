@@ -14,6 +14,7 @@ import {
   LogOut,
   Settings,
   ShoppingBag,
+  Truck,
   Users,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -91,6 +92,11 @@ const navigation: NavItem[] = [
     icon: Users,
   },
   {
+    title: "Delivery Options",
+    url: "/admin/deliveryOptions",
+    icon: Truck,
+  },
+  {
     title: "Settings",
     url: "/admin/settings",
     icon: Settings,
@@ -98,27 +104,15 @@ const navigation: NavItem[] = [
 ];
 
 function SidebarFooterActions({ onLogout }: { onLogout: () => void }) {
-  const { open, toggleSidebar } = useSidebar();
+  const { open } = useSidebar();
 
   return (
-    <div className="flex flex-col gap-1 px-1 py-1">
-      {/* <button
-        type="button"
-        onClick={toggleSidebar}
-        title={!open ? "Expand" : "Collapse"}
-        className="flex w-full items-center gap-3.5 rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-all cursor-pointer select-none"
-      >
-        <ChevronLeft
-          className={`h-4 w-4 shrink-0 transition-transform duration-200 ${!open ? "rotate-180" : ""}`}
-        />
-        {open && <span>Collapse</span>}
-      </button> */}
-
+    <div className="flex flex-col gap-1">
       <button
         type="button"
         onClick={onLogout}
         title={!open ? "Sign Out" : undefined}
-        className="flex w-full items-center gap-3.5 rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-all cursor-pointer select-none"
+        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[15px] font-medium text-slate-300 hover:bg-white/10 hover:text-white transition-all cursor-pointer select-none"
       >
         <LogOut className="h-4 w-4 shrink-0" />
         {open && <span>Sign Out</span>}
@@ -152,15 +146,15 @@ export default function AppSidebar() {
         variant="sidebar"
         className="bg-[#0b1739] text-slate-200 border-r border-slate-800/40 shadow-xl"
       >
-        <SidebarHeader className="border-b border-slate-800/40 px-3 py-3">
+        <SidebarHeader className="border-b border-slate-800/40 px-2.5 py-2">
           <SidebarLogo />
         </SidebarHeader>
 
-        <SidebarContent className="px-2 py-3">
+        <SidebarContent className="px-2 py-2 overflow-y-auto no-scrollbar">
           <NavMain items={navigation} />
         </SidebarContent>
 
-        <SidebarFooter className="border-t border-slate-800/40 px-2 py-2">
+        <SidebarFooter className="border-t border-slate-800/40 px-2 py-1.5">
           <SidebarFooterActions onLogout={() => setShowLogoutDialog(true)} />
         </SidebarFooter>
       </Sidebar>

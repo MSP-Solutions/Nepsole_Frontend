@@ -24,6 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
 import { axiosAuthInstance } from "@/utils/axiosInstances";
 import {
   AUTH_CHANGE_EVENT,
@@ -47,11 +48,11 @@ const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<UserCookie | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [cartCount, setCartCount] = useState<number>(0);
+  const [cartCount, setCartCount] = useState(0);
+
   const pathname = usePathname();
   const router = useRouter();
 
-  // Load user session from cookie
   const loadUser = async () => {
     try {
       const cookieUser = await getUserCookie();
@@ -63,10 +64,10 @@ const Header = () => {
     }
   };
 
-  // Fetch cart count via /v1/cart/count
   const fetchCartCount = async () => {
     try {
       const cookieUser = await getUserCookie();
+
       if (!cookieUser?.accessToken) {
         setCartCount(0);
         return;
@@ -74,6 +75,7 @@ const Header = () => {
 
       const res = await axiosAuthInstance.get("/v1/cart/count");
       const data = res?.data;
+
       const count =
         data?.data?.distinctItems ??
         data?.distinctItems ??
@@ -91,7 +93,6 @@ const Header = () => {
     loadUser();
     fetchCartCount();
 
-    // Listen to global auth & cart changes
     const handleAuthChange = () => {
       loadUser();
       fetchCartCount();
@@ -116,7 +117,10 @@ const Header = () => {
     try {
       await clearCookies();
       setUser(null);
+      setIsMobileMenuOpen(false);
+
       toast.success("Logged out successfully");
+
       router.push("/");
       router.refresh();
     } catch (error) {
@@ -131,316 +135,339 @@ const Header = () => {
 
   const userName = user ? getUserDisplayName(user) : "";
   const userInitials = user ? getUserInitials(userName) : "";
+
   const isAdmin = user?.role === "ADMIN" || user?.role === "ROLE_ADMIN";
+
   const dashboardLink = isAdmin ? "/admin/dashboard" : "/user/dashboard";
+
   const ordersLink = isAdmin ? "/admin/orders" : "/user/orders";
-  const settingsLink = isAdmin ? "/admin/settings" : "/user/settings";
 
   return (
-    <header className="w-full bg-white border-b border-gray-200 sticky top-0 z-50 shadow-xs">
+    <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white shadow-sm">
       {/* Main Header */}
-      <div className="mx-auto flex min-h-[50px] md:h-[52px] max-w-[1400px] items-center justify-between gap-2 md:gap-4 px-3 md:px-4 py-2 md:py-0">
+      <div className="mx-auto flex min-h-[56px] max-w-[1400px] items-center gap-3 px-3 sm:px-4 lg:px-6">
         {/* Logo */}
-        <Link
-          href="/"
-          className="flex shrink-0 items-center gap-2 hover:opacity-90 transition-opacity"
-        >
-          <div className="flex h-7 w-7 items-center justify-center rounded-md overflow-hidden">
+        <Link href="/" className="shrink-0 transition-opacity hover:opacity-90">
+          <div className="relative h-12 w-12 sm:h-14 sm:w-14 lg:h-16 lg:w-16">
             <Image
               src="/logo.jpg"
               alt="Logo"
-              width={60}
-              height={60}
+              fill
+              priority
+              sizes="64px"
               className="object-contain"
             />
           </div>
         </Link>
 
-        {/* Search Bar - Desktop & Tablet */}
-        <div className="hidden sm:flex h-8 min-w-0 flex-1 overflow-hidden rounded-md border border-[#0F2557]">
-          <input
-            type="text"
-            placeholder="Search by title, author, ISBN, publisher..."
-            className="min-w-0 flex-1 px-3 text-xs text-gray-700 outline-none placeholder:text-gray-400"
-          />
+        {/* Desktop Search */}
+        <div className="hidden min-w-0 max-w-[560px] flex-1 sm:flex ml-50">
+          <div className="flex h-9 w-full overflow-hidden rounded-md border border-[#0F2557] bg-white">
+            <input
+              type="text"
+              placeholder="Search books, authors, ISBN..."
+              className="min-w-0 flex-1 px-3 text-xs text-gray-700 outline-none placeholder:text-gray-400"
+            />
 
-          <button className="hidden lg:flex w-[110px] items-center justify-between border-l border-gray-200 bg-gray-50 px-3 text-xs text-gray-600">
-            <span>All Categories</span>
-            <ChevronDown size={11} />
-          </button>
+            <button
+              type="button"
+              className="hidden w-[105px] items-center justify-between border-l border-gray-200 bg-gray-50 px-2.5 text-[11px] text-gray-600 lg:flex"
+            >
+              <span>All Categories</span>
+              <ChevronDown size={11} />
+            </button>
 
-          <button className="flex w-9 items-center justify-center bg-[#1749A0] text-white hover:bg-[#0F2557] transition-colors">
-            <Search size={14} strokeWidth={2} />
-          </button>
+            <button
+              type="button"
+              className="flex w-9 shrink-0 items-center justify-center bg-[#1749A0] text-white transition-colors hover:bg-[#0F2557]"
+              aria-label="Search"
+            >
+              <Search size={14} strokeWidth={2} />
+            </button>
+          </div>
         </div>
 
-        {/* Cart */}
-        <div className="relative flex shrink-0 items-center gap-1 cursor-pointer">
+        {/* Right Actions */}
+        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2 lg:gap-3">
+          {/* Cart */}
           <Link
             href="/cart"
-            className="relative flex items-center gap-1.5 p-1 sm:px-2 rounded-lg hover:bg-gray-50 text-gray-700 hover:text-[#1749A0] transition-colors"
+            className="relative flex items-center gap-1.5 rounded-lg p-2 text-gray-700 transition-colors hover:bg-gray-50 hover:text-[#1749A0]"
             title="Shopping Cart"
           >
-            <div className="relative flex items-center justify-center">
-              <ShoppingCart
-                size={19}
-                strokeWidth={1.5}
-                className="text-gray-700 hover:text-[#1749A0]"
-              />
-              <span className="absolute -right-2 -top-2 flex min-w-[17px] h-[17px] px-1 items-center justify-center rounded-full bg-[#1749A0] text-[9px] font-bold text-white shadow-2xs">
+            <div className="relative">
+              <ShoppingCart size={19} strokeWidth={1.6} />
+
+              <span className="absolute -right-2 -top-2 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-[#1749A0] px-1 text-[8px] font-bold text-white">
                 {cartCount > 99 ? "99+" : cartCount}
               </span>
             </div>
-            <span className="text-xs font-semibold text-gray-800 hidden md:inline">
-              Cart
-            </span>
-          </Link>
-        </div>
-        {/* Action Icons */}
-        <div className="flex items-center gap-3 sm:gap-4">
-          {/* Account: Authenticated vs Guest */}
-          {isLoaded && user ? (
-            <div className="relative">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="flex shrink-0 items-center gap-2 cursor-pointer p-1 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                  >
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1749A0] text-white text-xs font-bold shadow-xs">
-                      {userInitials}
-                    </div>
-                    <div className="leading-tight hidden md:block max-w-[130px]">
-                      <p className="text-gray-500 text-[10px] truncate">
-                        Welcome back,
-                      </p>
-                      <p className="text-xs font-bold text-[#111827] truncate">
-                        {userName}
-                      </p>
-                    </div>
-                    <ChevronDown
-                      size={12}
-                      className="text-gray-500 hidden md:block"
-                    />
-                  </button>
-                </DropdownMenuTrigger>
 
-                <DropdownMenuContent
-                  align="end"
-                  className="w-56 bg-white border border-gray-200 shadow-xl rounded-xl p-1.5 z-50"
+            <span className="hidden text-xs font-semibold md:inline">Cart</span>
+          </Link>
+
+          {/* Account */}
+          {isLoaded && user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-2 rounded-lg p-1.5 text-left transition-colors hover:bg-gray-50"
                 >
-                  {/* User Overview */}
-                  <div className="px-3 py-2 border-b border-gray-100 mb-1">
-                    <p className="text-xs font-bold text-gray-900 truncate">
-                      {userName}
-                    </p>
-                    {user.email && (
-                      <p className="text-[11px] text-gray-500 truncate mt-0.5">
-                        {user.email}
-                      </p>
-                    )}
-                    {isAdmin && (
-                      <span className="inline-block mt-1 bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded">
-                        Admin
-                      </span>
-                    )}
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1749A0] text-xs font-bold text-white">
+                    {userInitials}
                   </div>
 
-                  <DropdownMenuItem asChild>
-                    <Link
-                      href={dashboardLink}
-                      className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg cursor-pointer transition-colors"
-                    >
-                      <LayoutDashboard className="h-4 w-4 text-gray-500" />
-                      <span>{isAdmin ? "Admin Dashboard" : "Dashboard"}</span>
-                    </Link>
-                  </DropdownMenuItem>
+                  <div className="hidden max-w-[120px] leading-tight md:block">
+                    <p className="truncate text-[10px] text-gray-500">
+                      Welcome back,
+                    </p>
+                    <p className="truncate text-xs font-bold text-gray-900">
+                      {userName}
+                    </p>
+                  </div>
 
-                  <DropdownMenuItem asChild>
-                    <Link
-                      href="/user/wishlist"
-                      className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg cursor-pointer transition-colors"
-                    >
-                      <Heart className="h-4 w-4 text-rose-500" />
-                      <span>My Wishlist</span>
-                    </Link>
-                  </DropdownMenuItem>
+                  <ChevronDown
+                    size={12}
+                    className="hidden text-gray-500 md:block"
+                  />
+                </button>
+              </DropdownMenuTrigger>
 
-                  <DropdownMenuItem
-                    onClick={handleLogout}
-                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
+              <DropdownMenuContent
+                align="end"
+                className="z-50 w-56 rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl"
+              >
+                {/* User Info */}
+                <div className="mb-1 border-b border-gray-100 px-3 py-2">
+                  <p className="truncate text-xs font-bold text-gray-900">
+                    {userName}
+                  </p>
+
+                  {user.email && (
+                    <p className="mt-0.5 truncate text-[11px] text-gray-500">
+                      {user.email}
+                    </p>
+                  )}
+
+                  {isAdmin && (
+                    <span className="mt-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">
+                      Admin
+                    </span>
+                  )}
+                </div>
+
+                <DropdownMenuItem asChild>
+                  <Link
+                    href={dashboardLink}
+                    className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
                   >
-                    <LogOut className="h-4 w-4 text-rose-500" />
-                    <span>Sign Out</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+                    <LayoutDashboard className="h-4 w-4 text-gray-500" />
+                    <span>{isAdmin ? "Admin Dashboard" : "Dashboard"}</span>
+                  </Link>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem asChild>
+                  <Link
+                    href="/user/wishlist"
+                    className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                  >
+                    <Heart className="h-4 w-4 text-rose-500" />
+                    <span>My Wishlist</span>
+                  </Link>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50"
+                >
+                  <LogOut className="h-4 w-4 text-rose-500" />
+                  <span>Sign Out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
             <Link
               href="/login"
-              className="flex shrink-0 items-center gap-1.5 cursor-pointer hover:text-[#1749A0] transition-colors"
+              className="flex items-center gap-1.5 rounded-lg p-2 transition-colors hover:bg-gray-50 hover:text-[#1749A0]"
             >
               <UserRound
                 size={18}
-                strokeWidth={1.5}
+                strokeWidth={1.6}
                 className="text-gray-600"
               />
-              <div className="leading-none hidden md:block">
-                <p className="text-gray-500 text-[11px]">Login / Register</p>
-                <p className="mt-0.5 text-xs font-semibold text-[#111827]">
+
+              <div className="hidden leading-tight md:block">
+                <p className="text-[10px] text-gray-500">Login / Register</p>
+                <p className="text-xs font-semibold text-gray-900">
                   My Account
                 </p>
               </div>
             </Link>
           )}
 
-          {/* Mobile Hamburger Button */}
+          {/* Mobile Menu Button */}
           <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden flex items-center justify-center p-1 text-gray-700 hover:text-[#0F2557]"
+            type="button"
+            onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-700 transition-colors hover:bg-gray-100 md:hidden"
             aria-label="Toggle menu"
+            aria-expanded={isMobileMenuOpen}
           >
-            {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+            {isMobileMenuOpen ? <X size={21} /> : <Menu size={21} />}
           </button>
         </div>
       </div>
 
-      {/* Mobile Search Bar */}
-      <div className="sm:hidden px-3 pb-2 pt-1">
-        <div className="flex h-8 w-full overflow-hidden rounded-md border border-[#0F2557]">
+      {/* Mobile Search */}
+      <div className="border-t border-gray-100 px-3 py-2 sm:hidden">
+        <div className="flex h-9 w-full overflow-hidden rounded-md border border-[#0F2557]">
           <input
             type="text"
-            placeholder="Search by title, author, ISBN..."
+            placeholder="Search books, authors, ISBN..."
             className="min-w-0 flex-1 px-3 text-xs text-gray-700 outline-none placeholder:text-gray-400"
           />
-          <button className="flex w-9 items-center justify-center bg-[#1749A0] text-white">
-            <Search size={14} strokeWidth={2} />
+
+          <button
+            type="button"
+            className="flex w-9 shrink-0 items-center justify-center bg-[#1749A0] text-white"
+            aria-label="Search"
+          >
+            <Search size={14} />
           </button>
         </div>
       </div>
 
       {/* Desktop Navigation */}
-      <div className="hidden md:block border-t border-gray-100 bg-gray-50/50">
-        <div className="mx-auto flex h-[36px] max-w-[1400px] items-center justify-between px-4">
-          {/* Left Navigation */}
-          <div className="flex h-full items-center gap-2">
-            {/* Browse Categories */}
-            <button className="flex h-[30px] w-[210px] items-center gap-2 rounded bg-[#0F2557] px-3 text-sm font-semibold text-white hover:bg-[#1749A0] transition-colors">
-              <Menu size={13} />
-              <span>Browse Genre</span>
-              <ChevronDown size={11} />
-            </button>
+      <div className="hidden border-t border-gray-100 bg-gray-50/70 md:block">
+        <div className="mx-auto flex h-9 max-w-[1400px] items-center gap-3 px-4 lg:px-6">
+          {/* Browse Genre */}
+          <button
+            type="button"
+            className="flex h-7 w-[190px] shrink-0 items-center gap-2 rounded bg-[#0F2557] px-3 text-xs font-semibold text-white transition-colors hover:bg-[#1749A0]"
+          >
+            <Menu size={13} />
+            <span>Browse Genre</span>
+            <ChevronDown className="ml-auto" size={11} />
+          </button>
 
-            {/* Links */}
-            <nav className="flex items-center space-x-1">
-              {navLinks.map((link) => {
-                const active = isLinkActive(link.href);
-                return (
-                  <Link
-                    key={link.name}
-                    href={link.href}
-                    className={`flex items-center gap-1 px-3 h-[36px] text-sm font-medium transition-colors ${
-                      active
-                        ? "border-b-2 border-[#1749A0] font-semibold text-[#1749A0]"
-                        : "text-gray-700 hover:text-[#1749A0]"
-                    }`}
-                  >
-                    <span>{link.name}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
+          {/* Navigation */}
+          <nav className="flex h-full items-center">
+            {navLinks.map((link) => {
+              const active = isLinkActive(link.href);
+
+              return (
+                <Link
+                  key={link.name}
+                  href={link.href}
+                  className={`flex h-full items-center px-3 text-xs font-medium transition-colors ${
+                    active
+                      ? "border-b-2 border-[#1749A0] font-semibold text-[#1749A0]"
+                      : "text-gray-700 hover:text-[#1749A0]"
+                  }`}
+                >
+                  {link.name}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
       </div>
 
-      {/* Mobile Drawer Menu */}
+      {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="md:hidden border-t border-gray-200 bg-white px-4 py-3 shadow-lg space-y-4 animate-in fade-in slide-in-from-top-2">
-          {/* Mobile User Profile Section */}
+        <div className="border-t border-gray-200 bg-white px-3 py-3 shadow-lg md:hidden">
+          {/* User */}
           {user ? (
-            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2.5">
+            <div className="mb-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1749A0] text-white text-xs font-bold shadow-xs">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1749A0] text-xs font-bold text-white">
                   {userInitials}
                 </div>
+
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-slate-900 truncate">
+                  <p className="truncate text-xs font-bold text-gray-900">
                     {userName}
                   </p>
+
                   {user.email && (
-                    <p className="text-[11px] text-slate-500 truncate">
+                    <p className="truncate text-[11px] text-gray-500">
                       {user.email}
                     </p>
                   )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200/60 text-xs">
+              <div className="mt-3 grid grid-cols-2 gap-2 border-t border-gray-200 pt-3">
                 <Link
                   href={dashboardLink}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-white border border-slate-200 text-slate-700 font-semibold"
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white py-2 text-xs font-semibold text-gray-700"
                 >
                   <LayoutDashboard size={13} />
-                  <span>Dashboard</span>
+                  Dashboard
                 </Link>
+
                 <Link
                   href={ordersLink}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-white border border-slate-200 text-slate-700 font-semibold"
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white py-2 text-xs font-semibold text-gray-700"
                 >
                   <ShoppingBag size={13} />
-                  <span>Orders</span>
+                  Orders
                 </Link>
               </div>
 
               <button
-                onClick={() => {
-                  setIsMobileMenuOpen(false);
-                  handleLogout();
-                }}
-                className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                type="button"
+                onClick={handleLogout}
+                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50"
               >
                 <LogOut size={13} />
-                <span>Sign Out</span>
+                Sign Out
               </button>
             </div>
           ) : (
             <Link
               href="/login"
               onClick={() => setIsMobileMenuOpen(false)}
-              className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#1749A0] text-white text-xs font-bold shadow-sm"
+              className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#1749A0] px-4 py-2.5 text-xs font-bold text-white"
             >
               <UserRound size={15} />
-              <span>Login / Register</span>
+              Login / Register
             </Link>
           )}
 
-          <button className="flex w-full items-center justify-between rounded bg-[#0F2557] px-3 py-2 text-xs font-semibold text-white">
-            <div className="flex items-center gap-2">
+          {/* Browse Genre */}
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-lg bg-[#0F2557] px-3 py-2.5 text-xs font-semibold text-white"
+          >
+            <span className="flex items-center gap-2">
               <Menu size={14} />
-              <span>Browse Categories</span>
-            </div>
+              Browse Genre
+            </span>
+
             <ChevronDown size={14} />
           </button>
 
-          <nav className="flex flex-col space-y-2 text-xs text-gray-700 font-medium">
+          {/* Mobile Links */}
+          <nav className="mt-2">
             {navLinks.map((link) => {
               const active = isLinkActive(link.href);
+
               return (
                 <Link
                   key={link.name}
                   href={link.href}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className={`flex items-center justify-between py-1 border-b border-gray-100 ${
+                  className={`flex items-center border-b border-gray-100 py-3 text-xs font-medium transition-colors last:border-0 ${
                     active
-                      ? "text-[#1749A0] font-semibold"
-                      : "hover:text-[#1749A0]"
+                      ? "font-semibold text-[#1749A0]"
+                      : "text-gray-700 hover:text-[#1749A0]"
                   }`}
                 >
-                  <span>{link.name}</span>
+                  {link.name}
                 </Link>
               );
             })}

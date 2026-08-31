@@ -4,6 +4,7 @@ import Footer from "@/components/footer";
 import Header from "@/components/header";
 import TopHeader from "@/components/topHeader";
 import { axiosInstance } from "@/utils/axiosInstances";
+import { parseQuillContent } from "@/utils/quillDecoder";
 import { ArrowRight, BookOpen, MapPin, User, Users } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -65,14 +66,24 @@ const AuthorsPage = () => {
       .toUpperCase();
   };
 
-  // Clean bio text for preview
+  // Clean bio text for preview with full Quill & JSON decoding
   const getBioPreview = (bio?: string) => {
     if (!bio)
       return "Passionate author sharing insights, stories, and published literary works.";
-    const cleanText = bio
+
+    const decoded = parseQuillContent(bio);
+    const cleanText = decoded
+      .replace(/<br\s*[\/]?>/gi, " ")
       .replace(/<[^>]*>?/gm, "")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
       .replace(/\\n/g, " ")
+      .replace(/\s+/g, " ")
       .trim();
+
     return (
       cleanText ||
       "Passionate author sharing insights, stories, and published literary works."

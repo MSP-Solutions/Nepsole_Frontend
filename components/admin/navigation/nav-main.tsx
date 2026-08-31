@@ -29,9 +29,9 @@ export default function NavMain({ items }: NavMainProps) {
   const { open } = useSidebar();
 
   return (
-    <SidebarGroup>
+    <SidebarGroup className="p-0">
       <SidebarGroupContent>
-        <SidebarMenu className="gap-1.5">
+        <SidebarMenu className="gap-0.5">
           {items.map((item) => {
             const isActive =
               pathname === item.url ||
@@ -43,9 +43,9 @@ export default function NavMain({ items }: NavMainProps) {
                   href={item.url}
                   title={!open ? item.title : undefined}
                   className={cn(
-                    "flex items-center gap-3.5 rounded-xl px-3.5 py-3 text-sm font-medium transition-all duration-150 select-none group/item",
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-150 select-none group/item",
                     isActive
-                      ? "bg-[#1d2d5a] text-white font-semibold shadow-sm"
+                      ? "bg-[#1d2d5a] text-white font-semibold shadow-xs"
                       : "text-slate-300 hover:bg-white/10 hover:text-white"
                   )}
                 >
@@ -57,7 +57,7 @@ export default function NavMain({ items }: NavMainProps) {
                   />
                   {open && <span className="truncate flex-1">{item.title}</span>}
                   {open && item.badge !== undefined && (
-                    <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white shadow-sm">
+                    <span className="ml-auto flex h-4.5 min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-xs">
                       {item.badge}
                     </span>
                   )}
