@@ -74,25 +74,31 @@ export default function UserOrdersPage() {
   const getStatusBadge = (status: string) => {
     const s = (status || "").toUpperCase();
     switch (s) {
+      case "CONFIRMED":
+        return {
+          bg: "bg-sky-50 text-sky-700 border-sky-200",
+          icon: CheckCircle2,
+          label: "Confirmed",
+        };
+      case "PROCESSING":
+        return {
+          bg: "bg-indigo-50 text-indigo-700 border-indigo-200",
+          icon: RefreshCw,
+          label: "Processing",
+        };
+      case "SHIPPED":
+      case "IN_TRANSIT":
+        return {
+          bg: "bg-blue-50 text-blue-700 border-blue-200",
+          icon: Truck,
+          label: "Shipped",
+        };
       case "DELIVERED":
       case "COMPLETED":
         return {
           bg: "bg-emerald-50 text-emerald-700 border-emerald-200",
           icon: CheckCircle2,
           label: "Delivered",
-        };
-      case "IN_TRANSIT":
-      case "SHIPPED":
-        return {
-          bg: "bg-blue-50 text-blue-700 border-blue-200",
-          icon: Truck,
-          label: "In Transit",
-        };
-      case "PROCESSING":
-        return {
-          bg: "bg-indigo-50 text-indigo-700 border-indigo-200",
-          icon: Clock3,
-          label: "Processing",
         };
       case "CANCELLED":
       case "FAILED":
@@ -117,26 +123,36 @@ export default function UserOrdersPage() {
       // Status Filter
       if (statusFilter !== "ALL") {
         const orderStatus = (order.status || "").toUpperCase();
-        if (statusFilter === "PENDING" && orderStatus !== "PENDING")
+        if (statusFilter === "PENDING" && orderStatus !== "PENDING") {
           return false;
+        }
+        if (statusFilter === "CONFIRMED" && orderStatus !== "CONFIRMED") {
+          return false;
+        }
+        if (statusFilter === "PROCESSING" && orderStatus !== "PROCESSING") {
+          return false;
+        }
         if (
-          statusFilter === "IN_TRANSIT" &&
-          orderStatus !== "IN_TRANSIT" &&
-          orderStatus !== "SHIPPED"
-        )
+          statusFilter === "SHIPPED" &&
+          orderStatus !== "SHIPPED" &&
+          orderStatus !== "IN_TRANSIT"
+        ) {
           return false;
+        }
         if (
           statusFilter === "DELIVERED" &&
           orderStatus !== "DELIVERED" &&
           orderStatus !== "COMPLETED"
-        )
+        ) {
           return false;
+        }
         if (
           statusFilter === "CANCELLED" &&
           orderStatus !== "CANCELLED" &&
           orderStatus !== "FAILED"
-        )
+        ) {
           return false;
+        }
       }
 
       // Search Query
@@ -159,21 +175,29 @@ export default function UserOrdersPage() {
     });
   }, [orders, statusFilter, searchQuery]);
 
-  // Statistics Summary
-  const stats = useMemo(() => {
-    const totalOrders = orders.length;
-    const pendingOrders = orders.filter(
-      (o) => (o.status || "").toUpperCase() === "PENDING",
-    ).length;
-    const deliveredOrders = orders.filter((o) =>
-      ["DELIVERED", "COMPLETED"].includes((o.status || "").toUpperCase()),
-    ).length;
-    const totalSpent = orders.reduce(
-      (sum, o) => sum + (Number(o.total) || 0),
-      0,
-    );
+  // Status counts for tab badges
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      ALL: orders.length,
+      PENDING: 0,
+      CONFIRMED: 0,
+      PROCESSING: 0,
+      SHIPPED: 0,
+      DELIVERED: 0,
+      CANCELLED: 0,
+    };
 
-    return { totalOrders, pendingOrders, deliveredOrders, totalSpent };
+    orders.forEach((o) => {
+      const s = (o.status || "").toUpperCase();
+      if (s === "PENDING") counts.PENDING++;
+      else if (s === "CONFIRMED") counts.CONFIRMED++;
+      else if (s === "PROCESSING") counts.PROCESSING++;
+      else if (s === "SHIPPED" || s === "IN_TRANSIT") counts.SHIPPED++;
+      else if (s === "DELIVERED" || s === "COMPLETED") counts.DELIVERED++;
+      else if (s === "CANCELLED" || s === "FAILED") counts.CANCELLED++;
+    });
+
+    return counts;
   }, [orders]);
 
   return (
@@ -198,22 +222,38 @@ export default function UserOrdersPage() {
           {[
             { id: "ALL", label: "All Orders" },
             { id: "PENDING", label: "Pending" },
-            { id: "IN_TRANSIT", label: "In Transit" },
+            { id: "CONFIRMED", label: "Confirmed" },
+            { id: "PROCESSING", label: "Processing" },
+            { id: "SHIPPED", label: "Shipped" },
             { id: "DELIVERED", label: "Delivered" },
             { id: "CANCELLED", label: "Cancelled" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setStatusFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition whitespace-nowrap cursor-pointer ${
-                statusFilter === tab.id
-                  ? "bg-[#1749A0] text-white shadow-xs"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+          ].map((tab) => {
+            const count = statusCounts[tab.id] ?? 0;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setStatusFilter(tab.id)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition whitespace-nowrap cursor-pointer ${
+                  statusFilter === tab.id
+                    ? "bg-[#1749A0] text-white shadow-xs"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                }`}
+              >
+                <span>{tab.label}</span>
+                {count > 0 && (
+                  <span
+                    className={`px-1.5 py-0.2 rounded-md text-[10px] font-bold ${
+                      statusFilter === tab.id
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* Search Input */}

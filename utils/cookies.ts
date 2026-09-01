@@ -33,6 +33,17 @@ export const decodeJwt = (token: string): Record<string, any> | null => {
   }
 };
 
+export const isTokenExpiringSoon = (
+  token?: string | null,
+  thresholdSeconds = 180
+): boolean => {
+  if (!token) return true;
+  const decoded = decodeJwt(token);
+  if (!decoded?.exp) return false;
+  const currentTime = Math.floor(Date.now() / 1000);
+  return decoded.exp - currentTime <= thresholdSeconds;
+};
+
 export const getUserDisplayName = (user: any): string => {
   if (!user) return "";
   const name =
@@ -100,9 +111,20 @@ export const getTokenFromCookies = async () => {
 
   if (!user) return null;
 
+  const accessToken =
+    user.accessToken ||
+    user.token ||
+    user.jwtToken ||
+    user.user?.accessToken;
+
+  const refreshToken =
+    user.refreshToken ||
+    user.refresh_token ||
+    user.user?.refreshToken;
+
   return {
-    jwtToken: user.accessToken,
-    refreshToken: user.refreshToken,
+    jwtToken: accessToken,
+    refreshToken: refreshToken,
   };
 };
 

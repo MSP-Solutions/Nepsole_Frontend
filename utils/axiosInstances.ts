@@ -4,87 +4,110 @@ import {
   getTokenFromCookies,
   getUserCookie,
   setUserCookie,
-  clearCookies,
+  isTokenExpiringSoon,
 } from "./cookies";
 
-let cachedToken: string | null = null;
-let fetchingTokenPromise: Promise<string | null> | null = null;
+let refreshPromise: Promise<string | null> | null = null;
 
-const fetchToken = async (): Promise<string | null> => {
-  if (cachedToken) return cachedToken;
-
-  if (!fetchingTokenPromise) {
-    fetchingTokenPromise = (async () => {
-      const tokenData = await getTokenFromCookies();
-
-      fetchingTokenPromise = null;
-
-      const accessToken = tokenData?.jwtToken ?? null;
-
-      cachedToken = accessToken;
-
-      return accessToken;
-    })();
+export const refreshAuthToken = async (): Promise<string | null> => {
+  // If a refresh is already in progress, share the existing promise
+  if (refreshPromise) {
+    return refreshPromise;
   }
 
-  return fetchingTokenPromise;
-};
+  refreshPromise = (async () => {
+    try {
+      const tokenData = await getTokenFromCookies();
 
-export const refreshAuthToken = async () => {
-  try {
-    const tokenData = await getTokenFromCookies();
+      if (!tokenData?.refreshToken) {
+        return null;
+      }
 
-    if (!tokenData) return null;
+      let response;
+      try {
+        response = await axiosInstance.post("/v1/auth/refresh", {
+          refreshToken: tokenData.refreshToken,
+        });
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          response = await axios.post(
+            `${process.env.NEXT_PUBLIC_BASE_URL}/v1/auth/refresh`,
+            {
+              refreshToken: tokenData.refreshToken,
+            },
+            {
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
+          );
+        } else {
+          throw err;
+        }
+      }
 
-    const response = await axios.post(
-      `${process.env.NEXT_PUBLIC_BASE_URL}/api/v1/auth/refresh`,
-      {
-        refreshToken: tokenData.refreshToken,
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      },
-    );
+      /**
+       * Backend returns refreshed token or user payload.
+       */
+      const responseData = response?.data;
+      const rawData = responseData?.data || responseData;
+      const newAccessToken =
+        typeof rawData === "string"
+          ? rawData
+          : rawData?.accessToken ||
+            rawData?.token ||
+            rawData?.jwtToken ||
+            responseData?.accessToken ||
+            null;
 
-    /**
-     * Backend returns a refreshed user payload.
-     */
+      const newRefreshToken =
+        rawData?.refreshToken ||
+        responseData?.refreshToken ||
+        tokenData.refreshToken;
 
-    const responseData = response.data;
-    const newAccessToken =
-      typeof responseData === "string"
-        ? responseData
-        : responseData?.accessToken ?? null;
+      if (!newAccessToken) {
+        return null;
+      }
 
-    if (!newAccessToken) return null;
-
-    cachedToken = newAccessToken;
-
-    if (responseData && typeof responseData === "object") {
-      await setUserCookie(responseData);
-    } else {
       const user = await getUserCookie();
-
       if (user) {
         await setUserCookie({
           ...user,
+          ...(typeof rawData === "object" ? rawData : {}),
           accessToken: newAccessToken,
+          refreshToken: newRefreshToken,
         });
       }
+
+      return newAccessToken;
+    } catch (error) {
+      console.error("Refresh Token Failed:", error);
+      return null;
+    } finally {
+      refreshPromise = null;
     }
+  })();
 
-    return newAccessToken;
-  } catch (error) {
-    console.error("Refresh Token Failed", error);
+  return refreshPromise;
+};
 
-    cachedToken = null;
+const fetchToken = async (): Promise<string | null> => {
+  const tokenData = await getTokenFromCookies();
+  let accessToken = tokenData?.jwtToken ?? null;
 
-    await clearCookies();
-
-    return null;
+  // Proactively refresh if token has expired or is expiring in less than 60s
+  if (
+    accessToken &&
+    isTokenExpiringSoon(accessToken, 60) &&
+    tokenData?.refreshToken
+  ) {
+    const refreshed = await refreshAuthToken();
+    if (refreshed) {
+      accessToken = refreshed;
+    }
   }
+
+  return accessToken;
 };
 
 /* ---------------------------------------------------------- */
@@ -152,18 +175,27 @@ axiosAuthInstance.interceptors.response.use(
     }
 
     /**
-     * Your backend returns 401 when token expires.
+     * Intercept 401 Unauthorized, 417, or token expiration errors
      */
-
     const status = error.response?.status;
-    const message = (error.response?.data as { message?: string })?.message;
+    const errorData = error.response?.data as any;
+    const message =
+      typeof errorData === "string"
+        ? errorData
+        : errorData?.message || errorData?.error || "";
 
-    const shouldRefresh =
-      (status === 417 ||
-        (status === 401 && message === "Authentication required.")) &&
-      !originalRequest._retry;
+    const isAuthError =
+      status === 401 ||
+      status === 417 ||
+      (status === 403 &&
+        typeof message === "string" &&
+        (message.toLowerCase().includes("token") ||
+          message.toLowerCase().includes("jwt") ||
+          message.toLowerCase().includes("expired") ||
+          message.toLowerCase().includes("unauthorized") ||
+          message.toLowerCase().includes("invalid")));
 
-    if (shouldRefresh) {
+    if (isAuthError && !originalRequest._retry) {
       originalRequest._retry = true;
 
       const token = await refreshAuthToken();

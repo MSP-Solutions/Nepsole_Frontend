@@ -27,20 +27,11 @@ const money = (value = 0) => `Rs. ${Number(value).toLocaleString()}`;
 
 function getStatus(status: string) {
   switch (status?.toUpperCase()) {
-    case "DELIVERED":
-    case "COMPLETED":
+    case "CONFIRMED":
       return {
-        label: "Delivered",
+        label: "Confirmed",
         icon: CheckCircle2,
-        className: "bg-emerald-50 text-emerald-700 border-emerald-200",
-      };
-
-    case "SHIPPED":
-    case "IN_TRANSIT":
-      return {
-        label: "In Transit",
-        icon: Truck,
-        className: "bg-blue-50 text-blue-700 border-blue-200",
+        className: "bg-sky-50 text-sky-700 border-sky-200",
       };
 
     case "PROCESSING":
@@ -48,6 +39,22 @@ function getStatus(status: string) {
         label: "Processing",
         icon: Clock3,
         className: "bg-indigo-50 text-indigo-700 border-indigo-200",
+      };
+
+    case "SHIPPED":
+    case "IN_TRANSIT":
+      return {
+        label: "Shipped",
+        icon: Truck,
+        className: "bg-blue-50 text-blue-700 border-blue-200",
+      };
+
+    case "DELIVERED":
+    case "COMPLETED":
+      return {
+        label: "Delivered",
+        icon: CheckCircle2,
+        className: "bg-emerald-50 text-emerald-700 border-emerald-200",
       };
 
     case "CANCELLED":
@@ -58,6 +65,7 @@ function getStatus(status: string) {
         className: "bg-rose-50 text-rose-700 border-rose-200",
       };
 
+    case "PENDING":
     default:
       return {
         label: "Pending",
