@@ -1,15 +1,13 @@
 "use client";
 
 import { axiosAuthInstance, axiosInstance } from "@/utils/axiosInstances";
-import { CART_CHANGE_EVENT, getUserCookie } from "@/utils/cookies";
+import { getUserCookie } from "@/utils/cookies";
 import {
   ArrowRight,
   BookOpen,
   ChevronLeft,
   ChevronRight,
   Heart,
-  Loader2,
-  ShoppingCart,
 } from "lucide-react";
 import Link from "next/link";
 import React, { useEffect, useRef, useState } from "react";
@@ -17,14 +15,11 @@ import toast from "react-hot-toast";
 
 import { BookItem } from "@/types";
 
-const TrendingBooks = () => {
+const Ebooks = () => {
   const [books, setBooks] = useState<BookItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [wishlistedMap, setWishlistedMap] = useState<Record<string, boolean>>(
     {},
-  );
-  const [addingCartId, setAddingCartId] = useState<string | number | null>(
-    null,
   );
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -50,17 +45,17 @@ const TrendingBooks = () => {
     }
   };
 
-  // Fetch trending books from /v1/book
+  // Fetch E-Books from /v1/ebook
   useEffect(() => {
-    const fetchTrendingBooks = async () => {
+    const fetchEBooks = async () => {
       setIsLoading(true);
       try {
         let res;
         try {
-          res = await axiosInstance.get("/v1/book?limit=12");
+          res = await axiosInstance.get("/v1/ebook?limit=12");
         } catch (err: any) {
           if (err?.response?.status === 404) {
-            res = await axiosInstance.get("/api/v1/book");
+            res = await axiosInstance.get("/api/v1/ebook");
           } else {
             throw err;
           }
@@ -73,19 +68,18 @@ const TrendingBooks = () => {
 
         setBooks(list);
       } catch (error) {
-        console.error("Failed to fetch trending books:", error);
+        console.error("Failed to fetch e-books:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchTrendingBooks();
+    fetchEBooks();
   }, []);
 
   // Update scroll buttons state when books load/change
   useEffect(() => {
     if (books.length > 6) {
-      // Small timeout to allow DOM to render and measure dimensions
       const timer = setTimeout(() => {
         checkScrollButtons();
       }, 100);
@@ -127,29 +121,41 @@ const TrendingBooks = () => {
   }, []);
 
   // Cover image helper
-  const getCoverImage = (book: BookItem): string | null => {
+  const getCoverImage = (book: any): string | null => {
+    if (book.coverImageUrl) return book.coverImageUrl;
+    if (book.coverImage) return book.coverImage;
+    if (book.image) return book.image;
+    if (book.imageUrl) return book.imageUrl;
     const imgs = book.images || book.bookImages || [];
     if (imgs.length === 0) return null;
-    const coverObj: any = imgs.find(
-      (img: any) => img?.type === "COVER" || img?.imageType === "COVER",
+    const coverObj: any = imgs.find((img: any) =>
+      typeof img === "object"
+        ? img?.type === "COVER" || img?.imageType === "COVER"
+        : false,
     );
-    if (coverObj) return coverObj.url || coverObj.imageUrl || null;
+    if (coverObj && typeof coverObj === "object") {
+      return coverObj.url || coverObj.imageUrl || null;
+    }
     const first: any = imgs[0];
     if (typeof first === "string") return first;
     return first?.url || first?.imageUrl || null;
   };
 
   // Author name helper
-  const getAuthorName = (book: BookItem): string => {
-    if (book.authors && book.authors.length > 0 && book.authors[0].name) {
-      return book.authors.map((a) => a.name).join(", ");
-    }
-    if (book.authorBooks && book.authorBooks.length > 0) {
-      const names = book.authorBooks
-        .map((ab) => ab.name || ab.author?.name)
+  const getAuthorName = (book: any): string => {
+    if (book.authors && book.authors.length > 0) {
+      const names = book.authors
+        .map((a: any) => a.name || a.englishName || a.author?.name)
         .filter(Boolean);
       if (names.length > 0) return names.join(", ");
     }
+    if (book.authorBooks && book.authorBooks.length > 0) {
+      const names = book.authorBooks
+        .map((ab: any) => ab.name || ab.englishName || ab.author?.name)
+        .filter(Boolean);
+      if (names.length > 0) return names.join(", ");
+    }
+    if (book.author?.name) return book.author.name;
     return "Nepsole Author";
   };
 
@@ -204,124 +210,42 @@ const TrendingBooks = () => {
     }
   };
 
-  // Add to Cart
-  const handleAddToCart = async (e: React.MouseEvent, book: BookItem) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    try {
-      const user = await getUserCookie();
-      if (!user?.accessToken) {
-        toast.error("Please login first to add books to your cart");
-        return;
-      }
-
-      setAddingCartId(book.id);
-      const priceNum = Number(book.price) || 0;
-      const discountNum = Number(book.discountPercent) || 0;
-      const finalPrice =
-        discountNum > 0 ? priceNum - (priceNum * discountNum) / 100 : priceNum;
-      const numId = Number(book.id);
-
-      try {
-        await axiosAuthInstance.post("/v1/cart", {
-          bookId: !isNaN(numId) ? numId : book.id,
-          quantity: 1,
-        });
-      } catch (err: any) {
-        if (err?.response?.status === 404) {
-          await axiosAuthInstance.post("/api/v1/cart", {
-            bookId: !isNaN(numId) ? numId : book.id,
-            quantity: 1,
-          });
-        } else {
-          throw err;
-        }
-      }
-
-      // Sync local storage
-      try {
-        const coverImg = getCoverImage(book);
-        const authorName = getAuthorName(book);
-        const saved = localStorage.getItem("nepsole_cart");
-        let currentCart: any[] = [];
-        if (saved) {
-          try {
-            currentCart = JSON.parse(saved);
-          } catch {}
-        }
-        if (!Array.isArray(currentCart)) currentCart = [];
-
-        const existingIdx = currentCart.findIndex(
-          (c: any) =>
-            String(c.bookId) === String(book.id) ||
-            String(c.id) === String(book.id),
-        );
-
-        if (existingIdx >= 0) {
-          currentCart[existingIdx].quantity =
-            (currentCart[existingIdx].quantity || 1) + 1;
-        } else {
-          currentCart.push({
-            id: `item-${book.id}-${Date.now()}`,
-            bookId: book.id,
-            title: book.title,
-            author: authorName,
-            price: finalPrice,
-            originalPrice: priceNum,
-            discountPercent: discountNum,
-            quantity: 1,
-            coverImage: coverImg,
-            format: "Paperback",
-            stock: Number(book.stock) || 10,
-          });
-        }
-
-        localStorage.setItem("nepsole_cart", JSON.stringify(currentCart));
-      } catch {}
-
-      // Dispatch event to notify cart counters
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event(CART_CHANGE_EVENT));
-      }
-
-      toast.success(`"${book.title}" added to cart!`);
-    } catch (error: any) {
-      console.error("Cart error:", error);
-      toast.error(
-        error?.response?.data?.message || "Failed to add book to cart.",
-      );
-    } finally {
-      setAddingCartId(null);
-    }
-  };
-
-  const renderBookCard = (book: BookItem, isCarousel: boolean = false) => {
+  const renderBookCard = (book: any, isCarousel: boolean = false) => {
     const cover = getCoverImage(book);
     const authorName = getAuthorName(book);
     const priceNum = Number(book.price) || 0;
     const discountNum = Number(book.discountPercent) || 0;
     const finalPrice =
       discountNum > 0 ? priceNum - (priceNum * discountNum) / 100 : priceNum;
+    const isFree =
+      (book.plan && String(book.plan).toUpperCase() === "FREE") ||
+      priceNum === 0;
     const isWishlisted = Boolean(wishlistedMap[String(book.id)]);
-    const isAdding = addingCartId === book.id;
 
     return (
       <Link
         key={book.id}
-        href={`/books/${book.id}`}
-        className={`group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white transition duration-200 hover:-translate-y-1 hover:border-slate-300 hover:shadow-md ${
+        href={`/eBooks/${book.id}`}
+        className={`group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white transition duration-200 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-md ${
           isCarousel
             ? "w-[170px] sm:w-[190px] md:w-[205px] lg:w-[215px] shrink-0 snap-start"
             : ""
         }`}
       >
-        {/* Discount Badge */}
-        {discountNum > 0 && (
-          <div className="absolute left-2.5 top-2.5 z-10 rounded-lg bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs">
-            -{discountNum}%
-          </div>
-        )}
+        {/* Badges */}
+        <div className="absolute left-2.5 top-2.5 z-10 flex flex-col gap-1">
+          {isFree ? (
+            <span className="rounded-lg bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs">
+              FREE
+            </span>
+          ) : (
+            discountNum > 0 && (
+              <span className="rounded-lg bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs">
+                -{discountNum}%
+              </span>
+            )
+          )}
+        </div>
 
         {/* Wishlist Button */}
         <button
@@ -363,7 +287,7 @@ const TrendingBooks = () => {
         <div className="flex flex-1 flex-col justify-between border-t border-slate-100 p-3">
           <div>
             {/* Title */}
-            <h3 className="line-clamp-1 text-xs sm:text-sm font-bold text-slate-900 group-hover:text-[#1749A0] transition-colors">
+            <h3 className="line-clamp-1 text-xs sm:text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
               {book.title}
             </h3>
 
@@ -374,35 +298,32 @@ const TrendingBooks = () => {
 
             {/* Price */}
             <div className="mt-2 flex items-baseline gap-1.5">
-              <span className="text-xs sm:text-sm font-black text-[#1749A0]">
-                Rs. {Math.round(finalPrice).toLocaleString()}
-              </span>
-
-              {discountNum > 0 && (
-                <span className="text-[11px] text-slate-400 line-through">
-                  Rs. {Math.round(priceNum).toLocaleString()}
+              {isFree ? (
+                <span className="text-xs sm:text-sm font-black text-emerald-600">
+                  Free
                 </span>
+              ) : (
+                <>
+                  <span className="text-xs sm:text-sm font-black text-indigo-600">
+                    Rs. {Math.round(finalPrice).toLocaleString()}
+                  </span>
+
+                  {discountNum > 0 && (
+                    <span className="text-[11px] text-slate-400 line-through">
+                      Rs. {Math.round(priceNum).toLocaleString()}
+                    </span>
+                  )}
+                </>
               )}
             </div>
           </div>
 
           {/* Bottom Actions */}
           <div className="mt-3">
-            <button
-              type="button"
-              onClick={(e) => handleAddToCart(e, book)}
-              disabled={isAdding}
-              className="w-full h-8 rounded-xl bg-slate-900 hover:bg-[#1749A0] active:scale-[0.98] text-white text-[11px] font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
-            >
-              {isAdding ? (
-                <Loader2 size={12} className="animate-spin" />
-              ) : (
-                <>
-                  <ShoppingCart size={12} />
-                  <span>Add to Cart</span>
-                </>
-              )}
-            </button>
+            <div className="w-full h-8 rounded-xl bg-indigo-600 group-hover:bg-indigo-700 text-white text-[11px] font-bold transition flex items-center justify-center gap-1.5 shadow-2xs">
+              <BookOpen size={12} />
+              <span>{isFree ? "Read Now" : "View E-Book"}</span>
+            </div>
           </div>
         </div>
       </Link>
@@ -412,12 +333,12 @@ const TrendingBooks = () => {
   const isCarousel = books.length > 6;
 
   return (
-    <section className="w-full bg-white py-8">
+    <section className="w-full bg-white py-8 border-t border-slate-100">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-5 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-            <span>Trending Books</span>
+            <span>Trending E-Books</span>
           </h2>
 
           <div className="flex items-center gap-3">
@@ -428,7 +349,7 @@ const TrendingBooks = () => {
                   type="button"
                   onClick={() => handleScroll("left")}
                   disabled={!canScrollLeft}
-                  aria-label="Previous books"
+                  aria-label="Previous e-books"
                   className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-2xs"
                 >
                   <ChevronLeft size={16} />
@@ -437,7 +358,7 @@ const TrendingBooks = () => {
                   type="button"
                   onClick={() => handleScroll("right")}
                   disabled={!canScrollRight}
-                  aria-label="Next books"
+                  aria-label="Next e-books"
                   className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-2xs"
                 >
                   <ChevronRight size={16} />
@@ -446,8 +367,8 @@ const TrendingBooks = () => {
             )}
 
             <Link
-              href="/books"
-              className="flex items-center gap-1 text-xs sm:text-sm font-semibold text-[#1749A0] transition hover:text-[#0F2557] hover:underline"
+              href="/eBooks"
+              className="flex items-center gap-1 text-xs sm:text-sm font-semibold text-indigo-600 transition hover:text-indigo-800 hover:underline"
             >
               <span>View All</span>
               <ArrowRight size={14} />
@@ -472,7 +393,7 @@ const TrendingBooks = () => {
           </div>
         ) : books.length === 0 ? (
           <div className="py-12 text-center text-xs text-slate-400">
-            No trending books available right now.
+            No trending e-books available right now.
           </div>
         ) : isCarousel ? (
           /* Carousel scrollable container for > 6 books */
@@ -496,4 +417,4 @@ const TrendingBooks = () => {
   );
 };
 
-export default TrendingBooks;
+export default Ebooks;

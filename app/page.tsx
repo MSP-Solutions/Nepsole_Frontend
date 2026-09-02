@@ -5,6 +5,7 @@ import Headers from "@/components/header";
 import Hero from "@/components/hero";
 import TrendingBooks from "@/components/trendingBooks";
 import Terms from "@/components/terms";
+import Ebooks from "@/components/ebooks";
 const page = () => {
   return (
     <div className="min-h-screen flex flex-col bg-[#F9FAFB] overflow-x-clip w-full">
@@ -13,6 +14,7 @@ const page = () => {
       <main className="flex-1 w-full">
         <Hero />
         <TrendingBooks />
+        <Ebooks />
         <Terms />
       </main>
       <Footer />

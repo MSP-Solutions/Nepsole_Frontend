@@ -1,7 +1,6 @@
 "use client";
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Bell } from "lucide-react";
 import { usePathname } from "next/navigation";
 import UserMenu from "./user-menu";
 
@@ -37,15 +36,6 @@ export default function DashboardNavbar() {
       </div>
 
       <div className="flex items-center gap-4">
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="relative flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors cursor-pointer select-none"
-        >
-          <Bell className="h-4 w-4" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
-        </button>
-
         {/* User Pill Menu */}
         <UserMenu />
       </div>

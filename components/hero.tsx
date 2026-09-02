@@ -1,27 +1,18 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
 import {
-  BarChart3,
-  BookMarked,
   BookOpen,
   Bookmark,
   ChevronLeft,
   ChevronRight,
-  CircleHelp,
   CreditCard,
-  FileText,
-  GraduationCap,
-  Heart,
-  Mountain,
-  PenTool,
-  Plane,
   RotateCcw,
   ShieldCheck,
   Truck,
-  UserRound,
 } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
 import { axiosAuthInstance, axiosInstance } from "@/utils/axiosInstances";
 
@@ -62,29 +53,6 @@ const features = [
     icon: RotateCcw,
     title: "Easy Returns",
     subtitle: "7 Days Easy Return",
-  },
-];
-
-const defaultSlides = [
-  {
-    id: "default-1",
-    title: "पढ्ने बानी, सफलताको पहिलो पाइला ।",
-    subtitle:
-      "Explore Thousands of Books, E-books & Audiobooks All in One Place.",
-    image: "",
-  },
-  {
-    id: "default-2",
-    title: "नेपाली तथा विदेशी पुस्तकहरूको विशाल भण्डार",
-    subtitle:
-      "Discover Best Sellers, New Releases & Academic Books at Best Prices.",
-    image: "",
-  },
-  {
-    id: "default-3",
-    title: "नेपालभरि द्रुत तथा सुरक्षित डेलिभरी",
-    subtitle: "100% Genuine Books Delivered Straight to Your Doorstep.",
-    image: "",
   },
 ];
 
@@ -161,7 +129,7 @@ export default function Hero() {
           subtitle: "Explore Special Collections & Deals on Nepsole",
           image: getBannerImage(banner),
         }))
-      : defaultSlides;
+      : [];
 
   // Extended slides with clones for seamless forward infinite looping
   const extendedSlides =
@@ -232,12 +200,20 @@ export default function Hero() {
               >
                 <span className="flex min-w-0 items-center gap-2">
                   {genre.icon ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={genre.icon}
-                      alt={genre.name || ""}
-                      className="w-3.5 h-3.5 object-contain shrink-0"
-                    />
+                    <div className="relative h-5 w-5 shrink-0">
+                      <Image
+                        src={genre.icon}
+                        alt={genre.name || ""}
+                        fill
+                        sizes="20px"
+                        className="object-contain rounded-sm"
+                        unoptimized={
+                          typeof genre.icon === "string" &&
+                          (genre.icon.startsWith("data:") ||
+                            genre.icon.endsWith(".svg"))
+                        }
+                      />
+                    </div>
                   ) : (
                     <Bookmark
                       size={12}
@@ -276,7 +252,7 @@ export default function Hero() {
           onMouseLeave={() => setIsHovered(false)}
         >
           {/* Slides */}
-          <div className="relative min-h-[250px] flex-1 overflow-hidden">
+          <div className="relative min-h-[350px] flex-1 overflow-hidden">
             <div
               className="flex h-full"
               style={{
@@ -290,49 +266,28 @@ export default function Hero() {
               {extendedSlides.map((slide, index) => (
                 <div
                   key={`${slide.id}-${index}`}
-                  className="relative flex h-full min-w-full shrink-0 items-center justify-between overflow-hidden px-5 py-6 sm:px-10"
+                  className="relative flex h-full min-w-full shrink-0 items-center justify-between overflow-hidden"
                 >
-                  {slide.image && (
-                    <div
-                      className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-700 group-hover:scale-105"
-                      style={{ backgroundImage: `url("${slide.image}")` }}
+                  {slide.image ? (
+                    <Image
+                      src={slide.image}
+                      alt={slide.title || "Hero Banner"}
+                      fill
+                      className="object-fill"
                     />
-                  )}
-
-                  {slide.image && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-[#030914]/90 via-[#071020]/75 to-transparent" />
-                  )}
-
-                  <div className="relative z-10 max-w-[500px]">
-                    <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-medium text-blue-200 backdrop-blur-sm">
-                      <BookOpen size={11} />
-                      Welcome to Nepsole
-                    </span>
-
-                    <h1 className="text-xl font-bold leading-snug text-white sm:text-2xl md:text-3xl">
-                      {slide.title}
-                    </h1>
-
-                    <p className="mt-2 text-xs leading-relaxed text-blue-100 sm:text-sm">
-                      {slide.subtitle}
-                    </p>
-
-                    <div className="mt-4 flex flex-wrap items-center gap-2.5">
-                      <Link
-                        href="/books"
-                        className="rounded-md bg-[#1749A0] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#123980]"
-                      >
-                        Explore Books
-                      </Link>
-
-                      <Link
-                        href="/eBooks"
-                        className="rounded-md border border-white/25 bg-white/10 px-4 py-2 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-white/20"
-                      >
-                        Browse E-Books
-                      </Link>
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#071020] to-[#1749A0]/40 p-8 text-center text-white">
+                      <div className="max-w-md space-y-2">
+                        <h2 className="text-xl sm:text-2xl font-bold">
+                          {slide.title || "Welcome to Nepsole"}
+                        </h2>
+                        <p className="text-xs sm:text-sm text-blue-200">
+                          {slide.subtitle ||
+                            "Explore Thousands of Books, E-books & Audiobooks"}
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -343,7 +298,7 @@ export default function Hero() {
                 <button
                   type="button"
                   onClick={handlePrev}
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/40 p-1.5 text-white opacity-0 backdrop-blur-sm transition group-hover:opacity-100 hover:bg-black/60 cursor-pointer"
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/40 p-1.5 text-white opacity-0 backdrop-blur-sm transition group-hover:opacity-100 hover:bg-black/60 cursor-pointer z-10"
                   aria-label="Previous Slide"
                 >
                   <ChevronLeft size={16} />
@@ -352,7 +307,7 @@ export default function Hero() {
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/40 p-1.5 text-white opacity-0 backdrop-blur-sm transition group-hover:opacity-100 hover:bg-black/60 cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/40 p-1.5 text-white opacity-0 backdrop-blur-sm transition group-hover:opacity-100 hover:bg-black/60 cursor-pointer z-10"
                   aria-label="Next Slide"
                 >
                   <ChevronRight size={16} />
@@ -362,7 +317,7 @@ export default function Hero() {
 
             {/* Dots */}
             {slides.length > 1 && (
-              <div className="absolute bottom-2.5 left-1/2 flex -translate-x-1/2 items-center gap-1.5">
+              <div className="absolute bottom-2.5 left-1/2 flex -translate-x-1/2 items-center gap-1.5 z-10">
                 {slides.map((_, index) => (
                   <button
                     key={index}

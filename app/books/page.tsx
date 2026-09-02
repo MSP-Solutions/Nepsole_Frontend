@@ -3,15 +3,16 @@
 import Footer from "@/components/footer";
 import Header from "@/components/header";
 import TopHeader from "@/components/topHeader";
+import { BookItem, PaginationMeta } from "@/types";
 import { axiosAuthInstance, axiosInstance } from "@/utils/axiosInstances";
 import { getUserCookie } from "@/utils/cookies";
-import toast from "react-hot-toast";
 import {
   ArrowUpDown,
   Bookmark,
   BookOpen,
   Building2,
   Check,
+  ChevronLeft,
   ChevronRight,
   Filter,
   Heart,
@@ -23,75 +24,8 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-
-export interface BookAuthor {
-  id: number | string;
-  name?: string;
-  englishName?: string;
-  author?: {
-    id: number | string;
-    name?: string;
-    englishName?: string;
-  };
-  [key: string]: any;
-}
-
-export interface BookGenre {
-  id: number | string;
-  name?: string;
-  englishName?: string;
-  genre?: {
-    id: number | string;
-    name?: string;
-  };
-  [key: string]: any;
-}
-
-export interface BookPublisher {
-  id: number | string;
-  name?: string;
-  englishName?: string;
-  publicationLogoUrl?: string;
-  [key: string]: any;
-}
-
-export interface BookImage {
-  id?: number | string;
-  url?: string;
-  imageUrl?: string;
-  imageType?: string;
-  type?: string;
-  [key: string]: any;
-}
-
-export interface BookItem {
-  id: number | string;
-  title: string;
-  price: number | string;
-  discountPercent?: number | string;
-  stock: number;
-  soldCount?: number;
-  publicationDate?: string;
-  isbn10?: string;
-  isbn13?: string;
-  pages?: number | string;
-  description?: string;
-  widthCm?: number | string;
-  heightCm?: number | string;
-  depthCm?: number | string;
-  publisherId?: number | string;
-  publisher?: BookPublisher;
-  authors?: BookAuthor[];
-  authorBooks?: BookAuthor[];
-  genres?: BookGenre[];
-  genreBooks?: BookGenre[];
-  images?: (BookImage | string)[];
-  bookImages?: BookImage[];
-  createdAt?: string;
-  updatedAt?: string;
-  [key: string]: any;
-}
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import toast from "react-hot-toast";
 
 export interface OptionItem {
   id: number | string;
@@ -109,17 +43,27 @@ export default function BooksPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isLoadingFilters, setIsLoadingFilters] = useState<boolean>(true);
 
-  // Filter States
-  const [selectedGenreId, setSelectedGenreId] = useState<string>("all");
-  const [selectedPublisherId, setSelectedPublisherId] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState<string>(" ");
+  // Filter & Search States
+  const [selectedGenre, setSelectedGenre] = useState<string>("all");
+  const [selectedPublisher, setSelectedPublisher] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [sortBy, setSortBy] = useState<string>("featured");
   const [showMobileFilter, setShowMobileFilter] = useState<boolean>(false);
   const [wishlistedBookIds, setWishlistedBookIds] = useState<
     Record<string, boolean>
   >({});
 
-  // Fetch Filters
+  // Pagination States (default limit: 10, page: 1)
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [pagination, setPagination] = useState<PaginationMeta>({
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 1,
+  });
+
+  // Fetch Filters (Genres & Publishers)
   useEffect(() => {
     const fetchFilterOptions = async () => {
       setIsLoadingFilters(true);
@@ -150,26 +94,147 @@ export default function BooksPage() {
     fetchFilterOptions();
   }, []);
 
-  // Fetch Books
-  const fetchBooks = async () => {
-    setIsLoading(true);
-    try {
-      const response = await axiosInstance.get("/v1/book?limit=100");
-      const data = response.data?.data || response.data;
-      const list = Array.isArray(data)
-        ? data
-        : data?.books || data?.items || [];
-      setBooks(list);
-    } catch (err) {
-      console.error("Failed to fetch books:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Fetch Books with pagination & search
+  const fetchBooks = useCallback(
+    async (
+      page = 1,
+      limit = 10,
+      search = searchQuery,
+      genre = selectedGenre,
+      publisher = selectedPublisher,
+      sort = sortBy,
+    ) => {
+      setIsLoading(true);
+      try {
+        let url = `/v1/book?page=${page}&limit=${limit}`;
 
+        if (search && search.trim()) {
+          url += `&search=${encodeURIComponent(search.trim())}`;
+        }
+        if (genre && genre !== "all") {
+          url += `&genre=${encodeURIComponent(genre)}`;
+        }
+        if (publisher && publisher !== "all") {
+          url += `&publisher=${encodeURIComponent(publisher)}`;
+        }
+        if (sort && sort !== "featured") {
+          url += `&sortBy=${encodeURIComponent(sort)}`;
+        }
+
+        const response = await axiosInstance.get(url);
+        const data = response.data?.data || response.data;
+        const list: BookItem[] = Array.isArray(data)
+          ? data
+          : data?.books || data?.items || [];
+        setBooks(list);
+
+        // Parse pagination metadata
+        const rawPagination =
+          response.data?.pagination ||
+          data?.pagination ||
+          response.data?.meta ||
+          data?.meta;
+
+        if (rawPagination) {
+          const totalCount =
+            rawPagination.total ??
+            rawPagination.totalCount ??
+            rawPagination.count ??
+            list.length;
+          const limitCount = rawPagination.limit ?? limit;
+          const totalPages =
+            (rawPagination.totalPages ??
+              rawPagination.lastPage ??
+              Math.ceil(totalCount / limitCount)) ||
+            1;
+
+          setPagination({
+            total: totalCount,
+            page: rawPagination.page ?? page,
+            limit: limitCount,
+            totalPages,
+          });
+        } else {
+          const totalCount =
+            response.data?.total ??
+            response.data?.totalCount ??
+            response.data?.count ??
+            data?.total ??
+            data?.totalCount ??
+            data?.count ??
+            list.length;
+
+          const totalPages =
+            (response.data?.totalPages ??
+              data?.totalPages ??
+              Math.ceil(totalCount / limit)) ||
+            1;
+
+          setPagination({
+            total: totalCount,
+            page,
+            limit,
+            totalPages,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch books:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [searchQuery, selectedGenre, selectedPublisher, sortBy],
+  );
+
+  // Debounced search & filter effect
   useEffect(() => {
-    fetchBooks();
-  }, []);
+    setCurrentPage(1);
+    const handler = setTimeout(() => {
+      fetchBooks(
+        1,
+        pageSize,
+        searchQuery,
+        selectedGenre,
+        selectedPublisher,
+        sortBy,
+      );
+    }, 300);
+
+    return () => clearTimeout(handler);
+  }, [
+    fetchBooks,
+    pageSize,
+    searchQuery,
+    selectedGenre,
+    selectedPublisher,
+    sortBy,
+  ]);
+
+  // Handle Page Navigation
+  const handlePageChange = (newPage: number) => {
+    if (
+      newPage < 1 ||
+      newPage > effectiveTotalPages ||
+      newPage === currentPage ||
+      isLoading
+    ) {
+      return;
+    }
+    setCurrentPage(newPage);
+    if (!isClientSidePaging) {
+      fetchBooks(
+        newPage,
+        pageSize,
+        searchQuery,
+        selectedGenre,
+        selectedPublisher,
+        sortBy,
+      );
+    }
+    document
+      .getElementById("books-top")
+      ?.scrollIntoView({ behavior: "smooth" });
+  };
 
   // Fetch existing wishlist for authenticated user
   useEffect(() => {
@@ -180,7 +245,11 @@ export default function BooksPage() {
 
         const res = await axiosAuthInstance.get("/v1/wishlist");
         const data =
-          res.data?.data || res.data?.wishlist || res.data?.items || res.data || [];
+          res.data?.data ||
+          res.data?.wishlist ||
+          res.data?.items ||
+          res.data ||
+          [];
         if (Array.isArray(data)) {
           const map: Record<string, boolean> = {};
           data.forEach((item: any) => {
@@ -242,16 +311,10 @@ export default function BooksPage() {
 
       const numId = Number(id);
       let response;
-      try {
-        response = await axiosAuthInstance.post("/v1/wishlist/toggle", {
-          bookId: isNaN(numId) ? id : numId,
-        });
-      } catch (err: any) {
-        // Fallback with string id
-        response = await axiosAuthInstance.post("/v1/wishlist/toggle", {
-          bookId: id,
-        });
-      }
+
+      response = await axiosAuthInstance.post("/v1/wishlist/toggle", {
+        bookId: isNaN(numId) ? id : numId,
+      });
 
       const resMsg = response?.data?.message;
       if (resMsg) {
@@ -280,17 +343,36 @@ export default function BooksPage() {
   const filteredBooks = useMemo(() => {
     return books
       .filter((book) => {
-        if (selectedGenreId !== "all") {
-          const hasGenre = (book.genres || book.genreBooks || []).some((g) => {
-            const gId = String(g.id || g.genre?.id || "");
-            return gId === selectedGenreId;
-          });
+        if (selectedGenre !== "all") {
+          const normSelectedGenre = selectedGenre.toLowerCase().trim();
+          const hasGenre = (book.genres || book.genreBooks || []).some(
+            (g: any) => {
+              const gName = (
+                g.name ||
+                g.englishName ||
+                g.genre?.name ||
+                g.genre?.englishName ||
+                ""
+              )
+                .toLowerCase()
+                .trim();
+              return gName === normSelectedGenre;
+            },
+          );
           if (!hasGenre) return false;
         }
 
-        if (selectedPublisherId !== "all") {
-          const pubId = String(book.publisherId || book.publisher?.id || "");
-          if (pubId !== selectedPublisherId) return false;
+        if (selectedPublisher !== "all") {
+          const normSelectedPub = selectedPublisher.toLowerCase().trim();
+          const pName = (
+            book.publisher?.name ||
+            book.publisher?.englishName ||
+            book.publisherName ||
+            ""
+          )
+            .toLowerCase()
+            .trim();
+          if (pName !== normSelectedPub) return false;
         }
 
         if (searchQuery.trim()) {
@@ -330,8 +412,10 @@ export default function BooksPage() {
         const netB =
           discountB > 0 ? priceB - (priceB * discountB) / 100 : priceB;
 
-        if (sortBy === "price-asc") return netA - netB;
-        if (sortBy === "price-desc") return netB - netA;
+        if (sortBy === "price_asc" || sortBy === "price-asc")
+          return netA - netB;
+        if (sortBy === "price_desc" || sortBy === "price-desc")
+          return netB - netA;
         if (sortBy === "discount") return discountB - discountA;
         if (sortBy === "newest") {
           return (
@@ -339,26 +423,47 @@ export default function BooksPage() {
             new Date(a.createdAt || 0).getTime()
           );
         }
+        if (sortBy === "rating") {
+          const rA = Number(a.rating || a.avgRating || a.averageRating || 0);
+          const rB = Number(b.rating || b.avgRating || b.averageRating || 0);
+          return rB - rA;
+        }
+        if (sortBy === "sold") {
+          const sA = Number(a.sold || a.soldCount || a.salesCount || 0);
+          const sB = Number(b.sold || b.soldCount || b.salesCount || 0);
+          return sB - sA;
+        }
+        if (sortBy === "title") {
+          return (a.title || "").localeCompare(b.title || "");
+        }
         return 0;
       });
-  }, [books, selectedGenreId, selectedPublisherId, searchQuery, sortBy]);
+  }, [books, selectedGenre, selectedPublisher, searchQuery, sortBy]);
+
+  const isClientSidePaging = books.length > pageSize;
+  const effectiveTotal = isClientSidePaging
+    ? filteredBooks.length
+    : pagination.total || filteredBooks.length;
+  const effectiveTotalPages = isClientSidePaging
+    ? Math.ceil(filteredBooks.length / pageSize) || 1
+    : pagination.totalPages || Math.ceil(effectiveTotal / pageSize) || 1;
+
+  const displayedBooks = isClientSidePaging
+    ? filteredBooks.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+    : filteredBooks;
 
   const activeFiltersCount =
-    (selectedGenreId !== "all" ? 1 : 0) +
-    (selectedPublisherId !== "all" ? 1 : 0) +
+    (selectedGenre !== "all" ? 1 : 0) +
+    (selectedPublisher !== "all" ? 1 : 0) +
     (searchQuery.trim() ? 1 : 0);
 
   const handleResetFilters = () => {
-    setSelectedGenreId("all");
-    setSelectedPublisherId("all");
+    setSelectedGenre("all");
+    setSelectedPublisher("all");
     setSearchQuery("");
     setSortBy("featured");
+    setCurrentPage(1);
   };
-
-  const selectedGenreObj = genres.find((g) => String(g.id) === selectedGenreId);
-  const selectedPublisherObj = publishers.find(
-    (p) => String(p.id) === selectedPublisherId,
-  );
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50/60 text-slate-800">
@@ -433,27 +538,22 @@ export default function BooksPage() {
               <Filter className="w-2.5 h-2.5" /> Active:
             </span>
 
-            {selectedGenreId !== "all" && (
+            {selectedGenre !== "all" && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200/80 text-amber-800 text-[11px] font-medium">
-                <span>
-                  {selectedGenreObj?.name || selectedGenreObj?.englishName}
-                </span>
+                <span>{selectedGenre}</span>
                 <X
                   className="w-3 h-3 cursor-pointer hover:text-amber-950"
-                  onClick={() => setSelectedGenreId("all")}
+                  onClick={() => setSelectedGenre("all")}
                 />
               </span>
             )}
 
-            {selectedPublisherId !== "all" && (
+            {selectedPublisher !== "all" && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200/80 text-indigo-800 text-[11px] font-medium">
-                <span>
-                  {selectedPublisherObj?.name ||
-                    selectedPublisherObj?.englishName}
-                </span>
+                <span>{selectedPublisher}</span>
                 <X
                   className="w-3 h-3 cursor-pointer hover:text-indigo-950"
-                  onClick={() => setSelectedPublisherId("all")}
+                  onClick={() => setSelectedPublisher("all")}
                 />
               </span>
             )}
@@ -506,9 +606,9 @@ export default function BooksPage() {
               <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
                 <button
                   type="button"
-                  onClick={() => setSelectedGenreId("all")}
+                  onClick={() => setSelectedGenre("all")}
                   className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center justify-between cursor-pointer ${
-                    selectedGenreId === "all"
+                    selectedGenre === "all"
                       ? "bg-amber-500 text-white font-semibold shadow-2xs"
                       : "text-slate-600 hover:bg-slate-50"
                   }`}
@@ -516,7 +616,7 @@ export default function BooksPage() {
                   <span>All Genres</span>
                   <span
                     className={`text-[10px] ${
-                      selectedGenreId === "all"
+                      selectedGenre === "all"
                         ? "text-amber-100"
                         : "text-slate-400"
                     }`}
@@ -532,12 +632,13 @@ export default function BooksPage() {
                   </div>
                 ) : (
                   genres.map((gen) => {
-                    const isSelected = String(gen.id) === selectedGenreId;
+                    const genName = gen.name || gen.englishName || "";
+                    const isSelected = selectedGenre === genName;
                     return (
                       <button
-                        key={gen.id}
+                        key={gen.id || genName}
                         type="button"
-                        onClick={() => setSelectedGenreId(String(gen.id))}
+                        onClick={() => setSelectedGenre(genName)}
                         className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center justify-between cursor-pointer ${
                           isSelected
                             ? "bg-amber-500 text-white font-semibold shadow-2xs"
@@ -565,9 +666,9 @@ export default function BooksPage() {
               <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
                 <button
                   type="button"
-                  onClick={() => setSelectedPublisherId("all")}
+                  onClick={() => setSelectedPublisher("all")}
                   className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center justify-between cursor-pointer ${
-                    selectedPublisherId === "all"
+                    selectedPublisher === "all"
                       ? "bg-indigo-600 text-white font-semibold shadow-2xs"
                       : "text-slate-600 hover:bg-slate-50"
                   }`}
@@ -582,12 +683,13 @@ export default function BooksPage() {
                   </div>
                 ) : (
                   publishers.map((pub) => {
-                    const isSelected = String(pub.id) === selectedPublisherId;
+                    const pubName = pub.name || pub.englishName || "";
+                    const isSelected = selectedPublisher === pubName;
                     return (
                       <button
-                        key={pub.id}
+                        key={pub.id || pubName}
                         type="button"
-                        onClick={() => setSelectedPublisherId(String(pub.id))}
+                        onClick={() => setSelectedPublisher(pubName)}
                         className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center justify-between cursor-pointer ${
                           isSelected
                             ? "bg-indigo-600 text-white font-semibold shadow-2xs"
@@ -607,15 +709,27 @@ export default function BooksPage() {
           </aside>
 
           {/* Right Column (Catalog) */}
-          <section className="lg:col-span-3 xl:col-span-4 space-y-3.5">
+          <section
+            id="books-top"
+            className="lg:col-span-3 xl:col-span-4 space-y-3.5 scroll-mt-24"
+          >
             {/* Toolbar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white px-3.5 py-2.5 rounded-xl border border-slate-200 shadow-2xs text-xs gap-2">
               <div className="text-slate-500">
                 Showing{" "}
                 <strong className="text-slate-900 font-bold">
-                  {filteredBooks.length}
+                  {effectiveTotal > 0
+                    ? `${(currentPage - 1) * pageSize + 1}–${Math.min(
+                        currentPage * pageSize,
+                        effectiveTotal,
+                      )}`
+                    : 0}
                 </strong>{" "}
-                of <span className="text-slate-700">{books.length}</span> books
+                of{" "}
+                <span className="text-slate-700 font-semibold">
+                  {effectiveTotal}
+                </span>{" "}
+                books
               </div>
 
               <div className="flex items-center gap-1.5">
@@ -628,10 +742,12 @@ export default function BooksPage() {
                   className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-800 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:outline-none cursor-pointer"
                 >
                   <option value="featured">Featured</option>
-                  <option value="price-asc">Price: Low to High</option>
-                  <option value="price-desc">Price: High to Low</option>
-                  <option value="discount">Highest Discount</option>
                   <option value="newest">Newest Arrivals</option>
+                  <option value="price_asc">Price: Low to High</option>
+                  <option value="price_desc">Price: High to Low</option>
+                  <option value="rating">Top Rated</option>
+                  <option value="sold">Best Selling</option>
+                  <option value="title">Title (A to Z)</option>
                 </select>
               </div>
             </div>
@@ -655,9 +771,9 @@ export default function BooksPage() {
                   </div>
                 ))}
               </div>
-            ) : filteredBooks.length > 0 ? (
+            ) : displayedBooks.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-                {filteredBooks.map((book) => {
+                {displayedBooks.map((book) => {
                   const coverUrl = getCoverImage(book);
                   const priceNum = Number(book.price) || 0;
                   const discountNum = Number(book.discountPercent) || 0;
@@ -666,10 +782,20 @@ export default function BooksPage() {
                       ? priceNum - (priceNum * discountNum) / 100
                       : priceNum;
                   const genreName = getPrimaryGenreName(book);
+                  const authorName = (book.authors || book.authorBooks || [])
+                    .map(
+                      (a: any) =>
+                        a.name || a.englishName || a.author?.name || "",
+                    )
+                    .filter(Boolean)
+                    .join(", ");
                   const isWishlisted = Boolean(
                     wishlistedBookIds[String(book.id)],
                   );
-                  const isOutOfStock = Number(book.stock) <= 0;
+                  const isOutOfStock =
+                    book.stock !== undefined &&
+                    book.stock !== null &&
+                    Number(book.stock) <= 0;
 
                   return (
                     <div
@@ -712,9 +838,9 @@ export default function BooksPage() {
                       </div>
 
                       <div>
-                        {/* Compact Aspect Cover */}
+                        {/* Responsive Aspect Cover */}
                         <Link href={`/books/${book.id}`} className="block">
-                          <div className="relative aspect-[4/5] sm:w-[230px] sm:h-[200px] bg-slate-50 rounded-lg overflow-hidden flex items-center justify-center mb-2 group-hover:scale-[1.01] transition-transform duration-200 border border-slate-100">
+                          <div className="relative aspect-[3/4] w-full bg-slate-50 rounded-lg overflow-hidden flex items-center justify-center mb-2 group-hover:scale-[1.01] transition-transform duration-200 border border-slate-100">
                             {coverUrl ? (
                               <img
                                 src={coverUrl}
@@ -752,6 +878,14 @@ export default function BooksPage() {
                             {book.title}
                           </h2>
                         </Link>
+                        {authorName && (
+                          <p
+                            className="text-[11px] text-slate-500 truncate mt-0.5"
+                            title={authorName}
+                          >
+                            {authorName}
+                          </p>
+                        )}
                         <div className="mt-1.5 flex items-baseline gap-1.5 flex-wrap">
                           <span className="text-xs sm:text-sm font-bold text-slate-900">
                             Rs. {discountedPrice.toLocaleString()}
@@ -798,6 +932,91 @@ export default function BooksPage() {
                 </button>
               </div>
             )}
+
+            {/* Pagination Controls */}
+            {!isLoading && (effectiveTotalPages > 1 || effectiveTotal > 10) && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 mt-6 border-t border-slate-200">
+                <div className="text-xs text-slate-500">
+                  Showing{" "}
+                  <span className="font-semibold text-slate-800">
+                    {(currentPage - 1) * pageSize + 1}
+                  </span>{" "}
+                  to{" "}
+                  <span className="font-semibold text-slate-800">
+                    {Math.min(currentPage * pageSize, effectiveTotal)}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-semibold text-slate-800">
+                    {effectiveTotal}
+                  </span>{" "}
+                  books
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {/* Previous Button */}
+                  <button
+                    type="button"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage <= 1 || isLoading}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer shadow-2xs"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <span>Previous</span>
+                  </button>
+
+                  {/* Page Numbers */}
+                  <div className="flex items-center gap-1">
+                    {Array.from(
+                      { length: effectiveTotalPages },
+                      (_, i) => i + 1,
+                    )
+                      .filter((p) => {
+                        if (effectiveTotalPages <= 7) return true;
+                        if (p === 1 || p === effectiveTotalPages) return true;
+                        if (Math.abs(p - currentPage) <= 1) return true;
+                        return false;
+                      })
+                      .map((p, idx, arr) => {
+                        const prev = arr[idx - 1];
+                        const showEllipsis = prev && p - prev > 1;
+
+                        return (
+                          <React.Fragment key={p}>
+                            {showEllipsis && (
+                              <span className="px-1.5 text-slate-400 text-xs font-semibold">
+                                ...
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handlePageChange(p)}
+                              disabled={isLoading}
+                              className={`min-w-[32px] h-8 text-xs font-semibold rounded-lg transition cursor-pointer flex items-center justify-center ${
+                                currentPage === p
+                                  ? "bg-amber-500 text-white shadow-2xs font-bold"
+                                  : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                              }`}
+                            >
+                              {p}
+                            </button>
+                          </React.Fragment>
+                        );
+                      })}
+                  </div>
+
+                  {/* Next Button */}
+                  <button
+                    type="button"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage >= effectiveTotalPages || isLoading}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer shadow-2xs"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
         </div>
       </main>
@@ -833,9 +1052,9 @@ export default function BooksPage() {
                 <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
                   <button
                     type="button"
-                    onClick={() => setSelectedGenreId("all")}
+                    onClick={() => setSelectedGenre("all")}
                     className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg flex items-center justify-between ${
-                      selectedGenreId === "all"
+                      selectedGenre === "all"
                         ? "bg-amber-500 text-white font-bold"
                         : "text-slate-600 hover:bg-slate-50"
                     }`}
@@ -843,22 +1062,26 @@ export default function BooksPage() {
                     <span>All Genres</span>
                     <span>{books.length}</span>
                   </button>
-                  {genres.map((gen) => (
-                    <button
-                      key={gen.id}
-                      type="button"
-                      onClick={() => setSelectedGenreId(String(gen.id))}
-                      className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg flex items-center justify-between ${
-                        selectedGenreId === String(gen.id)
-                          ? "bg-amber-500 text-white font-bold"
-                          : "text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      <span className="truncate">
-                        {gen.name || gen.englishName}
-                      </span>
-                    </button>
-                  ))}
+                  {genres.map((gen) => {
+                    const genName = gen.name || gen.englishName || "";
+                    const isSelected = selectedGenre === genName;
+                    return (
+                      <button
+                        key={gen.id || genName}
+                        type="button"
+                        onClick={() => setSelectedGenre(genName)}
+                        className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg flex items-center justify-between ${
+                          isSelected
+                            ? "bg-amber-500 text-white font-bold"
+                            : "text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="truncate">
+                          {gen.name || gen.englishName}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -871,31 +1094,35 @@ export default function BooksPage() {
                 <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
                   <button
                     type="button"
-                    onClick={() => setSelectedPublisherId("all")}
+                    onClick={() => setSelectedPublisher("all")}
                     className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg flex items-center justify-between ${
-                      selectedPublisherId === "all"
+                      selectedPublisher === "all"
                         ? "bg-indigo-600 text-white font-bold"
                         : "text-slate-600 hover:bg-slate-50"
                     }`}
                   >
                     <span>All Publishers</span>
                   </button>
-                  {publishers.map((pub) => (
-                    <button
-                      key={pub.id}
-                      type="button"
-                      onClick={() => setSelectedPublisherId(String(pub.id))}
-                      className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg flex items-center justify-between ${
-                        selectedPublisherId === String(pub.id)
-                          ? "bg-indigo-600 text-white font-bold"
-                          : "text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      <span className="truncate">
-                        {pub.name || pub.englishName}
-                      </span>
-                    </button>
-                  ))}
+                  {publishers.map((pub) => {
+                    const pubName = pub.name || pub.englishName || "";
+                    const isSelected = selectedPublisher === pubName;
+                    return (
+                      <button
+                        key={pub.id || pubName}
+                        type="button"
+                        onClick={() => setSelectedPublisher(pubName)}
+                        className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg flex items-center justify-between ${
+                          isSelected
+                            ? "bg-indigo-600 text-white font-bold"
+                            : "text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="truncate">
+                          {pub.name || pub.englishName}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>

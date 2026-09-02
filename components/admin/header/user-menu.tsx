@@ -1,26 +1,11 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { LogOut, Settings, User } from "lucide-react";
-import { clearCookies } from "@/utils/cookies";
-
 import {
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 export default function UserMenu() {
-  const router = useRouter();
-
-  const handleLogout = async () => {
-    await clearCookies();
-    router.push("/admin/login");
-  };
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -34,29 +19,6 @@ export default function UserMenu() {
           <span className="text-xs font-semibold text-gray-800">Admin</span>
         </button>
       </DropdownMenuTrigger>
-
-      <DropdownMenuContent align="end" className="w-48 bg-white border border-gray-200 shadow-lg rounded-xl p-1">
-        <DropdownMenuItem asChild>
-          <Link href="/admin/settings" className="flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer">
-            <User className="h-4 w-4 text-gray-500" />
-            <span>Profile</span>
-          </Link>
-        </DropdownMenuItem>
-
-        <DropdownMenuItem asChild>
-          <Link href="/admin/settings" className="flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 rounded-lg cursor-pointer">
-            <Settings className="h-4 w-4 text-gray-500" />
-            <span>Settings</span>
-          </Link>
-        </DropdownMenuItem>
-
-        <DropdownMenuSeparator className="my-1 bg-gray-100" />
-
-        <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer">
-          <LogOut className="h-4 w-4 text-rose-500" />
-          <span>Logout</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
     </DropdownMenu>
   );
 }

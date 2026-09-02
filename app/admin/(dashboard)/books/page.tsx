@@ -24,100 +24,13 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
-export interface BookAuthor {
-  id: number | string;
-  name?: string;
-  englishName?: string;
-  author?: {
-    id: number | string;
-    name?: string;
-    englishName?: string;
-  };
-  [key: string]: any;
-}
-
-export interface BookGenre {
-  id: number | string;
-  name?: string;
-  englishName?: string;
-  genre?: {
-    id: number | string;
-    name?: string;
-  };
-  [key: string]: any;
-}
-
-export interface BookPublisher {
-  id: number | string;
-  name?: string;
-  englishName?: string;
-  publicationLogoUrl?: string;
-  [key: string]: any;
-}
-
-export interface BookLanguage {
-  id: number | string;
-  name?: string;
-  code?: string;
-  language?: {
-    id: number | string;
-    name?: string;
-    code?: string;
-  };
-  [key: string]: any;
-}
-
-export interface BookImage {
-  id?: number | string;
-  url?: string;
-  imageUrl?: string;
-  imageType?: string;
-  type?: string;
-  [key: string]: any;
-}
-
-export interface BookItem {
-  id: number | string;
-  title: string;
-  price: number | string;
-  discountPercent?: number | string;
-  stock: number;
-  soldCount?: number;
-  publicationDate?: string;
-  isbn10?: string;
-  isbn13?: string;
-  pages?: number | string;
-  description?: string;
-  widthCm?: number | string;
-  heightCm?: number | string;
-  depthCm?: number | string;
-  publisherId?: number | string;
-  publisher?: BookPublisher;
-  authors?: BookAuthor[];
-  authorBooks?: BookAuthor[];
-  authorIds?: (number | string)[];
-  genres?: BookGenre[];
-  genreBooks?: BookGenre[];
-  genreIds?: (number | string)[];
-  languages?: BookLanguage[];
-  languageBooks?: BookLanguage[];
-  languageIds?: (number | string)[];
-  images?: (BookImage | string)[];
-  bookImages?: BookImage[];
-  createdAt?: string;
-  updatedAt?: string;
-  [key: string]: any;
-}
-
-export interface PaginationMeta {
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
+import {
+  BookItem,
+  PaginationMeta
+} from "@/types";
 
 export default function BooksPage() {
   const [books, setBooks] = useState<BookItem[]>([]);
@@ -145,7 +58,6 @@ export default function BooksPage() {
     totalPages: 1,
   });
 
-  // Fetch Books from /v1/book
   const fetchBooks = useCallback(
     async (page = currentPage, limit = pageSize, search = searchTerm) => {
       setIsLoading(true);
@@ -161,16 +73,50 @@ export default function BooksPage() {
           : data?.books || data?.items || [];
         setBooks(list);
 
-        if (response.data?.pagination) {
-          setPagination(response.data.pagination);
-        } else if (data?.pagination) {
-          setPagination(data.pagination);
-        } else {
+        const rawPagination =
+          response.data?.pagination ||
+          data?.pagination ||
+          response.data?.meta ||
+          data?.meta;
+
+        if (rawPagination) {
+          const totalCount =
+            rawPagination.total ??
+            rawPagination.totalCount ??
+            rawPagination.count ??
+            list.length;
+          const limitCount = rawPagination.limit ?? limit;
+          const pages =
+            (rawPagination.totalPages ??
+            rawPagination.lastPage ??
+            Math.ceil(totalCount / limitCount)) || 1;
+
           setPagination({
-            total: list.length,
+            total: totalCount,
+            page: rawPagination.page ?? page,
+            limit: limitCount,
+            totalPages: pages,
+          });
+        } else {
+          const totalCount =
+            response.data?.total ??
+            response.data?.totalCount ??
+            response.data?.count ??
+            data?.total ??
+            data?.totalCount ??
+            data?.count ??
+            list.length;
+
+          const totalPages =
+            (response.data?.totalPages ??
+            data?.totalPages ??
+            Math.ceil(totalCount / limit)) || 1;
+
+          setPagination({
+            total: totalCount,
             page,
             limit,
-            totalPages: Math.ceil(list.length / limit) || 1,
+            totalPages,
           });
         }
       } catch (err: any) {
@@ -214,6 +160,35 @@ export default function BooksPage() {
       titleMatch || isbnMatch || publisherMatch || authorMatch || genreMatch
     );
   });
+
+  // Determine if client-side slicing is needed (when full list is loaded)
+  const isClientSidePaging = books.length > pageSize;
+  const effectiveTotal = isClientSidePaging
+    ? filteredBooks.length
+    : pagination.total || filteredBooks.length;
+  const effectiveTotalPages = isClientSidePaging
+    ? Math.ceil(filteredBooks.length / pageSize) || 1
+    : pagination.totalPages || Math.ceil(effectiveTotal / pageSize) || 1;
+
+  const displayedBooks = isClientSidePaging
+    ? filteredBooks.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+    : filteredBooks;
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > effectiveTotalPages || newPage === currentPage || isLoading) {
+      return;
+    }
+    setCurrentPage(newPage);
+    if (!isClientSidePaging) {
+      fetchBooks(newPage, pageSize, searchTerm);
+    }
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setCurrentPage(1);
+    fetchBooks(1, newSize, searchTerm);
+  };
 
   // Handle View Book
   const handleViewClick = (book: BookItem) => {
@@ -356,8 +331,8 @@ export default function BooksPage() {
             Books Catalog
           </h1>
           <p className="text-xs text-gray-500 font-medium mt-0.5">
-            {pagination.total > 0
-              ? `${pagination.total} books registered in the system`
+            {effectiveTotal > 0
+              ? `${effectiveTotal} book${effectiveTotal > 1 ? "s" : ""} registered in the system`
               : `${books.length} books in current view`}
           </p>
         </div>
@@ -400,24 +375,43 @@ export default function BooksPage() {
               type="text"
               placeholder="Search by title, author, publisher, ISBN..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full pl-9 pr-4 py-2 rounded-xl bg-gray-100/80 border border-transparent text-xs text-gray-800 placeholder:text-gray-400 focus:outline-none focus:bg-white focus:border-indigo-300 transition-all"
             />
             {searchTerm && (
               <button
                 type="button"
-                onClick={() => setSearchTerm("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                onClick={() => {
+                  setSearchTerm("");
+                  setCurrentPage(1);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-gray-400 font-medium select-none">
+          <div className="flex items-center gap-2 text-xs text-gray-500 font-medium select-none">
             <span>
-              Showing {filteredBooks.length} of{" "}
-              {pagination.total || books.length} books
+              Showing{" "}
+              <strong className="text-gray-900 font-semibold">
+                {displayedBooks.length === 0
+                  ? 0
+                  : (currentPage - 1) * pageSize + 1}
+              </strong>
+              –
+              <strong className="text-gray-900 font-semibold">
+                {Math.min(currentPage * pageSize, effectiveTotal)}
+              </strong>{" "}
+              of{" "}
+              <strong className="text-gray-900 font-semibold">
+                {effectiveTotal}
+              </strong>{" "}
+              books
             </span>
           </div>
         </div>
@@ -450,8 +444,8 @@ export default function BooksPage() {
                     </div>
                   </td>
                 </tr>
-              ) : filteredBooks.length > 0 ? (
-                filteredBooks.map((book) => {
+              ) : displayedBooks.length > 0 ? (
+                displayedBooks.map((book) => {
                   const coverUrl = getCoverImageUrl(book);
                   const priceNum = Number(book.price) || 0;
                   const discountNum = Number(book.discountPercent) || 0;
@@ -488,104 +482,123 @@ export default function BooksPage() {
                             >
                               {book.title}
                             </span>
-                            <span className="text-[11px] text-gray-400 font-normal mt-0.5 truncate">
-                              {book.isbn13 || book.isbn10 || "No ISBN"}
+                            <span className="text-[11px] text-gray-400 font-mono mt-0.5">
+                              {book.isbn13 || book.isbn10
+                                ? `ISBN: ${book.isbn13 || book.isbn10}`
+                                : "No ISBN"}
                             </span>
                           </div>
                         </div>
                       </td>
 
-                      {/* Author */}
-                      <td className="py-3.5 px-4 text-gray-600 font-medium max-w-[150px] truncate">
-                        {getAuthorsString(book)}
+                      {/* Author(s) */}
+                      <td className="py-3.5 px-4 max-w-[170px]">
+                        <span className="text-gray-700 font-medium line-clamp-1">
+                          {getAuthorsString(book)}
+                        </span>
                       </td>
 
                       {/* Publisher */}
-                      <td className="py-3.5 px-4 text-gray-500 font-normal max-w-[140px] truncate">
-                        {book.publisher?.name ||
-                          book.publisher?.englishName ||
-                          "—"}
+                      <td className="py-3.5 px-4 max-w-[150px]">
+                        <span className="text-gray-700 font-medium line-clamp-1">
+                          {book.publisher?.name ||
+                            book.publisher?.englishName ||
+                            "—"}
+                        </span>
                       </td>
 
-                      {/* Category / Genre Pills */}
-                      <td className="py-3.5 px-4">
-                        <div className="flex flex-wrap gap-1 max-w-[160px]">
-                          {genresList.length > 0 ? (
+                      {/* Genre(s) */}
+                      <td className="py-3.5 px-4 max-w-[180px]">
+                        <div className="flex flex-wrap gap-1">
+                          {genresList.length === 0 ? (
+                            <span className="text-gray-400">—</span>
+                          ) : (
                             genresList.slice(0, 2).map((g, idx) => (
                               <span
                                 key={idx}
-                                className="inline-block px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-medium border border-emerald-100"
+                                className="inline-block px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-700"
                               >
                                 {g}
                               </span>
                             ))
-                          ) : (
-                            <span className="text-gray-400 text-xs">—</span>
                           )}
                           {genresList.length > 2 && (
-                            <span className="text-[10px] text-gray-400 self-center">
+                            <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-500">
                               +{genresList.length - 2}
                             </span>
                           )}
                         </div>
                       </td>
 
-                      {/* Price */}
+                      {/* Price & Discount */}
                       <td className="py-3.5 px-4">
                         <div className="flex flex-col">
-                          <span className="font-bold text-gray-900">
+                          <span className="font-semibold text-gray-900">
                             Rs. {discountedPrice.toLocaleString()}
                           </span>
                           {discountNum > 0 && (
-                            <span className="text-[10px] text-gray-400 line-through">
-                              Rs. {priceNum.toLocaleString()} ({discountNum}%
-                              off)
-                            </span>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className="text-[11px] text-gray-400 line-through">
+                                Rs. {priceNum.toLocaleString()}
+                              </span>
+                              <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1 rounded">
+                                -{discountNum}%
+                              </span>
+                            </div>
                           )}
                         </div>
                       </td>
 
-                      {/* Stock */}
-                      <td className="py-3.5 px-4 font-semibold text-gray-700">
-                        {book.stock}
+                      {/* Stock Units */}
+                      <td className="py-3.5 px-4">
+                        <span className="font-semibold text-gray-800">
+                          {book.stock ?? 0}
+                        </span>
                       </td>
 
                       {/* Sold Count */}
-                      <td className="py-3.5 px-4 text-gray-500 font-normal">
-                        {book.soldCount || 0}
+                      <td className="py-3.5 px-4">
+                        <span className="text-gray-600">
+                          {book.soldCount ?? 0}
+                        </span>
                       </td>
 
-                      {/* Status */}
+                      {/* Stock Status Badge */}
                       <td className="py-3.5 px-4">
                         {getStockBadge(Number(book.stock) || 0)}
                       </td>
 
-                      {/* Actions */}
+                      {/* Action Buttons */}
                       <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5 opacity-70 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* View */}
                           <button
                             type="button"
                             onClick={() => handleViewClick(book)}
-                            className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
-                            title="View Book Details"
+                            className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                            title="View details"
                           >
-                            <Eye className="h-3.5 w-3.5" />
+                            <Eye className="w-4 h-4" />
                           </button>
+
+                          {/* Edit */}
                           <button
                             type="button"
                             onClick={() => handleEditClick(book)}
-                            className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
-                            title="Edit Book"
+                            className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition cursor-pointer"
+                            title="Edit book"
                           >
-                            <Pencil className="h-3.5 w-3.5" />
+                            <Pencil className="w-4 h-4" />
                           </button>
+
+                          {/* Delete */}
                           <button
                             type="button"
                             onClick={() => handleDeleteClick(book)}
-                            className="p-1.5 text-gray-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                            title="Delete Book"
+                            className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                            title="Delete book"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -594,13 +607,10 @@ export default function BooksPage() {
                 })
               ) : (
                 <tr>
-                  <td
-                    colSpan={9}
-                    className="py-16 text-center text-gray-400 text-xs"
-                  >
-                    <div className="flex flex-col items-center justify-center gap-1">
-                      <BookOpen className="w-8 h-8 text-gray-300 mb-1" />
-                      <p className="font-semibold text-gray-600">
+                  <td colSpan={9} className="py-14 text-center">
+                    <div className="flex flex-col items-center justify-center gap-1.5 text-xs text-gray-500">
+                      <BookOpen className="w-8 h-8 text-gray-300 stroke-1 mb-1" />
+                      <p className="font-semibold text-gray-700 text-sm">
                         No books found
                       </p>
                       <p className="text-gray-400">
@@ -617,41 +627,87 @@ export default function BooksPage() {
         </div>
 
         {/* Pagination Footer */}
-        {pagination.totalPages > 1 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-gray-100">
-            <div className="text-xs text-gray-500">
-              Page{" "}
-              <span className="font-semibold text-gray-800">{currentPage}</span>{" "}
-              of{" "}
-              <span className="font-semibold text-gray-800">
-                {pagination.totalPages}
+        {(effectiveTotalPages > 1 || effectiveTotal > 10) && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-gray-100">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-5 text-xs text-gray-500">
+              <span>
+                Page{" "}
+                <strong className="text-gray-900 font-semibold">
+                  {currentPage}
+                </strong>{" "}
+                of{" "}
+                <strong className="text-gray-900 font-semibold">
+                  {effectiveTotalPages}
+                </strong>{" "}
+                ({effectiveTotal} total items)
               </span>
+
+              {/* Page size selector */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-gray-400">Rows:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                  className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 outline-none focus:border-indigo-500 font-medium cursor-pointer shadow-xs"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 disabled={currentPage <= 1 || isLoading}
-                onClick={() => {
-                  const newPage = currentPage - 1;
-                  setCurrentPage(newPage);
-                  fetchBooks(newPage);
-                }}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                onClick={() => handlePageChange(currentPage - 1)}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer shadow-xs"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
                 Previous
               </button>
 
+              {/* Numbered Page Buttons */}
+              <div className="hidden sm:flex items-center gap-1">
+                {Array.from({ length: effectiveTotalPages }, (_, i) => i + 1)
+                  .filter((p) => {
+                    if (effectiveTotalPages <= 7) return true;
+                    if (p === 1 || p === effectiveTotalPages) return true;
+                    return Math.abs(p - currentPage) <= 1;
+                  })
+                  .map((p, index, array) => {
+                    const prev = array[index - 1];
+                    const showEllipsis = prev && p - prev > 1;
+
+                    return (
+                      <React.Fragment key={p}>
+                        {showEllipsis && (
+                          <span className="px-1 text-xs text-gray-400">...</span>
+                        )}
+                        <button
+                          type="button"
+                          disabled={isLoading}
+                          onClick={() => handlePageChange(p)}
+                          className={`w-7 h-7 rounded-lg text-xs font-semibold flex items-center justify-center transition cursor-pointer ${
+                            p === currentPage
+                              ? "bg-indigo-600 text-white shadow-xs"
+                              : "text-gray-700 hover:bg-gray-100 bg-white border border-gray-200"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      </React.Fragment>
+                    );
+                  })}
+              </div>
+
               <button
                 type="button"
-                disabled={currentPage >= pagination.totalPages || isLoading}
-                onClick={() => {
-                  const newPage = currentPage + 1;
-                  setCurrentPage(newPage);
-                  fetchBooks(newPage);
-                }}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                disabled={currentPage >= effectiveTotalPages || isLoading}
+                onClick={() => handlePageChange(currentPage + 1)}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer shadow-xs"
               >
                 Next
                 <ChevronRight className="w-3.5 h-3.5" />

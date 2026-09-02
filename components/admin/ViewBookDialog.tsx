@@ -28,7 +28,7 @@ import {
   AlertCircle,
   XCircle,
 } from "lucide-react";
-import { BookItem } from "@/app/admin/(dashboard)/books/page";
+import { BookItem } from "@/types";
 import { parseQuillContent } from "@/utils/quillDecoder";
 
 interface ViewBookDialogProps {

@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  Search,
   ShoppingBag,
   ShoppingCart,
   UserRound,
@@ -35,6 +34,7 @@ import {
   getUserInitials,
   UserCookie,
 } from "@/utils/cookies";
+import HeaderSearch from "@/components/HeaderSearch";
 
 const navLinks = [
   { name: "Home", href: "/" },
@@ -49,6 +49,7 @@ const Header = () => {
   const [user, setUser] = useState<UserCookie | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const [wishlistCount, setWishlistCount] = useState(0);
 
   const pathname = usePathname();
   const router = useRouter();
@@ -89,17 +90,51 @@ const Header = () => {
     }
   };
 
+  const fetchWishlistCount = async () => {
+    try {
+      const cookieUser = await getUserCookie();
+
+      if (!cookieUser?.accessToken) {
+        setWishlistCount(0);
+        return;
+      }
+
+      let res;
+      try {
+        res = await axiosAuthInstance.get("/v1/wishlist");
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          res = await axiosAuthInstance.get("/api/v1/wishlist");
+        } else {
+          throw err;
+        }
+      }
+
+      const data = res?.data?.data || res?.data || [];
+      const count = Array.isArray(data)
+        ? data.length
+        : data?.count || data?.total || 0;
+
+      setWishlistCount(Number(count) || 0);
+    } catch {
+      setWishlistCount(0);
+    }
+  };
+
   useEffect(() => {
     loadUser();
     fetchCartCount();
+    fetchWishlistCount();
 
     const handleAuthChange = () => {
       loadUser();
       fetchCartCount();
+      fetchWishlistCount();
     };
 
     const handleCartChange = () => {
       fetchCartCount();
+      fetchWishlistCount();
     };
 
     window.addEventListener(AUTH_CHANGE_EVENT, handleAuthChange);
@@ -145,10 +180,10 @@ const Header = () => {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white shadow-sm">
       {/* Main Header */}
-      <div className="mx-auto flex min-h-[56px] max-w-[1400px] items-center gap-3 px-3 sm:px-4 lg:px-6">
-        {/* Logo */}
+      <div className="mx-auto flex min-h-[60px] max-w-[1440px] items-center justify-between gap-3 sm:gap-4 lg:gap-6 px-3 sm:px-6 lg:px-8">
+        {/* Left: Logo */}
         <Link href="/" className="shrink-0 transition-opacity hover:opacity-90">
-          <div className="relative h-12 w-12 sm:h-14 sm:w-14 lg:h-16 lg:w-16">
+          <div className="relative h-12 w-12 sm:h-14 sm:w-14 lg:h-15 lg:w-15">
             <Image
               src="/logo.jpg"
               alt="Logo"
@@ -160,45 +195,44 @@ const Header = () => {
           </div>
         </Link>
 
-        {/* Desktop Search */}
-        <div className="hidden min-w-0 max-w-[560px] flex-1 sm:flex ml-50">
-          <div className="flex h-9 w-full overflow-hidden rounded-md border border-[#0F2557] bg-white">
-            <input
-              type="text"
-              placeholder="Search books, authors, ISBN..."
-              className="min-w-0 flex-1 px-3 text-xs text-gray-700 outline-none placeholder:text-gray-400"
-            />
-
-            <button
-              type="button"
-              className="hidden w-[105px] items-center justify-between border-l border-gray-200 bg-gray-50 px-2.5 text-[11px] text-gray-600 lg:flex"
-            >
-              <span>All Categories</span>
-              <ChevronDown size={11} />
-            </button>
-
-            <button
-              type="button"
-              className="flex w-9 shrink-0 items-center justify-center bg-[#1749A0] text-white transition-colors hover:bg-[#0F2557]"
-              aria-label="Search"
-            >
-              <Search size={14} strokeWidth={2} />
-            </button>
-          </div>
+        {/* Center: Desktop Search (Centered with responsive max width) */}
+        <div className="hidden min-w-0 max-w-[620px] flex-1 sm:flex mx-auto px-2 lg:px-6">
+          <HeaderSearch />
         </div>
 
         {/* Right Actions */}
-        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2 lg:gap-3">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2.5 lg:gap-3.5">
+          {/* Wishlist */}
+          <Link
+            href="/user/wishlist"
+            className="relative flex items-center gap-1.5 rounded-xl p-2 text-gray-700 transition-colors hover:bg-rose-50/80 hover:text-rose-600"
+            title="My Wishlist"
+          >
+            <div className="relative flex items-center justify-center">
+              <Heart size={19} strokeWidth={1.7} />
+
+              {wishlistCount > 0 && (
+                <span className="absolute -right-2 -top-2 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[8px] font-bold text-white shadow-2xs">
+                  {wishlistCount > 99 ? "99+" : wishlistCount}
+                </span>
+              )}
+            </div>
+
+            <span className="hidden text-xs font-semibold md:inline">
+              Wishlist
+            </span>
+          </Link>
+
           {/* Cart */}
           <Link
             href="/cart"
-            className="relative flex items-center gap-1.5 rounded-lg p-2 text-gray-700 transition-colors hover:bg-gray-50 hover:text-[#1749A0]"
+            className="relative flex items-center gap-1.5 rounded-xl p-2 text-gray-700 transition-colors hover:bg-indigo-50/80 hover:text-[#1749A0]"
             title="Shopping Cart"
           >
-            <div className="relative">
-              <ShoppingCart size={19} strokeWidth={1.6} />
+            <div className="relative flex items-center justify-center">
+              <ShoppingCart size={19} strokeWidth={1.7} />
 
-              <span className="absolute -right-2 -top-2 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-[#1749A0] px-1 text-[8px] font-bold text-white">
+              <span className="absolute -right-2 -top-2 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-[#1749A0] px-1 text-[8px] font-bold text-white shadow-2xs">
                 {cartCount > 99 ? "99+" : cartCount}
               </span>
             </div>
@@ -212,9 +246,9 @@ const Header = () => {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex items-center gap-2 rounded-lg p-1.5 text-left transition-colors hover:bg-gray-50"
+                  className="flex items-center gap-2 rounded-xl p-1.5 text-left transition-colors hover:bg-gray-50 cursor-pointer"
                 >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1749A0] text-xs font-bold text-white">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1749A0] text-xs font-bold text-white shadow-2xs">
                     {userInitials}
                   </div>
 
@@ -267,16 +301,6 @@ const Header = () => {
                   </Link>
                 </DropdownMenuItem>
 
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/user/wishlist"
-                    className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
-                  >
-                    <Heart className="h-4 w-4 text-rose-500" />
-                    <span>My Wishlist</span>
-                  </Link>
-                </DropdownMenuItem>
-
                 <DropdownMenuItem
                   onClick={handleLogout}
                   className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50"
@@ -289,7 +313,7 @@ const Header = () => {
           ) : (
             <Link
               href="/login"
-              className="flex items-center gap-1.5 rounded-lg p-2 transition-colors hover:bg-gray-50 hover:text-[#1749A0]"
+              className="flex items-center gap-1.5 rounded-xl p-2 transition-colors hover:bg-gray-50 hover:text-[#1749A0]"
             >
               <UserRound
                 size={18}
@@ -321,21 +345,7 @@ const Header = () => {
 
       {/* Mobile Search */}
       <div className="border-t border-gray-100 px-3 py-2 sm:hidden">
-        <div className="flex h-9 w-full overflow-hidden rounded-md border border-[#0F2557]">
-          <input
-            type="text"
-            placeholder="Search books, authors, ISBN..."
-            className="min-w-0 flex-1 px-3 text-xs text-gray-700 outline-none placeholder:text-gray-400"
-          />
-
-          <button
-            type="button"
-            className="flex w-9 shrink-0 items-center justify-center bg-[#1749A0] text-white"
-            aria-label="Search"
-          >
-            <Search size={14} />
-          </button>
-        </div>
+        <HeaderSearch isMobile />
       </div>
 
       {/* Desktop Navigation */}
@@ -398,11 +408,11 @@ const Header = () => {
                 </div>
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-2 border-t border-gray-200 pt-3">
+              <div className="mt-3 grid grid-cols-3 gap-2 border-t border-gray-200 pt-3">
                 <Link
                   href={dashboardLink}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white py-2 text-xs font-semibold text-gray-700"
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
                 >
                   <LayoutDashboard size={13} />
                   Dashboard
@@ -411,10 +421,19 @@ const Header = () => {
                 <Link
                   href={ordersLink}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white py-2 text-xs font-semibold text-gray-700"
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
                 >
                   <ShoppingBag size={13} />
                   Orders
+                </Link>
+
+                <Link
+                  href="/user/wishlist"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                >
+                  <Heart size={13} />
+                  Wishlist
                 </Link>
               </div>
 

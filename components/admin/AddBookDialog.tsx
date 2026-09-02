@@ -27,6 +27,7 @@ import {
 import toast from "react-hot-toast";
 import { axiosAuthInstance, axiosMultipartInstance } from "@/utils/axiosInstances";
 import TextEditorEdit from "../TextEditor";
+import { bookFormSchema } from "@/lib/validations/bookSchema";
 
 export interface OptionItem {
   id: number | string;
@@ -111,6 +112,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
   const [selectedAuthors, setSelectedAuthors] = useState<(number | string)[]>([]);
   const [selectedGenres, setSelectedGenres] = useState<(number | string)[]>([]);
   const [selectedLanguages, setSelectedLanguages] = useState<(number | string)[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   
   // Images state
   const [existingImages, setExistingImages] = useState<ExistingBookImage[]>([]);
@@ -271,6 +273,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
     setExistingImages([]);
     uploadedImages.forEach((img) => URL.revokeObjectURL(img.preview));
     setUploadedImages([]);
+    setErrors({});
   };
 
   const handleInputChange = (
@@ -281,6 +284,13 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
       ...prev,
       [name]: value,
     }));
+    if (errors[name]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    }
   };
 
   // Image Upload handler for new images
@@ -402,23 +412,30 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
     }
   };
 
+  const validateForm = (): boolean => {
+    const result = bookFormSchema.safeParse(formData);
+
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      result.error.issues.forEach((issue) => {
+        const fieldName = String(issue.path[0]);
+        if (!fieldErrors[fieldName]) {
+          fieldErrors[fieldName] = issue.message;
+        }
+      });
+      setErrors(fieldErrors);
+      toast.error("Please fill in all required fields correctly.");
+      return false;
+    }
+
+    setErrors({});
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.title.trim()) {
-      toast.error("Book Title is required.");
-      return;
-    }
-    if (!formData.price || Number(formData.price) < 0) {
-      toast.error("Valid Price is required.");
-      return;
-    }
-    if (!formData.stock || Number(formData.stock) < 0) {
-      toast.error("Valid Stock quantity is required.");
-      return;
-    }
-    if (!formData.publisherId) {
-      toast.error("Please select a Publisher.");
+    if (!validateForm()) {
       return;
     }
 
@@ -507,11 +524,112 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
       onOpenChange(false);
     } catch (error: any) {
       console.error("Save book error:", error);
-      const errorMsg =
-        error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        "Failed to save book.";
-      toast.error(typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg));
+      const resData = error?.response?.data;
+      const fieldErrors: Record<string, string> = {};
+
+      const extractCleanMessage = (errData: any): string => {
+        if (!errData) return "Failed to save book.";
+        if (typeof errData === "string") {
+          const trimmed = errData.trim();
+          if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+            try {
+              const parsed = JSON.parse(trimmed);
+              return extractCleanMessage(parsed);
+            } catch {
+              return trimmed;
+            }
+          }
+          return trimmed;
+        }
+        if (Array.isArray(errData)) {
+          return errData
+            .map((item) => extractCleanMessage(item))
+            .filter(Boolean)
+            .join(", ");
+        }
+        if (typeof errData === "object") {
+          if (errData.message) {
+            return extractCleanMessage(errData.message);
+          }
+          if (errData.error) {
+            return extractCleanMessage(errData.error);
+          }
+          if (errData.errors) {
+            return extractCleanMessage(errData.errors);
+          }
+          const values = Object.values(errData);
+          if (values.length > 0) {
+            return extractCleanMessage(values[0]);
+          }
+        }
+        return "Failed to save book.";
+      };
+
+      if (resData?.errors) {
+        if (Array.isArray(resData.errors)) {
+          resData.errors.forEach((err: any) => {
+            const field = err.field || err.path || err.param;
+            if (field) {
+              const normalizedField =
+                field === "isbn_10" || field === "ISBN10" || field === "isbn-10"
+                  ? "isbn10"
+                  : field === "isbn_13" || field === "ISBN13" || field === "isbn-13"
+                  ? "isbn13"
+                  : field;
+              fieldErrors[normalizedField] = extractCleanMessage(
+                err.message || err.msg || err
+              );
+            }
+          });
+        } else if (typeof resData.errors === "object") {
+          Object.entries(resData.errors).forEach(([k, v]: [string, any]) => {
+            const normalizedField =
+              k === "isbn_10" || k === "ISBN10" || k === "isbn-10"
+                ? "isbn10"
+                : k === "isbn_13" || k === "ISBN13" || k === "isbn-13"
+                ? "isbn13"
+                : k;
+            fieldErrors[normalizedField] = extractCleanMessage(v);
+          });
+        }
+      }
+
+      const cleanErrorMsg = extractCleanMessage(resData);
+
+      // Smart pattern detection for ISBN, Title, Price, Stock in API message
+      const lowerMsg = cleanErrorMsg.toLowerCase();
+      if (
+        lowerMsg.includes("isbn10") ||
+        lowerMsg.includes("isbn-10") ||
+        lowerMsg.includes("isbn 10")
+      ) {
+        fieldErrors.isbn10 = cleanErrorMsg;
+      }
+      if (
+        lowerMsg.includes("isbn13") ||
+        lowerMsg.includes("isbn-13") ||
+        lowerMsg.includes("isbn 13")
+      ) {
+        fieldErrors.isbn13 = cleanErrorMsg;
+      }
+      if (lowerMsg.includes("title")) {
+        fieldErrors.title = cleanErrorMsg;
+      }
+      if (lowerMsg.includes("publisher")) {
+        fieldErrors.publisherId = cleanErrorMsg;
+      }
+      if (lowerMsg.includes("price")) {
+        fieldErrors.price = cleanErrorMsg;
+      }
+      if (lowerMsg.includes("stock")) {
+        fieldErrors.stock = cleanErrorMsg;
+      }
+
+      if (Object.keys(fieldErrors).length > 0) {
+        setErrors((prev) => ({ ...prev, ...fieldErrors }));
+      }
+
+      toast.error(cleanErrorMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -576,6 +694,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
         {/* Form Body */}
         <form
           id="add-book-form"
+          noValidate
           onSubmit={handleSubmit}
           className="flex-1 overflow-y-auto p-5 sm:p-7 space-y-7 text-slate-800"
         >
@@ -595,12 +714,20 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                 <input
                   type="text"
                   name="title"
-                  required
                   placeholder="e.g. The Alchemist"
                   value={formData.title}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                  className={`w-full rounded-lg border px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 shadow-sm transition ${
+                    errors.title
+                      ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 bg-white focus:border-indigo-500 focus:ring-indigo-500"
+                  }`}
                 />
+                {errors.title && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.title}
+                  </p>
+                )}
               </div>
 
               {/* Publisher Dropdown (/v1/publisher) */}
@@ -613,9 +740,11 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                 <div
                   onClick={() => setPublisherOpen(!publisherOpen)}
                   className={`w-full flex items-center justify-between rounded-lg border px-3.5 py-2 text-sm cursor-pointer bg-white transition shadow-sm ${
-                    publisherOpen
-                      ? "border-indigo-500 ring-1 ring-indigo-500"
-                      : "border-slate-300 hover:border-slate-400"
+                    errors.publisherId
+                      ? "border-rose-400 ring-1 ring-rose-400 bg-rose-50/20"
+                      : publisherOpen
+                        ? "border-indigo-500 ring-1 ring-indigo-500"
+                        : "border-slate-300 hover:border-slate-400"
                   }`}
                 >
                   <span
@@ -631,6 +760,12 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                   </span>
                   <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 ml-2" />
                 </div>
+
+                {errors.publisherId && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.publisherId}
+                  </p>
+                )}
 
                 {publisherOpen && (
                   <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 shadow-xl animate-in fade-in-50 zoom-in-95">
@@ -666,6 +801,11 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                                   ...prev,
                                   publisherId: pub.id,
                                 }));
+                                setErrors((prev) => {
+                                  const next = { ...prev };
+                                  delete next.publisherId;
+                                  return next;
+                                });
                                 setPublisherOpen(false);
                                 setPublisherSearch("");
                               }}
@@ -698,9 +838,11 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                 <div
                   onClick={() => setAuthorOpen(!authorOpen)}
                   className={`w-full min-h-[38px] flex items-center justify-between rounded-lg border px-3 py-1.5 text-sm cursor-pointer bg-white transition shadow-sm ${
-                    authorOpen
-                      ? "border-indigo-500 ring-1 ring-indigo-500"
-                      : "border-slate-300 hover:border-slate-400"
+                    errors.authorIds || errors.authors
+                      ? "border-rose-400 ring-1 ring-rose-400 bg-rose-50/20"
+                      : authorOpen
+                        ? "border-indigo-500 ring-1 ring-indigo-500"
+                        : "border-slate-300 hover:border-slate-400"
                   }`}
                 >
                   <div className="flex flex-wrap gap-1 flex-1">
@@ -740,6 +882,12 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                   </div>
                   <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 ml-2" />
                 </div>
+
+                {(errors.authorIds || errors.authors) && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.authorIds || errors.authors}
+                  </p>
+                )}
 
                 {authorOpen && (
                   <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 shadow-xl animate-in fade-in-50 zoom-in-95">
@@ -805,9 +953,11 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                 <div
                   onClick={() => setGenreOpen(!genreOpen)}
                   className={`w-full min-h-[38px] flex items-center justify-between rounded-lg border px-3 py-1.5 text-sm cursor-pointer bg-white transition shadow-sm ${
-                    genreOpen
-                      ? "border-indigo-500 ring-1 ring-indigo-500"
-                      : "border-slate-300 hover:border-slate-400"
+                    errors.genreIds || errors.genres
+                      ? "border-rose-400 ring-1 ring-rose-400 bg-rose-50/20"
+                      : genreOpen
+                        ? "border-indigo-500 ring-1 ring-indigo-500"
+                        : "border-slate-300 hover:border-slate-400"
                   }`}
                 >
                   <div className="flex flex-wrap gap-1 flex-1">
@@ -847,6 +997,12 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                   </div>
                   <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 ml-2" />
                 </div>
+
+                {(errors.genreIds || errors.genres) && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.genreIds || errors.genres}
+                  </p>
+                )}
 
                 {genreOpen && (
                   <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 shadow-xl animate-in fade-in-50 zoom-in-95">
@@ -912,9 +1068,11 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                 <div
                   onClick={() => setLanguageOpen(!languageOpen)}
                   className={`w-full min-h-[38px] flex items-center justify-between rounded-lg border px-3 py-1.5 text-sm cursor-pointer bg-white transition shadow-sm ${
-                    languageOpen
-                      ? "border-indigo-500 ring-1 ring-indigo-500"
-                      : "border-slate-300 hover:border-slate-400"
+                    errors.languageIds || errors.languages
+                      ? "border-rose-400 ring-1 ring-rose-400 bg-rose-50/20"
+                      : languageOpen
+                        ? "border-indigo-500 ring-1 ring-indigo-500"
+                        : "border-slate-300 hover:border-slate-400"
                   }`}
                 >
                   <div className="flex flex-wrap gap-1 flex-1">
@@ -954,6 +1112,12 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                   </div>
                   <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 ml-2" />
                 </div>
+
+                {(errors.languageIds || errors.languages) && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.languageIds || errors.languages}
+                  </p>
+                )}
 
                 {languageOpen && (
                   <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 shadow-xl animate-in fade-in-50 zoom-in-95">
@@ -1032,12 +1196,20 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                   name="price"
                   step="0.01"
                   min="0"
-                  required
                   placeholder="e.g. 750"
                   value={formData.price}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 shadow-sm transition ${
+                    errors.price
+                      ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 bg-white focus:border-indigo-500 focus:ring-indigo-500"
+                  }`}
                 />
+                {errors.price && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.price}
+                  </p>
+                )}
               </div>
 
               {/* Discount Percent */}
@@ -1054,8 +1226,17 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                   placeholder="e.g. 10"
                   value={formData.discountPercent}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 shadow-sm transition ${
+                    errors.discountPercent
+                      ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 bg-white focus:border-indigo-500 focus:ring-indigo-500"
+                  }`}
                 />
+                {errors.discountPercent && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.discountPercent}
+                  </p>
+                )}
               </div>
 
               {/* Stock */}
@@ -1067,12 +1248,20 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                   type="number"
                   name="stock"
                   min="0"
-                  required
                   placeholder="e.g. 50"
                   value={formData.stock}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 shadow-sm transition ${
+                    errors.stock
+                      ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 bg-white focus:border-indigo-500 focus:ring-indigo-500"
+                  }`}
                 />
+                {errors.stock && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.stock}
+                  </p>
+                )}
               </div>
 
               {/* Sold Count */}
@@ -1087,8 +1276,17 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                   placeholder="e.g. 100"
                   value={formData.soldCount}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 shadow-sm transition ${
+                    errors.soldCount
+                      ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 bg-white focus:border-indigo-500 focus:ring-indigo-500"
+                  }`}
                 />
+                {errors.soldCount && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.soldCount}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -1112,8 +1310,17 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                   name="publicationDate"
                   value={formData.publicationDate}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 shadow-sm transition ${
+                    errors.publicationDate
+                      ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 bg-white focus:border-indigo-500 focus:ring-indigo-500"
+                  }`}
                 />
+                {errors.publicationDate && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.publicationDate}
+                  </p>
+                )}
               </div>
 
               {/* Pages */}
@@ -1128,8 +1335,17 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                   placeholder="e.g. 350"
                   value={formData.pages}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 shadow-sm transition ${
+                    errors.pages
+                      ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 bg-white focus:border-indigo-500 focus:ring-indigo-500"
+                  }`}
                 />
+                {errors.pages && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.pages}
+                  </p>
+                )}
               </div>
 
               {/* ISBN 10 */}
@@ -1143,8 +1359,17 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                   placeholder="e.g. 0735211299"
                   value={formData.isbn10}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 shadow-sm transition ${
+                    errors.isbn10
+                      ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 bg-white focus:border-indigo-500 focus:ring-indigo-500"
+                  }`}
                 />
+                {errors.isbn10 && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.isbn10}
+                  </p>
+                )}
               </div>
 
               {/* ISBN 13 */}
@@ -1158,8 +1383,17 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                   placeholder="e.g. 978-0735211292"
                   value={formData.isbn13}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 shadow-sm transition ${
+                    errors.isbn13
+                      ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 bg-white focus:border-indigo-500 focus:ring-indigo-500"
+                  }`}
                 />
+                {errors.isbn13 && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.isbn13}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -1186,8 +1420,17 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                   placeholder="e.g. 14.5"
                   value={formData.widthCm}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 shadow-sm transition ${
+                    errors.widthCm
+                      ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 bg-white focus:border-indigo-500 focus:ring-indigo-500"
+                  }`}
                 />
+                {errors.widthCm && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.widthCm}
+                  </p>
+                )}
               </div>
 
               {/* Height */}
@@ -1203,8 +1446,17 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                   placeholder="e.g. 21.0"
                   value={formData.heightCm}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 shadow-sm transition ${
+                    errors.heightCm
+                      ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 bg-white focus:border-indigo-500 focus:ring-indigo-500"
+                  }`}
                 />
+                {errors.heightCm && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.heightCm}
+                  </p>
+                )}
               </div>
 
               {/* Depth */}
@@ -1220,8 +1472,17 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                   placeholder="e.g. 2.8"
                   value={formData.depthCm}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 shadow-sm transition ${
+                    errors.depthCm
+                      ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 bg-white focus:border-indigo-500 focus:ring-indigo-500"
+                  }`}
                 />
+                {errors.depthCm && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.depthCm}
+                  </p>
+                )}
               </div>
             </div>
           </div>
