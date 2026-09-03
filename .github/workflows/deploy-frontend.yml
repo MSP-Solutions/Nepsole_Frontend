@@ -18,10 +18,16 @@ jobs:
         with:
           node-version: '20' # Update this if you use a different Node version
           cache: 'npm'
-
+          
+          
       - name: Install Dependencies
         run: npm ci
 
+      - name: Create .env file from Secret
+        run: |
+          cat << 'EOF' > .env
+          ${{ secrets.ENV_FILE }}
+          EOF
       - name: Build Next.js App
         run: npm run build
 
