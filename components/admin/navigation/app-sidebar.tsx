@@ -9,6 +9,7 @@ import {
   Feather,
   ImageOffIcon,
   ImagesIcon,
+  Languages,
   LayoutGrid,
   Loader2,
   LogOut,
@@ -53,6 +54,11 @@ const navigation: NavItem[] = [
     icon: ImagesIcon,
   },
   {
+    title: "About",
+    url: "/admin/about",
+    icon: Building2,
+  },
+  {
     title: "Genre",
     url: "/admin/genre",
     icon: BookOpen,
@@ -60,7 +66,7 @@ const navigation: NavItem[] = [
   {
     title: "Language",
     url: "/admin/language",
-    icon: BookOpen,
+    icon: Languages,
   },
   {
     title: "E-Books",

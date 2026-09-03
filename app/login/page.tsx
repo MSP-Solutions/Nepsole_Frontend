@@ -107,7 +107,7 @@ export default function LoginPage() {
             "/api/v1/auth/resend-verification",
             {
               email: unverifiedEmail,
-            }
+            },
           );
         } else {
           throw err;
@@ -115,7 +115,7 @@ export default function LoginPage() {
       }
 
       toast.success(
-        response?.data?.message || "Verification email sent successfully!"
+        response?.data?.message || "Verification email sent successfully!",
       );
       setShowVerificationDialog(false);
     } catch (error: any) {
@@ -302,12 +302,12 @@ export default function LoginPage() {
                     Password
                   </label>
 
-                  <Link
+                  {/* <Link
                     href="/forgot-password"
                     className="text-xs font-medium text-indigo-600 transition hover:text-indigo-700 hover:underline"
                   >
                     Forgot password?
-                  </Link>
+                  </Link> */}
                 </div>
 
                 <div className="relative">
@@ -412,9 +412,9 @@ export default function LoginPage() {
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-600 leading-relaxed">
               Your account for{" "}
-              <strong className="text-slate-900">{unverifiedEmail}</strong> is not
-              verified yet. Please check your email inbox or click below to resend
-              the verification email.
+              <strong className="text-slate-900">{unverifiedEmail}</strong> is
+              not verified yet. Please check your email inbox or click below to
+              resend the verification email.
             </DialogDescription>
           </DialogHeader>
 

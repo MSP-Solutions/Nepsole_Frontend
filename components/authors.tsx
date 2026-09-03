@@ -73,7 +73,7 @@ const Authors = () => {
       setAuthors(list);
     } catch (error: any) {
       console.error("Failed to fetch authors:", error);
-      toast.error(error?.response?.data?.message || "Failed to load authors.");
+      // toast.error(error?.response?.data?.message || "Failed to load authors.");
     } finally {
       setIsLoading(false);
     }
