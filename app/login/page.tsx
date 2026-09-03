@@ -19,6 +19,7 @@ import {
   clearCookies,
   decodeJwt,
   getUserCookie,
+  isTokenExpiringSoon,
   setUserCookie,
 } from "@/utils/cookies";
 import {
@@ -51,14 +52,32 @@ export default function LoginPage() {
   const [unverifiedEmail, setUnverifiedEmail] = useState("");
   const [isResending, setIsResending] = useState(false);
 
-  // Clear old session when entering login page
+  // Only clear session on login page if explicitly requested or let users proceed if already authenticated
   useEffect(() => {
     const checkSession = async () => {
       try {
         const existingUser = await getUserCookie();
+        const token = existingUser?.accessToken;
 
-        if (existingUser?.accessToken) {
-          await clearCookies();
+        if (token && !isTokenExpiringSoon(token, 0)) {
+          const rawRole = (
+            existingUser?.role ||
+            existingUser?.user?.role ||
+            ""
+          )
+            .toString()
+            .toUpperCase();
+
+          const isAdmin =
+            rawRole === "ADMIN" ||
+            rawRole === "ROLE_ADMIN" ||
+            rawRole === "ADMINISTRATOR";
+
+          if (isAdmin) {
+            router.replace("/admin/dashboard");
+          } else {
+            router.replace("/user/dashboard");
+          }
         }
       } catch (error) {
         console.error("Session check failed:", error);
@@ -66,7 +85,7 @@ export default function LoginPage() {
     };
 
     checkSession();
-  }, []);
+  }, [router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -184,6 +203,8 @@ export default function LoginPage() {
         rawData?.role ||
         nestedUser?.role ||
         decodedToken?.role ||
+        decodedToken?.roles?.[0] ||
+        decodedToken?.authorities?.[0] ||
         responseData?.role ||
         ""
       )
@@ -202,13 +223,28 @@ export default function LoginPage() {
 
       toast.success("Login successfully");
 
+      const isAdmin =
+        role === "ADMIN" ||
+        role === "ROLE_ADMIN" ||
+        role === "ADMINISTRATOR";
+
+      // Check callback URL if any
+      const searchParams = new URLSearchParams(
+        typeof window !== "undefined" ? window.location.search : ""
+      );
+      const callbackUrl = searchParams.get("callbackUrl");
+
+      const destination =
+        callbackUrl && callbackUrl.startsWith("/")
+          ? callbackUrl
+          : isAdmin
+          ? "/admin/dashboard"
+          : "/user/dashboard";
+
       setTimeout(() => {
-        if (role === "ADMIN") {
-          router.push("/admin/dashboard");
-        } else {
-          router.push("/user/dashboard");
-        }
-      }, 500);
+        router.push(destination);
+        router.refresh();
+      }, 300);
     } catch (error: any) {
       console.error("Login Error:", error);
 

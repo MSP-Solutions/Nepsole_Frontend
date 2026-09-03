@@ -43,6 +43,8 @@ export function middleware(request: NextRequest) {
     user?.role ||
     user?.user?.role ||
     decodedToken?.role ||
+    decodedToken?.roles?.[0] ||
+    decodedToken?.authorities?.[0] ||
     ""
   )
     .toString()
@@ -53,10 +55,10 @@ export function middleware(request: NextRequest) {
     rawRole === "ROLE_ADMIN" ||
     rawRole === "ADMINISTRATOR";
 
-  // 1. Admin route protection (e.g., /admin/dashboard, except /admin/login)
-  if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
+  // 1. Admin route protection (e.g., /admin/dashboard)
+  if (pathname.startsWith("/admin")) {
     if (!isAuthenticated) {
-      const loginUrl = new URL("/admin/login", request.url);
+      const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(loginUrl);
     }
@@ -80,13 +82,8 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // 3. Redirect authenticated users away from public auth pages (/login, /signup, /admin/login)
-  if (
-    isAuthenticated &&
-    (pathname === "/login" ||
-      pathname === "/signup" ||
-      pathname === "/admin/login")
-  ) {
+  // 3. Redirect authenticated users away from public auth pages (/login, /signup)
+  if (isAuthenticated && (pathname === "/login" || pathname === "/signup")) {
     if (isAdmin) {
       return NextResponse.redirect(new URL("/admin/dashboard", request.url));
     }

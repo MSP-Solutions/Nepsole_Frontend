@@ -75,17 +75,34 @@ export const setUserCookie = async (
   const token = data?.accessToken || data?.jwtToken || data?.token || existing?.accessToken;
   const decoded = token ? decodeJwt(token) : null;
 
+  const role = (
+    data?.role ||
+    decoded?.role ||
+    decoded?.roles?.[0] ||
+    decoded?.authorities?.[0] ||
+    existing?.role ||
+    ""
+  )
+    .toString()
+    .toUpperCase();
+
   const merged = {
     ...(existing ?? {}),
     ...decoded,
     ...data,
     accessToken: token,
-    role: (data?.role || decoded?.role || existing?.role || "").toString().toUpperCase(),
+    role,
   };
+
+  const isHttps =
+    typeof window !== "undefined"
+      ? window.location.protocol === "https:"
+      : process.env.NODE_ENV === "production";
 
   Cookies.set(USER_COOKIE, JSON.stringify(merged), {
     expires,
-    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    secure: isHttps,
     sameSite: "lax",
   });
 
@@ -100,9 +117,13 @@ export const getUserCookie = async (): Promise<UserCookie | null> => {
   if (!cookie) return null;
 
   try {
-    return JSON.parse(cookie);
+    return JSON.parse(decodeURIComponent(cookie));
   } catch {
-    return null;
+    try {
+      return JSON.parse(cookie);
+    } catch {
+      return null;
+    }
   }
 };
 

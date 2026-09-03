@@ -148,6 +148,8 @@ export default function SignupPage() {
           rawData?.role ||
           nestedUser?.role ||
           decodedToken?.role ||
+          decodedToken?.roles?.[0] ||
+          decodedToken?.authorities?.[0] ||
           responseData?.role ||
           "USER"
         )
@@ -164,13 +166,19 @@ export default function SignupPage() {
 
         await setUserCookie(userPayload);
 
+        const isAdmin =
+          role === "ADMIN" ||
+          role === "ROLE_ADMIN" ||
+          role === "ADMINISTRATOR";
+
         setTimeout(() => {
-          if (role === "ADMIN") {
+          if (isAdmin) {
             router.push("/admin/dashboard");
           } else {
             router.push("/user/dashboard");
           }
-        }, 800);
+          router.refresh();
+        }, 500);
       } else {
         setTimeout(() => {
           router.push("/login");

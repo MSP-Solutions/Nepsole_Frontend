@@ -114,19 +114,24 @@ const fetchToken = async (): Promise<string | null> => {
 /* Axios Instances */
 /* ---------------------------------------------------------- */
 
+const getBaseURL = () => {
+  const url = process.env.NEXT_PUBLIC_BASE_URL || "";
+  return url ? url.replace(/\/+$/, "") : "";
+};
+
 export const axiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_BASE_URL,
+  baseURL: getBaseURL(),
   headers: {
     "Content-Type": "application/json",
   },
 });
 
 export const axiosMultipartInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_BASE_URL,
+  baseURL: getBaseURL(),
 });
 
 export const axiosAuthInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_BASE_URL,
+  baseURL: getBaseURL(),
   headers: {
     "Content-Type": "application/json",
   },
