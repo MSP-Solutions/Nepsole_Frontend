@@ -205,7 +205,7 @@ const PublishersPage = () => {
                             {booksCount}
                           </span>
                           <span className="text-[10px] text-slate-500 uppercase tracking-wider">
-                            Books
+                            Books Published
                           </span>
                         </div>
                         <div className="border-l border-slate-200">

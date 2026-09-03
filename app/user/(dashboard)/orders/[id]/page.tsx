@@ -22,6 +22,7 @@ import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
 import { Order as ApiOrder, OrderItem as ApiOrderItem } from "@/types";
+import OrderDeliveredReviews from "@/components/orders/OrderDeliveredReviews";
 
 const money = (value = 0) => `Rs. ${Number(value).toLocaleString()}`;
 
@@ -227,6 +228,9 @@ export default function OrderDetailsPage() {
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Left */}
         <div className="space-y-5 lg:col-span-2">
+          {/* Delivered Order Review Prompt & List */}
+          <OrderDeliveredReviews order={order} />
+
           {/* Items */}
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-4 flex items-center gap-3 border-b border-slate-100 pb-4">

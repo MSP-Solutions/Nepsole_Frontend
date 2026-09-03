@@ -79,7 +79,7 @@ const Ebooks = () => {
 
   // Update scroll buttons state when books load/change
   useEffect(() => {
-    if (books.length > 6) {
+    if (books.length > 0) {
       const timer = setTimeout(() => {
         checkScrollButtons();
       }, 100);
@@ -330,8 +330,6 @@ const Ebooks = () => {
     );
   };
 
-  const isCarousel = books.length > 6;
-
   return (
     <section className="w-full bg-white py-8 border-t border-slate-100">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
@@ -342,8 +340,8 @@ const Ebooks = () => {
           </h2>
 
           <div className="flex items-center gap-3">
-            {/* Carousel navigation buttons when more than 6 books */}
-            {isCarousel && (
+            {/* Carousel navigation buttons */}
+            {(canScrollLeft || canScrollRight) && (
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
@@ -378,11 +376,11 @@ const Ebooks = () => {
 
         {/* Books Content */}
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+          <div className="flex gap-3 sm:gap-4 overflow-hidden py-1">
             {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
-                className="animate-pulse rounded-2xl border border-slate-200 bg-white p-3 space-y-3"
+                className="w-[170px] sm:w-[190px] md:w-[205px] lg:w-[215px] shrink-0 animate-pulse rounded-2xl border border-slate-200 bg-white p-3 space-y-3"
               >
                 <div className="h-44 w-full rounded-xl bg-slate-100" />
                 <div className="h-3 w-3/4 rounded bg-slate-100" />
@@ -395,8 +393,8 @@ const Ebooks = () => {
           <div className="py-12 text-center text-xs text-slate-400">
             No trending e-books available right now.
           </div>
-        ) : isCarousel ? (
-          /* Carousel scrollable container for > 6 books */
+        ) : (
+          /* Carousel scrollable container */
           <div className="relative">
             <div
               ref={scrollContainerRef}
@@ -405,11 +403,6 @@ const Ebooks = () => {
             >
               {books.map((book) => renderBookCard(book, true))}
             </div>
-          </div>
-        ) : (
-          /* Grid view for <= 6 books */
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {books.map((book) => renderBookCard(book, false))}
           </div>
         )}
       </div>

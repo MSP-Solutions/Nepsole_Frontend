@@ -27,6 +27,7 @@ import {
   ShieldCheck,
   ShoppingCart,
   Sparkles,
+  Star,
   Truck,
   User,
 } from "lucide-react";
@@ -34,6 +35,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { use, useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import BookReviews from "@/components/books/BookReviews";
 
 export interface BookAuthor {
   id: number | string;
@@ -133,6 +135,8 @@ export default function BookDetailPage({
   const [activeTab, setActiveTab] = useState<string>("Description");
   const [isWishlisted, setIsWishlisted] = useState<boolean>(false);
   const [isAddingToCart, setIsAddingToCart] = useState<boolean>(false);
+  const [reviewsCount, setReviewsCount] = useState<number>(0);
+  const [avgRating, setAvgRating] = useState<number>(0);
 
   // Fetch Book Details from /v1/book/:id
   useEffect(() => {
@@ -173,7 +177,37 @@ export default function BookDetailPage({
       }
     };
 
-    fetchRecommended();
+    const fetchReviewsSummary = async () => {
+      try {
+        let res;
+        try {
+          res = await axiosInstance.get(`/v1/reviews/book/${id}`);
+        } catch (err: any) {
+          if (err?.response?.status === 404) {
+            res = await axiosInstance.get(`/api/v1/reviews/book/${id}`);
+          } else {
+            throw err;
+          }
+        }
+
+        const data = res?.data?.data || res?.data?.reviews || res?.data || [];
+        const list = Array.isArray(data) ? data : [];
+        const total = list.length;
+        const sum = list.reduce(
+          (acc: number, r: any) => acc + (Number(r.rating) || 0),
+          0,
+        );
+        setReviewsCount(total);
+        setAvgRating(total > 0 ? Number((sum / total).toFixed(1)) : 0);
+      } catch {
+        // reviews might be empty
+      }
+    };
+
+    if (id) {
+      fetchRecommended();
+      fetchReviewsSummary();
+    }
   }, [id]);
 
   // Image helpers
@@ -557,6 +591,38 @@ export default function BookDetailPage({
               <h1 className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight">
                 {book.title}
               </h1>
+
+              {/* Rating & Review quick anchor */}
+              <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("Customer Reviews");
+                    const el = document.getElementById("book-tabs-section");
+                    if (el) el.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  className="flex items-center gap-1.5 text-xs text-amber-600 hover:underline cursor-pointer group"
+                >
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star
+                        key={s}
+                        className={`w-3.5 h-3.5 ${
+                          s <= Math.round(avgRating)
+                            ? "fill-amber-400 text-amber-400 drop-shadow-2xs"
+                            : "fill-slate-100 text-slate-300"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <span className="font-bold text-slate-900">
+                    {avgRating > 0 ? avgRating : "0.0"}
+                  </span>
+                  <span className="text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    ({reviewsCount} {reviewsCount === 1 ? "review" : "reviews"})
+                  </span>
+                </button>
+              </div>
             </div>
 
             {/* Author */}
@@ -829,21 +895,26 @@ export default function BookDetailPage({
         </div>
 
         {/* Description Tabs */}
-        <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-2xs space-y-6">
+        <div id="book-tabs-section" className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-2xs space-y-6">
           <div className="flex border-b border-slate-200 gap-6 text-xs font-bold text-slate-600 overflow-x-auto">
-            {["Description", "Product Details", "Shipping & Returns"].map(
+            {["Description", "Product Details", "Customer Reviews", "Shipping & Returns"].map(
               (tab) => (
                 <button
                   key={tab}
                   type="button"
                   onClick={() => setActiveTab(tab)}
-                  className={`pb-3 border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
+                  className={`pb-3 border-b-2 transition-colors whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
                     activeTab === tab
                       ? "border-amber-500 text-amber-600"
                       : "border-transparent hover:text-slate-900"
                   }`}
                 >
-                  {tab}
+                  <span>{tab}</span>
+                  {tab === "Customer Reviews" && reviewsCount > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 font-extrabold">
+                      {reviewsCount}
+                    </span>
+                  )}
                 </button>
               ),
             )}
@@ -927,6 +998,17 @@ export default function BookDetailPage({
                 </div>
               </div>
             </div>
+          )}
+
+          {activeTab === "Customer Reviews" && (
+            <BookReviews
+              bookId={id}
+              bookTitle={book.title}
+              onReviewsLoaded={(count, avg) => {
+                setReviewsCount(count);
+                setAvgRating(avg);
+              }}
+            />
           )}
 
           {activeTab === "Shipping & Returns" && (

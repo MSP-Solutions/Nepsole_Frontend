@@ -14,6 +14,7 @@ import {
   LogOut,
   Settings,
   ShoppingBag,
+  StarsIcon,
   Truck,
   Users,
 } from "lucide-react";
@@ -70,6 +71,11 @@ const navigation: NavItem[] = [
     title: "Books",
     url: "/admin/books",
     icon: BookOpen,
+  },
+  {
+    title: "Reviews",
+    url: "/admin/reviews",
+    icon: StarsIcon,
   },
   {
     title: "Orders",
