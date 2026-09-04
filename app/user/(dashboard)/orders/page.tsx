@@ -58,6 +58,7 @@ export default function UserOrdersPage() {
       setOrders(dataList);
     } catch (error: any) {
       console.error("Failed to fetch order history:", error);
+      toast.dismiss();
       toast.error(
         error?.response?.data?.message || "Failed to load order history.",
       );

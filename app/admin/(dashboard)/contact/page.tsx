@@ -72,13 +72,19 @@ export default function AdminContactPage() {
   });
 
   // Dialog States
-  const [viewingContact, setViewingContact] = useState<ContactItem | null>(null);
+  const [viewingContact, setViewingContact] = useState<ContactItem | null>(
+    null,
+  );
   const [isViewDialogOpen, setIsViewDialogOpen] = useState<boolean>(false);
 
-  const [replyingContact, setReplyingContact] = useState<ContactItem | null>(null);
+  const [replyingContact, setReplyingContact] = useState<ContactItem | null>(
+    null,
+  );
   const [isReplyDialogOpen, setIsReplyDialogOpen] = useState<boolean>(false);
 
-  const [deletingContact, setDeletingContact] = useState<ContactItem | null>(null);
+  const [deletingContact, setDeletingContact] = useState<ContactItem | null>(
+    null,
+  );
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
@@ -169,6 +175,7 @@ export default function AdminContactPage() {
         }
       } catch (error) {
         console.error("Failed to fetch contact inquiries:", error);
+        toast.dismiss();
         toast.error("Failed to load contact messages.");
       } finally {
         setIsLoading(false);
@@ -215,9 +222,7 @@ export default function AdminContactPage() {
         );
       }
 
-      toast.success(
-        response?.data?.message || "Inquiry deleted successfully.",
-      );
+      toast.success(response?.data?.message || "Inquiry deleted successfully.");
 
       setIsDeleteDialogOpen(false);
       setDeletingContact(null);
@@ -226,6 +231,7 @@ export default function AdminContactPage() {
       fetchContacts(currentPage, pageSize, debouncedSearch);
     } catch (error: any) {
       console.error("Delete Contact Error:", error);
+      toast.dismiss();
       toast.error(
         error?.response?.data?.message || "Failed to delete contact inquiry.",
       );
@@ -696,7 +702,8 @@ export default function AdminContactPage() {
                     </div>
                   )}
                   <div className="p-3 bg-white rounded-lg border border-emerald-200 text-slate-800 text-xs leading-relaxed whitespace-pre-wrap">
-                    {viewingContact.replyMessage || "No reply message recorded."}
+                    {viewingContact.replyMessage ||
+                      "No reply message recorded."}
                   </div>
                 </div>
               )}
@@ -712,8 +719,8 @@ export default function AdminContactPage() {
               Close
             </button>
 
-            {viewingContact && (
-              viewingContact.isReplied ? (
+            {viewingContact &&
+              (viewingContact.isReplied ? (
                 <button
                   type="button"
                   onClick={() => {
@@ -737,8 +744,7 @@ export default function AdminContactPage() {
                   <Send className="w-3.5 h-3.5" />
                   <span>Reply to Customer</span>
                 </button>
-              )
-            )}
+              ))}
           </DialogFooter>
         </DialogContent>
       </Dialog>

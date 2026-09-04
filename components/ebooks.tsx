@@ -166,6 +166,7 @@ const Ebooks = () => {
 
     try {
       const user = await getUserCookie();
+      toast.dismiss();
       if (!user?.accessToken) {
         toast.error("Please login first to manage your wishlist");
         return;

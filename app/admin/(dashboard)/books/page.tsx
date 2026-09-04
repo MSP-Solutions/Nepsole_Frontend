@@ -27,10 +27,7 @@ import {
 import React, { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
-import {
-  BookItem,
-  PaginationMeta
-} from "@/types";
+import { BookItem, PaginationMeta } from "@/types";
 
 export default function BooksPage() {
   const [books, setBooks] = useState<BookItem[]>([]);
@@ -88,8 +85,9 @@ export default function BooksPage() {
           const limitCount = rawPagination.limit ?? limit;
           const pages =
             (rawPagination.totalPages ??
-            rawPagination.lastPage ??
-            Math.ceil(totalCount / limitCount)) || 1;
+              rawPagination.lastPage ??
+              Math.ceil(totalCount / limitCount)) ||
+            1;
 
           setPagination({
             total: totalCount,
@@ -109,8 +107,9 @@ export default function BooksPage() {
 
           const totalPages =
             (response.data?.totalPages ??
-            data?.totalPages ??
-            Math.ceil(totalCount / limit)) || 1;
+              data?.totalPages ??
+              Math.ceil(totalCount / limit)) ||
+            1;
 
           setPagination({
             total: totalCount,
@@ -121,6 +120,7 @@ export default function BooksPage() {
         }
       } catch (err: any) {
         console.error("Failed to fetch books:", err);
+        toast.dismiss();
         toast.error(
           err?.response?.data?.message || "Failed to load books catalog.",
         );
@@ -175,7 +175,12 @@ export default function BooksPage() {
     : filteredBooks;
 
   const handlePageChange = (newPage: number) => {
-    if (newPage < 1 || newPage > effectiveTotalPages || newPage === currentPage || isLoading) {
+    if (
+      newPage < 1 ||
+      newPage > effectiveTotalPages ||
+      newPage === currentPage ||
+      isLoading
+    ) {
       return;
     }
     setCurrentPage(newPage);
@@ -684,7 +689,9 @@ export default function BooksPage() {
                     return (
                       <React.Fragment key={p}>
                         {showEllipsis && (
-                          <span className="px-1 text-xs text-gray-400">...</span>
+                          <span className="px-1 text-xs text-gray-400">
+                            ...
+                          </span>
                         )}
                         <button
                           type="button"

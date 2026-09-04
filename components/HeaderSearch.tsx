@@ -21,7 +21,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
-export type SearchType = "book" | "ebook" | "all";
+export type SearchType = "book" | "ebook" | "All Types";
 
 export interface SearchResultItem {
   id: number | string;
@@ -52,7 +52,7 @@ export default function HeaderSearch({
   isMobile = false,
   onNavigate,
 }: HeaderSearchProps) {
-  const [searchType, setSearchType] = useState<SearchType>("all");
+  const [searchType, setSearchType] = useState<SearchType>("All Types");
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -274,14 +274,10 @@ export default function HeaderSearch({
         ? "Search E-Books, authors..."
         : "Search digital e-books, authors, formats...";
     }
-    if (searchType === "all") {
-      return isMobile
-        ? "Search all books & e-books..."
-        : "Search all books, e-books, authors, ISBN...";
+    if (searchType === "All Types") {
+      return isMobile ? "Search all books..." : "Search all books...";
     }
-    return isMobile
-      ? "Search books, authors, ISBN..."
-      : "Search physical books, authors, ISBN...";
+    return isMobile ? "Search books..." : "Search physical books...";
   };
 
   return (
@@ -306,7 +302,7 @@ export default function HeaderSearch({
             </SelectTrigger>
             <SelectContent className="z-50 bg-white border border-gray-200 shadow-xl rounded-xl p-1 min-w-[140px]">
               <SelectItem
-                value="all"
+                value="All Types"
                 className="text-xs font-medium cursor-pointer rounded-lg hover:bg-gray-50 py-1.5"
               >
                 <div className="flex items-center gap-1.5">
@@ -385,35 +381,6 @@ export default function HeaderSearch({
         <div className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-2xl border border-gray-200 bg-white shadow-2xl overflow-hidden animate-in fade-in-50 slide-in-from-top-2 duration-150">
           {/* Header Bar showing current search type */}
           <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-3 py-2 text-xs">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-semibold text-gray-500">
-                Searching in:
-              </span>
-              <span
-                className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md border ${
-                  searchType === "ebook"
-                    ? "bg-purple-50 text-purple-700 border-purple-200"
-                    : searchType === "all"
-                      ? "bg-indigo-50 text-indigo-700 border-indigo-200"
-                      : "bg-amber-50 text-amber-800 border-amber-200"
-                }`}
-              >
-                {searchType === "ebook" ? (
-                  <>
-                    <Tablet size={11} /> E-Books
-                  </>
-                ) : searchType === "all" ? (
-                  <>
-                    <Layers size={11} /> All Categories
-                  </>
-                ) : (
-                  <>
-                    <BookOpen size={11} /> Physical Books
-                  </>
-                )}
-              </span>
-            </div>
-
             {isLoading ? (
               <span className="flex items-center gap-1 text-[11px] text-gray-400 font-medium">
                 <Loader2 size={11} className="animate-spin text-indigo-600" />

@@ -72,30 +72,35 @@ export default function SignupPage() {
     if (!name) {
       const msg = "Please enter your full name.";
       setErrorMessage(msg);
+      toast.dismiss();
       toast.error(msg);
       return;
     }
     if (!email) {
       const msg = "Please enter your email address.";
       setErrorMessage(msg);
+      toast.dismiss();
       toast.error(msg);
       return;
     }
     if (!phoneNumber) {
       const msg = "Please enter your phone number.";
       setErrorMessage(msg);
+      toast.dismiss();
       toast.error(msg);
       return;
     }
     if (password.length < 6) {
       const msg = "Password must be at least 6 characters long.";
       setErrorMessage(msg);
+      toast.dismiss();
       toast.error(msg);
       return;
     }
     if (!formData.agreeToTerms) {
       const msg = "Please agree to the Terms of Service & Privacy Policy.";
       setErrorMessage(msg);
+      toast.dismiss();
       toast.error(msg);
       return;
     }
@@ -167,9 +172,7 @@ export default function SignupPage() {
         await setUserCookie(userPayload);
 
         const isAdmin =
-          role === "ADMIN" ||
-          role === "ROLE_ADMIN" ||
-          role === "ADMINISTRATOR";
+          role === "ADMIN" || role === "ROLE_ADMIN" || role === "ADMINISTRATOR";
 
         setTimeout(() => {
           if (isAdmin) {
@@ -188,6 +191,7 @@ export default function SignupPage() {
       console.error("Signup Error:", error);
       const message = getErrorMessage(error);
       setErrorMessage(message);
+      toast.dismiss();
       toast.error(message);
     } finally {
       setIsLoading(false);

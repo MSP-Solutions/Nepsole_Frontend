@@ -145,6 +145,7 @@ export default function SettingsPage() {
       fetchAddresses();
     } catch (error: any) {
       console.error("Failed to delete address:", error);
+      toast.dismiss();
       toast.error(
         error?.response?.data?.message || "Failed to delete address.",
       );
@@ -162,6 +163,7 @@ export default function SettingsPage() {
       fetchAddresses();
     } catch (error: any) {
       console.error("Failed to set default address:", error);
+      toast.dismiss();
       toast.error(
         error?.response?.data?.message || "Failed to update default address.",
       );
@@ -196,7 +198,8 @@ export default function SettingsPage() {
               Profile & Preferences
             </h1>
             <p className="mt-1 text-xs sm:text-sm text-slate-500">
-              Manage your personal information, security credentials, and delivery addresses.
+              Manage your personal information, security credentials, and
+              delivery addresses.
             </p>
           </div>
         </div>
@@ -371,7 +374,8 @@ export default function SettingsPage() {
                       No saved addresses yet
                     </h4>
                     <p className="mt-1 text-xs text-slate-500 max-w-xs mx-auto">
-                      Add your home or office address to ensure quick delivery when ordering books.
+                      Add your home or office address to ensure quick delivery
+                      when ordering books.
                     </p>
                     <button
                       type="button"

@@ -8,6 +8,7 @@ import Terms from "@/components/terms";
 import Ebooks from "@/components/ebooks";
 import Authors from "@/components/authors";
 import Testmonial from "@/components/testmonials";
+import Faq from "@/components/faq";
 const page = () => {
   return (
     <div className="min-h-screen flex flex-col bg-[#F9FAFB] overflow-x-clip w-full">
@@ -19,6 +20,7 @@ const page = () => {
         <Ebooks />
         <Authors />
         <Terms />
+        <Faq />
         <Testmonial />
       </main>
       <Footer />

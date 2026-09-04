@@ -2,33 +2,40 @@
 
 import { ShoppingCart } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import toast from "react-hot-toast";
 
 import { axiosAuthInstance } from "@/utils/axiosInstances";
 import {
   AUTH_CHANGE_EVENT,
   CART_CHANGE_EVENT,
   getUserCookie,
+  UserCookie,
 } from "@/utils/cookies";
 
 interface HeaderCartProps {
   className?: string;
   showLabel?: boolean;
   iconSize?: number;
+  user?: UserCookie | null;
 }
 
 const HeaderCart = ({
   className = "",
   showLabel = true,
   iconSize = 19,
+  user: initialUser,
 }: HeaderCartProps) => {
   const [cartCount, setCartCount] = useState<number>(0);
+  const [user, setUser] = useState<UserCookie | null>(initialUser || null);
   const pathname = usePathname();
+  const router = useRouter();
 
   const fetchCartCount = useCallback(async () => {
     try {
       const cookieUser = await getUserCookie();
+      setUser(cookieUser);
 
       if (!cookieUser?.accessToken) {
         setCartCount(0);
@@ -69,9 +76,20 @@ const HeaderCart = ({
     };
   }, [fetchCartCount, pathname]);
 
+  const handleCartClick = async (e: React.MouseEvent) => {
+    const cookieUser = user || (await getUserCookie());
+    if (!cookieUser?.accessToken) {
+      e.preventDefault();
+      toast.dismiss();
+      toast.error("Please log in to view your cart");
+      router.push("/login");
+    }
+  };
+
   return (
     <Link
-      href="/cart"
+      href={user ? "/cart" : "/login"}
+      onClick={handleCartClick}
       className={`relative flex items-center gap-1.5 rounded-xl p-2 sm:px-2.5 sm:py-2 text-gray-700 transition-colors hover:bg-indigo-50/80 hover:text-[#1749A0] ${className}`}
       title="Shopping Cart"
     >

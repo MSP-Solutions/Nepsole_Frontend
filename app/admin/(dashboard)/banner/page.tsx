@@ -58,6 +58,7 @@ export default function BannerPage() {
       setBanners(bannerList);
     } catch (error) {
       console.error("Failed to fetch banners:", error);
+      toast.dismiss();
       toast.error("Failed to load banners.");
     } finally {
       setIsLoading(false);
@@ -100,6 +101,7 @@ export default function BannerPage() {
         error?.response?.data?.error ||
         error?.message ||
         "Failed to delete banner.";
+      toast.dismiss();
       toast.error(message);
     } finally {
       setIsDeleting(false);

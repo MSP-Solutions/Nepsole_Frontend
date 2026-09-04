@@ -79,6 +79,7 @@ export default function AboutAdminPage() {
       console.error("Failed to fetch about data:", error);
       // If 404 or empty, we treat as no data yet
       if (error?.response?.status !== 404) {
+        toast.dismiss();
         toast.error(
           error?.response?.data?.message || "Failed to load about details.",
         );

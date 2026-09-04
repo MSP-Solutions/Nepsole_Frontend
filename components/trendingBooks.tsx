@@ -288,6 +288,7 @@ const TrendingBooks = () => {
       toast.success(`"${book.title}" added to cart!`);
     } catch (error: any) {
       console.error("Cart error:", error);
+      toast.dismiss();
       toast.error(
         error?.response?.data?.message || "Failed to add book to cart.",
       );

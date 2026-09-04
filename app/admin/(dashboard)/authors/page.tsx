@@ -109,6 +109,7 @@ export default function AuthorsPage() {
       }
     } catch (error: any) {
       console.error("Failed to fetch authors:", error);
+      toast.dismiss();
       toast.error(error?.response?.data?.message || "Failed to load authors.");
     } finally {
       setIsLoading(false);
@@ -151,6 +152,7 @@ export default function AuthorsPage() {
       fetchAuthors(currentPage, pageSize);
     } catch (error: any) {
       console.error("Delete author error:", error);
+      toast.dismiss();
       toast.error(error?.response?.data?.message || "Failed to delete author.");
     } finally {
       setIsDeleting(false);
@@ -172,7 +174,9 @@ export default function AuthorsPage() {
   const filteredAuthors = authors.filter(
     (author) =>
       (author.name &&
-        String(author.name).toLowerCase().includes(searchQuery.toLowerCase())) ||
+        String(author.name)
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase())) ||
       (author.positions &&
         (Array.isArray(author.positions)
           ? author.positions.join(" ").toLowerCase()

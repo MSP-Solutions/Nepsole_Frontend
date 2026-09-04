@@ -8,10 +8,9 @@ import {
   LogOut,
   Menu,
   ShoppingBag,
+  Sparkles,
   UserRound,
   X,
-  BookOpen,
-  Sparkles,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -38,8 +37,8 @@ import {
   UserCookie,
 } from "@/utils/cookies";
 
-import HeaderSearch from "@/components/HeaderSearch";
 import HeaderCart from "@/components/HeaderCart";
+import HeaderSearch from "@/components/HeaderSearch";
 
 const navLinks = [
   { name: "Home", href: "/" },
@@ -85,11 +84,7 @@ const Header = () => {
       try {
         res = await axiosAuthInstance.get("/v1/wishlist");
       } catch (err: any) {
-        if (err?.response?.status === 404) {
-          res = await axiosAuthInstance.get("/api/v1/wishlist");
-        } else {
-          throw err;
-        }
+        throw err;
       }
 
       const data = res?.data?.data || res?.data || [];
@@ -139,7 +134,7 @@ const Header = () => {
 
       setUser(null);
       setIsMobileMenuOpen(false);
-
+      toast.dismiss();
       toast.success("Logged out successfully");
 
       router.push("/");
@@ -159,6 +154,15 @@ const Header = () => {
   const isAdmin = user?.role === "ADMIN" || user?.role === "ROLE_ADMIN";
   const dashboardLink = isAdmin ? "/admin/dashboard" : "/user/dashboard";
   const ordersLink = isAdmin ? "/admin/orders" : "/user/orders";
+
+  const handleWishlistClick = (e: React.MouseEvent) => {
+    if (!user?.accessToken) {
+      e.preventDefault();
+      toast.dismiss();
+      toast.error("Please log in to view your wishlist");
+      router.push("/login");
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200/90 bg-white/95 shadow-xs backdrop-blur-md transition-all">
@@ -190,7 +194,8 @@ const Header = () => {
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 lg:gap-2.5">
           {/* Wishlist Button */}
           <Link
-            href="/user/wishlist"
+            href={user?.accessToken ? "/user/wishlist" : "/login"}
+            onClick={handleWishlistClick}
             title="My Wishlist"
             className="group relative flex h-10 items-center justify-center rounded-xl px-2.5 text-slate-700 transition-all duration-200 hover:bg-rose-50 hover:text-rose-600 sm:px-3 lg:gap-2"
           >
@@ -215,7 +220,7 @@ const Header = () => {
 
           {/* Cart Popover / Link */}
           <div className="flex items-center">
-            <HeaderCart />
+            <HeaderCart user={user} />
           </div>
 
           {/* Vertical Divider on Desktop */}

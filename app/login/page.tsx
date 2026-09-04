@@ -60,11 +60,7 @@ export default function LoginPage() {
         const token = existingUser?.accessToken;
 
         if (token && !isTokenExpiringSoon(token, 0)) {
-          const rawRole = (
-            existingUser?.role ||
-            existingUser?.user?.role ||
-            ""
-          )
+          const rawRole = (existingUser?.role || existingUser?.user?.role || "")
             .toString()
             .toUpperCase();
 
@@ -140,6 +136,7 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error("Resend Verification Error:", error);
       const message = getErrorMessage(error);
+      toast.dismiss();
       toast.error(message);
     } finally {
       setIsResending(false);
@@ -224,13 +221,11 @@ export default function LoginPage() {
       toast.success("Login successfully");
 
       const isAdmin =
-        role === "ADMIN" ||
-        role === "ROLE_ADMIN" ||
-        role === "ADMINISTRATOR";
+        role === "ADMIN" || role === "ROLE_ADMIN" || role === "ADMINISTRATOR";
 
       // Check callback URL if any
       const searchParams = new URLSearchParams(
-        typeof window !== "undefined" ? window.location.search : ""
+        typeof window !== "undefined" ? window.location.search : "",
       );
       const callbackUrl = searchParams.get("callbackUrl");
 
@@ -238,8 +233,8 @@ export default function LoginPage() {
         callbackUrl && callbackUrl.startsWith("/")
           ? callbackUrl
           : isAdmin
-          ? "/admin/dashboard"
-          : "/user/dashboard";
+            ? "/admin/dashboard"
+            : "/user/dashboard";
 
       setTimeout(() => {
         router.push(destination);

@@ -54,6 +54,7 @@ export default function DeliveryOptionsPage() {
       setDeliveryOptions(list);
     } catch (error: any) {
       console.error("Failed to fetch delivery options:", error);
+      toast.dismiss();
       toast.error(
         error?.response?.data?.message || "Failed to load delivery options.",
       );
@@ -119,6 +120,7 @@ export default function DeliveryOptionsPage() {
       fetchDeliveryOptions();
     } catch (error: any) {
       console.error("Failed to delete option:", error);
+      toast.dismiss();
       toast.error(
         error?.response?.data?.message || "Failed to delete delivery option.",
       );
