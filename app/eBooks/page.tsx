@@ -1,107 +1,30 @@
 "use client";
 
+import EBookActiveFilters from "@/components/ebooks/EBookActiveFilters";
+import EBookCard, { EBookItem } from "@/components/ebooks/EBookCard";
+import EBookMobileFilterDrawer from "@/components/ebooks/EBookMobileFilterDrawer";
+import EBookPagination from "@/components/ebooks/EBookPagination";
+import EBookSidebarFilter, {
+  OptionItem,
+} from "@/components/ebooks/EBookSidebarFilter";
 import Footer from "@/components/footer";
 import Header from "@/components/header";
 import TopHeader from "@/components/topHeader";
-import { axiosInstance } from "@/utils/axiosInstances";
+import { PaginationMeta } from "@/types/book";
+import { axiosAuthInstance, axiosInstance } from "@/utils/axiosInstances";
+import { getUserCookie } from "@/utils/cookies";
 import {
   ArrowUpDown,
-  Bookmark,
-  BookOpen,
-  Building2,
-  Check,
   ChevronRight,
-  Cloud,
-  FileText,
-  Filter,
-  Heart,
   Search,
-  ShieldCheck,
   SlidersHorizontal,
-  Smartphone,
   Sparkles,
   Tablet,
   X,
-  Zap,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-
-export interface BookAuthor {
-  id: number | string;
-  name?: string;
-  englishName?: string;
-  author?: {
-    id: number | string;
-    name?: string;
-    englishName?: string;
-  };
-  [key: string]: any;
-}
-
-export interface BookGenre {
-  id: number | string;
-  name?: string;
-  englishName?: string;
-  genre?: {
-    id: number | string;
-    name?: string;
-  };
-  [key: string]: any;
-}
-
-export interface BookPublisher {
-  id: number | string;
-  name?: string;
-  englishName?: string;
-  publicationLogoUrl?: string;
-  [key: string]: any;
-}
-
-export interface BookImage {
-  id?: number | string;
-  url?: string;
-  imageUrl?: string;
-  imageType?: string;
-  type?: string;
-  [key: string]: any;
-}
-
-export interface EBookItem {
-  id: number | string;
-  title: string;
-  price: number | string;
-  discountPercent?: number | string;
-  stock?: number;
-  soldCount?: number;
-  publicationDate?: string;
-  isbn10?: string;
-  isbn13?: string;
-  pages?: number | string;
-  description?: string;
-  publisherId?: number | string;
-  publisher?: BookPublisher;
-  authors?: BookAuthor[];
-  authorBooks?: BookAuthor[];
-  genres?: BookGenre[];
-  genreBooks?: BookGenre[];
-  images?: (BookImage | string)[];
-  bookImages?: BookImage[];
-  createdAt?: string;
-  updatedAt?: string;
-  formats?: string[];
-  fileSizeMb?: number | string;
-  [key: string]: any;
-}
-
-export interface OptionItem {
-  id: number | string;
-  name: string;
-  englishName?: string;
-  publicationLogoUrl?: string;
-  [key: string]: any;
-}
 
 export default function EBooksPage() {
   const [eBooks, setEBooks] = useState<EBookItem[]>([]);
@@ -111,16 +34,28 @@ export default function EBooksPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isLoadingFilters, setIsLoadingFilters] = useState<boolean>(true);
 
-  // Filter States
-  const [selectedGenreId, setSelectedGenreId] = useState<string>("all");
-  const [selectedPublisherId, setSelectedPublisherId] = useState<string>("all");
-  const [selectedFormat, setSelectedFormat] = useState<string>("all");
+  // Filter & Search States
+  const [selectedGenre, setSelectedGenre] = useState<string>("all");
+  const [selectedPublisher, setSelectedPublisher] = useState<string>("all");
+  const [selectedPlan, setSelectedPlan] = useState<string>("all"); // 'all' | 'FREE' | 'PAID'
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [sortBy, setSortBy] = useState<string>("featured");
   const [showMobileFilter, setShowMobileFilter] = useState<boolean>(false);
-  const [wishlist, setWishlist] = useState<Record<string, boolean>>({});
+  const [wishlistedIds, setWishlistedIds] = useState<Record<string, boolean>>(
+    {},
+  );
 
-  // Fetch Filter Options
+  // Pagination States (default limit: 10, page: 1)
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [pagination, setPagination] = useState<PaginationMeta>({
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 1,
+  });
+
+  // Fetch Filter Options (Genres & Publishers)
   useEffect(() => {
     const fetchFilterOptions = async () => {
       setIsLoadingFilters(true);
@@ -142,7 +77,7 @@ export default function EBooksPage() {
           setPublishers(list);
         }
       } catch (err) {
-        console.error("Failed to load eBook filters:", err);
+        console.error("Failed to load eBook filter options:", err);
       } finally {
         setIsLoadingFilters(false);
       }
@@ -151,92 +86,281 @@ export default function EBooksPage() {
     fetchFilterOptions();
   }, []);
 
-  // Fetch E-Books
-  const fetchEBooks = async () => {
-    setIsLoading(true);
-    try {
-      const response = await axiosInstance.get("/v1/ebook");
-      const data = response.data?.data || response.data;
-      const list = Array.isArray(data)
-        ? data
-        : data?.books || data?.items || [];
-      setEBooks(list);
-    } catch (err) {
-      console.error("Failed to fetch eBooks:", err);
-      toast.error("Failed to load e-books.");
-    } finally {
-      setIsLoading(false);
+  // Fetch E-Books with pagination & backend search query params
+  const fetchEBooks = useCallback(
+    async (
+      page = 1,
+      limit = 10,
+      search = searchQuery,
+      genre = selectedGenre,
+      publisher = selectedPublisher,
+      sort = sortBy,
+    ) => {
+      setIsLoading(true);
+      try {
+        let url = `/v1/ebook?page=${page}&limit=${limit}`;
+
+        if (search && search.trim()) {
+          url += `&search=${encodeURIComponent(search.trim())}`;
+        }
+        if (genre && genre !== "all") {
+          url += `&genre=${encodeURIComponent(genre)}`;
+        }
+        if (publisher && publisher !== "all") {
+          url += `&publisher=${encodeURIComponent(publisher)}`;
+        }
+        if (sort && sort !== "featured") {
+          url += `&sortBy=${encodeURIComponent(sort)}`;
+        }
+
+        let response;
+        try {
+          response = await axiosInstance.get(url);
+        } catch (e: any) {
+          if (e?.response?.status === 404) {
+            // Fallback for case sensitivity
+            const fallbackUrl = url.replace("/v1/ebook", "/v1/eBook");
+            response = await axiosInstance.get(fallbackUrl);
+          } else {
+            throw e;
+          }
+        }
+
+        const data = response?.data?.data || response?.data;
+        const list: EBookItem[] = Array.isArray(data)
+          ? data
+          : data?.eBooks || data?.ebooks || data?.books || data?.items || [];
+        setEBooks(list);
+
+        // Parse pagination metadata
+        const rawPagination =
+          response?.data?.pagination ||
+          data?.pagination ||
+          response?.data?.meta ||
+          data?.meta;
+
+        if (rawPagination) {
+          const totalCount =
+            rawPagination.total ??
+            rawPagination.totalCount ??
+            rawPagination.count ??
+            list.length;
+          const limitCount = rawPagination.limit ?? limit;
+          const totalPages =
+            (rawPagination.totalPages ??
+              rawPagination.lastPage ??
+              Math.ceil(totalCount / limitCount)) ||
+            1;
+
+          setPagination({
+            total: totalCount,
+            page: rawPagination.page ?? page,
+            limit: limitCount,
+            totalPages,
+          });
+        } else {
+          const totalCount =
+            response?.data?.total ??
+            response?.data?.totalCount ??
+            response?.data?.count ??
+            data?.total ??
+            data?.totalCount ??
+            data?.count ??
+            list.length;
+
+          const totalPages =
+            (response?.data?.totalPages ??
+              data?.totalPages ??
+              Math.ceil(totalCount / limit)) ||
+            1;
+
+          setPagination({
+            total: totalCount,
+            page,
+            limit,
+            totalPages,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch eBooks:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [searchQuery, selectedGenre, selectedPublisher, sortBy],
+  );
+
+  // Debounced search & filter effect
+  useEffect(() => {
+    setCurrentPage(1);
+    const handler = setTimeout(() => {
+      fetchEBooks(
+        1,
+        pageSize,
+        searchQuery,
+        selectedGenre,
+        selectedPublisher,
+        sortBy,
+      );
+    }, 300);
+
+    return () => clearTimeout(handler);
+  }, [
+    fetchEBooks,
+    pageSize,
+    searchQuery,
+    selectedGenre,
+    selectedPublisher,
+    sortBy,
+  ]);
+
+  // Handle Page Navigation
+  const handlePageChange = (newPage: number) => {
+    if (
+      newPage < 1 ||
+      newPage > effectiveTotalPages ||
+      newPage === currentPage ||
+      isLoading
+    ) {
+      return;
     }
+    setCurrentPage(newPage);
+    if (!isClientSidePaging) {
+      fetchEBooks(
+        newPage,
+        pageSize,
+        searchQuery,
+        selectedGenre,
+        selectedPublisher,
+        sortBy,
+      );
+    }
+    document
+      .getElementById("ebooks-top")
+      ?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Fetch existing wishlist for authenticated user
   useEffect(() => {
-    fetchEBooks();
+    const fetchUserWishlist = async () => {
+      try {
+        const user = await getUserCookie();
+        if (!user?.accessToken) return;
+
+        const res = await axiosAuthInstance.get("/v1/wishlist");
+        const data =
+          res.data?.data ||
+          res.data?.wishlist ||
+          res.data?.items ||
+          res.data ||
+          [];
+        if (Array.isArray(data)) {
+          const map: Record<string, boolean> = {};
+          data.forEach((item: any) => {
+            const bId =
+              item?.ebookId ||
+              item?.eBookId ||
+              item?.bookId ||
+              item?.ebook?.id ||
+              item?.id;
+            if (bId) map[String(bId)] = true;
+          });
+          setWishlistedIds(map);
+        }
+      } catch {
+        // Silently ignore
+      }
+    };
+
+    fetchUserWishlist();
   }, []);
 
-  // Helpers
-  const getCoverImage = (book: EBookItem): string | null => {
-    if (book.coverImageUrl) return book.coverImageUrl;
-    const imagesList = book.images || book.bookImages || [];
-    if (imagesList.length === 0) return null;
+  const toggleWishlist = async (id: number | string) => {
+    try {
+      const user = await getUserCookie();
+      if (!user?.accessToken) {
+        toast.error("Please login to save e-books to your wishlist");
+        return;
+      }
 
-    const coverObj = imagesList.find((img: any) =>
-      typeof img === "object"
-        ? img.imageType === "COVER" || img.type === "COVER"
-        : false,
-    );
-    if (coverObj && typeof coverObj === "object") {
-      return coverObj.url || coverObj.imageUrl || null;
+      const strId = String(id);
+      const isCurrentlyWishlisted = Boolean(wishlistedIds[strId]);
+
+      // Optimistic update
+      setWishlistedIds((prev) => ({
+        ...prev,
+        [strId]: !isCurrentlyWishlisted,
+      }));
+
+      const numId = Number(id);
+      const response = await axiosAuthInstance.post("/v1/wishlist/toggle", {
+        ebookId: isNaN(numId) ? id : numId,
+        bookId: isNaN(numId) ? id : numId,
+      });
+
+      const resMsg = response?.data?.message;
+      if (resMsg) {
+        toast.success(resMsg);
+      } else if (!isCurrentlyWishlisted) {
+        toast.success("Added to wishlist!");
+      } else {
+        toast.success("Removed from wishlist");
+      }
+    } catch (error: any) {
+      console.error("Wishlist Toggle Error:", error);
+      // Revert optimistic update
+      setWishlistedIds((prev) => ({
+        ...prev,
+        [String(id)]: !prev[String(id)],
+      }));
+      toast.error(
+        error?.response?.data?.message || "Failed to update wishlist.",
+      );
     }
-
-    const first = imagesList[0];
-    if (typeof first === "string") return first;
-    if (typeof first === "object") return first.url || first.imageUrl || null;
-    return null;
   };
 
-  const getAuthorsString = (book: EBookItem): string => {
-    const list = book.authors || book.authorBooks || [];
-    if (list.length === 0) return "Renowned Author";
-    return list
-      .map((a) => a.name || a.englishName || a.author?.name || "Author")
-      .join(", ");
-  };
-
-  const getPrimaryGenreName = (book: EBookItem): string => {
-    const list = book.genres || book.genreBooks || [];
-    if (list.length === 0) return "Digital Edition";
-    return (
-      list[0].name || list[0].englishName || list[0].genre?.name || "E-Book"
-    );
-  };
-
-  const toggleWishlist = (id: number | string) => {
-    setWishlist((prev) => ({
-      ...prev,
-      [String(id)]: !prev[String(id)],
-    }));
-    toast.success(
-      wishlist[String(id)]
-        ? "Removed from your eBook wishlist"
-        : "Added to your eBook wishlist!",
-    );
-  };
-
-  // Filter & Sort Logic
+  // Client-side Filter & Sort Fallback
   const filteredEBooks = useMemo(() => {
     return eBooks
       .filter((book) => {
-        if (selectedGenreId !== "all") {
-          const hasGenre = (book.genres || book.genreBooks || []).some((g) => {
-            const gId = String(g.id || g.genre?.id || "");
-            return gId === selectedGenreId;
-          });
+        if (selectedGenre !== "all") {
+          const normGenre = selectedGenre.toLowerCase().trim();
+          const hasGenre = (book.genres || book.genreBooks || []).some(
+            (g: any) => {
+              const gName = (
+                g.name ||
+                g.englishName ||
+                g.genre?.name ||
+                g.genre?.englishName ||
+                ""
+              )
+                .toLowerCase()
+                .trim();
+              return gName === normGenre;
+            },
+          );
           if (!hasGenre) return false;
         }
 
-        if (selectedPublisherId !== "all") {
-          const pubId = String(book.publisherId || book.publisher?.id || "");
-          if (pubId !== selectedPublisherId) return false;
+        if (selectedPublisher !== "all") {
+          const normPub = selectedPublisher.toLowerCase().trim();
+          const pName = (
+            book.publisher?.name ||
+            book.publisher?.englishName ||
+            book.publisherName ||
+            ""
+          )
+            .toLowerCase()
+            .trim();
+          if (pName !== normPub) return false;
+        }
+
+        if (selectedPlan !== "all") {
+          const isFree =
+            (book.plan && book.plan.toUpperCase() === "FREE") ||
+            Number(book.price || 0) === 0;
+          if (selectedPlan === "FREE" && !isFree) return false;
+          if (selectedPlan === "PAID" && isFree) return false;
         }
 
         if (searchQuery.trim()) {
@@ -276,8 +400,10 @@ export default function EBooksPage() {
         const netB =
           discountB > 0 ? priceB - (priceB * discountB) / 100 : priceB;
 
-        if (sortBy === "price-asc") return netA - netB;
-        if (sortBy === "price-desc") return netB - netA;
+        if (sortBy === "price_asc" || sortBy === "price-asc")
+          return netA - netB;
+        if (sortBy === "price_desc" || sortBy === "price-desc")
+          return netB - netA;
         if (sortBy === "discount") return discountB - discountA;
         if (sortBy === "newest") {
           return (
@@ -285,560 +411,299 @@ export default function EBooksPage() {
             new Date(a.createdAt || 0).getTime()
           );
         }
+        if (sortBy === "rating") {
+          const rA = Number(a.rating || a.avgRating || a.averageRating || 0);
+          const rB = Number(b.rating || b.avgRating || b.averageRating || 0);
+          return rB - rA;
+        }
+        if (sortBy === "title") {
+          return (a.title || "").localeCompare(b.title || "");
+        }
         return 0;
       });
-  }, [eBooks, selectedGenreId, selectedPublisherId, searchQuery, sortBy]);
+  }, [
+    eBooks,
+    selectedGenre,
+    selectedPublisher,
+    selectedPlan,
+    searchQuery,
+    sortBy,
+  ]);
+
+  const isClientSidePaging = eBooks.length > pageSize;
+  const effectiveTotal = isClientSidePaging
+    ? filteredEBooks.length
+    : pagination.total || filteredEBooks.length;
+  const effectiveTotalPages = isClientSidePaging
+    ? Math.ceil(filteredEBooks.length / pageSize) || 1
+    : pagination.totalPages || Math.ceil(effectiveTotal / pageSize) || 1;
+
+  const displayedEBooks = isClientSidePaging
+    ? filteredEBooks.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+    : filteredEBooks;
 
   const activeFiltersCount =
-    (selectedGenreId !== "all" ? 1 : 0) +
-    (selectedPublisherId !== "all" ? 1 : 0) +
-    (selectedFormat !== "all" ? 1 : 0) +
+    (selectedGenre !== "all" ? 1 : 0) +
+    (selectedPublisher !== "all" ? 1 : 0) +
+    (selectedPlan !== "all" ? 1 : 0) +
     (searchQuery.trim() ? 1 : 0);
 
   const handleResetFilters = () => {
-    setSelectedGenreId("all");
-    setSelectedPublisherId("all");
-    setSelectedFormat("all");
+    setSelectedGenre("all");
+    setSelectedPublisher("all");
+    setSelectedPlan("all");
     setSearchQuery("");
     setSortBy("featured");
+    setCurrentPage(1);
   };
 
-  const selectedGenreObj = genres.find((g) => String(g.id) === selectedGenreId);
-  const selectedPublisherObj = publishers.find(
-    (p) => String(p.id) === selectedPublisherId,
-  );
-
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800 antialiased">
+    <div className="min-h-screen flex flex-col bg-slate-50/60 text-slate-800 antialiased">
       <TopHeader />
       <Header />
 
-      <main className="flex-1 w-full">
-        <section className="relative overflow-hidden bg-gradient-to-br from-[#07132e] via-[#0c1f4d] to-[#122e6b] text-white py-12 md:py-16 border-b border-indigo-950">
-          <div className="absolute top-0 right-1/4 -mt-12 h-80 w-80 rounded-full bg-indigo-500/15 blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-1/3 -mb-12 h-64 w-64 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
-
-          <div className="relative mx-auto max-w-[1400px] px-4 sm:px-6 md:px-8">
-            {/* Breadcrumb Navigation */}
-            <nav className="flex items-center gap-2 text-xs text-indigo-300/80 font-medium">
-              <Link href="/" className="hover:text-amber-400 transition-colors">
+      <main className="flex-1 w-full max-w-[1400px] mx-auto px-3.5 sm:px-6 lg:px-8 py-5 sm:py-6">
+        {/* Header Title, Breadcrumb & Top Search Bar */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between pb-4 sm:pb-5 border-b border-slate-200 gap-3.5">
+          <div className="space-y-1">
+            <nav className="text-[11px] text-slate-400 flex items-center gap-1">
+              <Link
+                href="/"
+                className="hover:text-indigo-600 transition-colors font-medium"
+              >
                 Home
               </Link>
-              <span>/</span>
-              <span className="text-white">E-Books</span>
+              <ChevronRight className="w-3 h-3 text-slate-300" />
+              <span className="text-slate-700 font-semibold">E-Books</span>
             </nav>
-
-            <div className="mt-4 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-              <div className="max-w-2xl">
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white leading-tight">
-                  Discover & Read <br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-amber-200 to-indigo-200">
-                    Premium E-Books
-                  </span>
-                </h1>
-              </div>
-            </div>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <Tablet className="w-5 h-5 text-indigo-600" />
+              E-Books Catalog
+            </h1>
+            <p className="text-xs text-slate-500">
+              Read instant digital books, audio-ready editions, and publications
+            </p>
           </div>
-        </section>
 
-        {/* Main Catalog Content */}
-        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 md:px-8 py-8 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowMobileFilter(true)}
-                className="lg:hidden inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition cursor-pointer"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Filters</span>
-                {activeFiltersCount > 0 && (
-                  <span className="h-4 w-4 rounded-full bg-indigo-600 text-white text-[9px] font-bold flex items-center justify-center">
-                    {activeFiltersCount}
-                  </span>
-                )}
-              </button>
-
-              <span className="text-xs text-slate-500 font-medium hidden sm:inline-block">
-                Showing{" "}
-                <span className="font-bold text-slate-900">
-                  {filteredEBooks.length}
-                </span>{" "}
-                of {eBooks.length} E-Books
-              </span>
+          {/* Search bar & Mobile Filters trigger */}
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <div className="relative flex-1 md:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search eBooks, authors, ISBN..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-8 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition shadow-2xs"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                  title="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
 
-            <div className="flex items-center gap-3 self-end sm:self-auto">
-              {/* Sort By */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-400 font-medium hidden sm:inline-block">
-                  Sort by:
+            <button
+              type="button"
+              onClick={() => setShowMobileFilter(true)}
+              className="lg:hidden shrink-0 px-3 py-2 text-xs font-semibold bg-white border border-slate-200 text-slate-700 rounded-xl flex items-center gap-1.5 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Filter</span>
+              {activeFiltersCount > 0 && (
+                <span className="w-4 h-4 rounded-full bg-indigo-600 text-white text-[9px] font-bold flex items-center justify-center">
+                  {activeFiltersCount}
                 </span>
-                <div className="relative">
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Active Filters Badges */}
+        <EBookActiveFilters
+          selectedGenre={selectedGenre}
+          onClearGenre={() => setSelectedGenre("all")}
+          selectedPublisher={selectedPublisher}
+          onClearPublisher={() => setSelectedPublisher("all")}
+          selectedPlan={selectedPlan}
+          onClearPlan={() => setSelectedPlan("all")}
+          searchQuery={searchQuery}
+          onClearSearch={() => setSearchQuery("")}
+          activeFiltersCount={activeFiltersCount}
+          onResetAll={handleResetFilters}
+        />
+
+        {/* Catalog Main Layout: Sidebar + E-Books Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 xl:grid-cols-5 gap-5 items-start mt-4">
+          {/* Desktop Sidebar Filters */}
+          <EBookSidebarFilter
+            selectedPlan={selectedPlan}
+            onSelectPlan={setSelectedPlan}
+            selectedGenre={selectedGenre}
+            onSelectGenre={setSelectedGenre}
+            genres={genres}
+            selectedPublisher={selectedPublisher}
+            onSelectPublisher={setSelectedPublisher}
+            publishers={publishers}
+            totalEBooks={eBooks.length}
+            isLoadingFilters={isLoadingFilters}
+            activeFiltersCount={activeFiltersCount}
+            onResetFilters={handleResetFilters}
+          />
+
+          {/* Right Column (Catalog Grid + Pagination) */}
+          <section
+            id="ebooks-top"
+            className="lg:col-span-3 xl:col-span-4 space-y-3.5 scroll-mt-24"
+          >
+            {/* Toolbar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white px-3.5 py-2.5 rounded-xl border border-slate-200 shadow-2xs text-xs gap-2">
+              <div className="text-slate-500">
+                Showing{" "}
+                <strong className="text-slate-900 font-bold">
+                  {effectiveTotal > 0
+                    ? `${(currentPage - 1) * pageSize + 1}–${Math.min(
+                        currentPage * pageSize,
+                        effectiveTotal,
+                      )}`
+                    : 0}
+                </strong>{" "}
+                of{" "}
+                <span className="text-slate-700 font-semibold">
+                  {effectiveTotal}
+                </span>{" "}
+                e-books
+              </div>
+
+              <div className="flex items-center gap-3">
+                {/* Limit selector */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400 font-medium text-[11px]">
+                    Per page:
+                  </span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-800 text-xs font-medium focus:ring-2 focus:ring-indigo-500/20 focus:outline-none cursor-pointer"
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={30}>30</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+
+                {/* Sort selector */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400 font-medium flex items-center gap-1 text-[11px]">
+                    <ArrowUpDown className="w-3 h-3" /> Sort:
+                  </span>
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
-                    className="appearance-none bg-slate-50 border border-slate-200 rounded-xl pl-3 pr-8 py-2 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                    className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-800 text-xs font-medium focus:ring-2 focus:ring-indigo-500/20 focus:outline-none cursor-pointer"
                   >
-                    <option value="featured">Featured First</option>
+                    <option value="featured">Featured</option>
                     <option value="newest">Newest Releases</option>
-                    <option value="price-asc">Price: Low to High</option>
-                    <option value="price-desc">Price: High to Low</option>
+                    <option value="price_asc">Price: Low to High</option>
+                    <option value="price_desc">Price: High to Low</option>
                     <option value="discount">Biggest Discount</option>
+                    <option value="rating">Top Rated</option>
+                    <option value="title">Title (A to Z)</option>
                   </select>
-                  <ArrowUpDown className="w-3 h-3 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Active Filter Badges */}
-          {activeFiltersCount > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] font-semibold text-slate-400 mr-1 flex items-center gap-1">
-                <Filter className="w-3 h-3 text-indigo-500" /> Active Filters:
-              </span>
-
-              {selectedGenreId !== "all" && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs font-medium">
-                  <span>
-                    Genre:{" "}
-                    {selectedGenreObj?.name || selectedGenreObj?.englishName}
-                  </span>
-                  <X
-                    className="w-3 h-3 cursor-pointer hover:text-indigo-950 ml-0.5"
-                    onClick={() => setSelectedGenreId("all")}
-                  />
-                </span>
-              )}
-
-              {selectedPublisherId !== "all" && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium">
-                  <span>
-                    Publisher:{" "}
-                    {selectedPublisherObj?.name ||
-                      selectedPublisherObj?.englishName}
-                  </span>
-                  <X
-                    className="w-3 h-3 cursor-pointer hover:text-emerald-950 ml-0.5"
-                    onClick={() => setSelectedPublisherId("all")}
-                  />
-                </span>
-              )}
-
-              {searchQuery.trim() && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 text-xs font-medium">
-                  <span>&quot;{searchQuery}&quot;</span>
-                  <X
-                    className="w-3 h-3 cursor-pointer hover:text-slate-950 ml-0.5"
-                    onClick={() => setSearchQuery("")}
-                  />
-                </span>
-              )}
-
-              <button
-                type="button"
-                onClick={handleResetFilters}
-                className="text-xs text-rose-600 hover:text-rose-700 font-semibold ml-2 cursor-pointer hover:underline"
-              >
-                Clear all
-              </button>
-            </div>
-          )}
-
-          {/* Catalog Layout: Sidebar + Products */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 xl:grid-cols-5 gap-6 items-start">
-            {/* Desktop Sidebar Filters */}
-            <aside className="hidden lg:block lg:col-span-1 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-6 sticky top-20">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                  <Filter className="w-3.5 h-3.5 text-indigo-600" />
-                  E-Book Filters
-                </h2>
-                {activeFiltersCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleResetFilters}
-                    className="text-[11px] text-indigo-600 hover:text-indigo-700 font-semibold cursor-pointer"
+            {/* Grid */}
+            {isLoading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="bg-white rounded-xl border border-slate-200 p-2.5 flex flex-col justify-between animate-pulse"
                   >
-                    Reset
-                  </button>
-                )}
-              </div>
-
-              {/* Genres Filter */}
-              <div className="space-y-2">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                  <Bookmark className="w-3.5 h-3.5 text-indigo-500" />
-                  Categories
-                </h3>
-                <div className="max-h-52 overflow-y-auto space-y-0.5 pr-1 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedGenreId("all")}
-                    className={`w-full text-left px-3 py-2 rounded-xl transition flex items-center justify-between cursor-pointer ${
-                      selectedGenreId === "all"
-                        ? "bg-indigo-600 text-white font-semibold shadow-xs"
-                        : "text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    <span>All Categories</span>
-                    <span
-                      className={`text-[10px] ${
-                        selectedGenreId === "all"
-                          ? "text-indigo-100 font-bold"
-                          : "text-slate-400"
-                      }`}
-                    >
-                      {eBooks.length}
-                    </span>
-                  </button>
-
-                  {genres.map((genre) => {
-                    const isSelected = String(genre.id) === selectedGenreId;
-                    return (
-                      <button
-                        key={genre.id}
-                        type="button"
-                        onClick={() => setSelectedGenreId(String(genre.id))}
-                        className={`w-full text-left px-3 py-2 rounded-xl transition flex items-center justify-between cursor-pointer ${
-                          isSelected
-                            ? "bg-indigo-600 text-white font-semibold shadow-xs"
-                            : "text-slate-600 hover:bg-slate-50"
-                        }`}
-                      >
-                        <span className="truncate">
-                          {genre.name || genre.englishName}
-                        </span>
-                        {isSelected && <Check className="w-3 h-3 ml-1" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Publishers Filter */}
-              <div className="space-y-2 pt-2 border-t border-slate-100">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                  <Building2 className="w-3.5 h-3.5 text-indigo-500" />
-                  Publishers
-                </h3>
-                <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPublisherId("all")}
-                    className={`w-full text-left px-3 py-2 rounded-xl transition flex items-center justify-between cursor-pointer ${
-                      selectedPublisherId === "all"
-                        ? "bg-indigo-600 text-white font-semibold shadow-xs"
-                        : "text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    <span>All Publishers</span>
-                  </button>
-
-                  {publishers.map((pub) => {
-                    const isSelected = String(pub.id) === selectedPublisherId;
-                    return (
-                      <button
-                        key={pub.id}
-                        type="button"
-                        onClick={() => setSelectedPublisherId(String(pub.id))}
-                        className={`w-full text-left px-3 py-2 rounded-xl transition flex items-center justify-between cursor-pointer ${
-                          isSelected
-                            ? "bg-indigo-600 text-white font-semibold shadow-xs"
-                            : "text-slate-600 hover:bg-slate-50"
-                        }`}
-                      >
-                        <span className="truncate">
-                          {pub.name || pub.englishName}
-                        </span>
-                        {isSelected && <Check className="w-3 h-3 ml-1" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </aside>
-
-            {/* Product Grid Area */}
-            <div className="lg:col-span-3 xl:col-span-4">
-              {isLoading ? (
-                /* Loading Skeleton Grid */
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm animate-pulse flex flex-col justify-between"
-                    >
-                      <div className="space-y-3">
-                        <div className="aspect-[3/4] bg-slate-200 rounded-xl" />
-                        <div className="h-4 bg-slate-200 rounded w-3/4" />
-                        <div className="h-3 bg-slate-200 rounded w-1/2" />
-                      </div>
-                      <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between">
-                        <div className="h-4 bg-slate-200 rounded w-16" />
-                        <div className="h-4 bg-slate-200 rounded w-12" />
-                      </div>
+                    <div className="aspect-[4/5] max-h-48 w-full bg-slate-200 rounded-lg mb-2.5" />
+                    <div className="space-y-1.5">
+                      <div className="h-2.5 bg-slate-200 rounded w-1/3" />
+                      <div className="h-3.5 bg-slate-200 rounded w-4/5" />
+                      <div className="h-2.5 bg-slate-200 rounded w-1/2" />
+                      <div className="h-3 bg-slate-200 rounded w-2/5 pt-1" />
                     </div>
-                  ))}
-                </div>
-              ) : filteredEBooks.length === 0 ? (
-                /* Empty State */
-                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-dashed border-slate-200 text-center p-8 shadow-sm space-y-4">
-                  <div className="h-16 w-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600">
-                    <BookOpen className="h-8 w-8" />
+                    <div className="h-7 bg-slate-200 rounded-lg mt-3" />
                   </div>
-                  <div className="space-y-1">
-                    <h3 className="text-base font-bold text-slate-800">
-                      No E-Books Found
-                    </h3>
-                    <p className="text-xs text-slate-500 max-w-sm">
-                      {searchQuery
-                        ? `No digital books match "${searchQuery}". Try searching for another title or clear filters.`
-                        : "There are currently no e-books matching the selected criteria."}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleResetFilters}
-                    className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition cursor-pointer"
-                  >
-                    Reset All Filters
-                  </button>
+                ))}
+              </div>
+            ) : displayedEBooks.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                {displayedEBooks.map((book) => (
+                  <EBookCard
+                    key={book.id}
+                    book={book}
+                    isWishlisted={Boolean(wishlistedIds[String(book.id)])}
+                    onToggleWishlist={toggleWishlist}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-16 px-4 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-2 border border-indigo-100">
+                  <Tablet className="w-6 h-6" />
                 </div>
-              ) : (
-                /* Grid View */
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-                  {filteredEBooks.map((book) => {
-                    const coverUrl = getCoverImage(book);
-                    const authors = getAuthorsString(book);
-                    const genreName = getPrimaryGenreName(book);
-                    const priceNum = Number(book.price) || 0;
-                    const discountNum = Number(book.discountPercent) || 0;
-                    const discountedPrice =
-                      discountNum > 0
-                        ? priceNum - (priceNum * discountNum) / 100
-                        : priceNum;
-                    const isWish = !!wishlist[String(book.id)];
+                <h3 className="text-sm font-bold text-slate-800">
+                  No e-books found
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5 max-w-sm mx-auto">
+                  We couldn&apos;t find any e-books matching your selected
+                  filters or search query.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg font-semibold transition cursor-pointer"
+                >
+                  <Sparkles className="w-3 h-3 text-indigo-600" />
+                  Clear Filters
+                </button>
+              </div>
+            )}
 
-                    return (
-                      <div
-                        key={book.id}
-                        className="group flex flex-col justify-between bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-xs hover:shadow-xl hover:border-indigo-300 transition-all duration-300 relative overflow-hidden"
-                      >
-                        {/* Top Area */}
-                        <div>
-                          {/* Book Cover Image Container */}
-                          <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-slate-900 mb-3 shadow-inner">
-                            {coverUrl ? (
-                              <img
-                                src={coverUrl}
-                                alt={book.title}
-                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center bg-gradient-to-br from-slate-900 to-indigo-950 text-white">
-                                <BookOpen className="w-8 h-8 text-indigo-400 mb-2" />
-                                <span className="text-xs font-bold line-clamp-2">
-                                  {book.title}
-                                </span>
-                              </div>
-                            )}
-
-                            {/* Format & Plan Badge (Top Left) */}
-                            <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
-                              <span
-                                className={`px-2 py-0.5 rounded-md text-white text-[10px] font-bold shadow-sm flex items-center gap-1 ${
-                                  (book.plan && book.plan.toUpperCase() === "FREE") || Number(book.price || 0) === 0
-                                    ? "bg-emerald-600"
-                                    : "bg-indigo-600"
-                                }`}
-                              >
-                                {(book.plan && book.plan.toUpperCase() === "FREE") || Number(book.price || 0) === 0
-                                  ? "FREE"
-                                  : "PAID"}
-                              </span>
-                              {discountNum > 0 && (
-                                <span className="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[10px] font-bold shadow-sm self-start">
-                                  -{discountNum}%
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Wishlist Heart Button (Top Right) */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                toggleWishlist(book.id);
-                              }}
-                              className={`absolute top-2 right-2 p-1.5 rounded-full backdrop-blur-md transition-colors z-10 cursor-pointer shadow-sm ${
-                                isWish
-                                  ? "bg-rose-50 text-rose-600"
-                                  : "bg-black/30 text-white hover:bg-black/50"
-                              }`}
-                              title={
-                                isWish
-                                  ? "Remove from wishlist"
-                                  : "Add to wishlist"
-                              }
-                            >
-                              <Heart
-                                className={`w-3.5 h-3.5 ${
-                                  isWish ? "fill-rose-600" : ""
-                                }`}
-                              />
-                            </button>
-                          </div>
-
-                          {/* Details */}
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">
-                              {genreName}
-                            </span>
-
-                            <Link href={`/eBooks/${book.id}`}>
-                              <h3
-                                className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1 cursor-pointer"
-                                title={book.title}
-                              >
-                                {book.title}
-                              </h3>
-                            </Link>
-
-                            <p className="text-[11px] text-slate-500 truncate">
-                              {authors}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Bottom Action */}
-                        <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                          <Link
-                            href={`/eBooks/${book.id}`}
-                            className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition cursor-pointer"
-                          >
-                            <span>Read</span>
-                            <ChevronRight className="w-3 h-3" />
-                          </Link>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
+            {/* Pagination Controls */}
+            <EBookPagination
+              currentPage={currentPage}
+              pageSize={pageSize}
+              effectiveTotal={effectiveTotal}
+              effectiveTotalPages={effectiveTotalPages}
+              isLoading={isLoading}
+              onPageChange={handlePageChange}
+            />
+          </section>
         </div>
       </main>
 
-      {/* Mobile Drawer Filter Modal */}
-      {showMobileFilter && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs lg:hidden">
-          <div className="w-full max-w-xs bg-white h-full p-5 overflow-y-auto flex flex-col justify-between space-y-6 shadow-2xl">
-            <div>
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <Filter className="w-4 h-4 text-indigo-600" /> Filter E-Books
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setShowMobileFilter(false)}
-                  className="p-1 rounded-lg hover:bg-slate-100 text-slate-400"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Categories */}
-              <div className="mt-4 space-y-2">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Categories
-                </h4>
-                <div className="max-h-48 overflow-y-auto space-y-1">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedGenreId("all")}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium ${
-                      selectedGenreId === "all"
-                        ? "bg-indigo-600 text-white font-bold"
-                        : "text-slate-700 bg-slate-50"
-                    }`}
-                  >
-                    All Categories
-                  </button>
-                  {genres.map((g) => (
-                    <button
-                      key={g.id}
-                      type="button"
-                      onClick={() => setSelectedGenreId(String(g.id))}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium ${
-                        selectedGenreId === String(g.id)
-                          ? "bg-indigo-600 text-white font-bold"
-                          : "text-slate-700 bg-slate-50"
-                      }`}
-                    >
-                      {g.name || g.englishName}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Publishers */}
-              <div className="mt-5 space-y-2 pt-3 border-t border-slate-100">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Publishers
-                </h4>
-                <div className="max-h-48 overflow-y-auto space-y-1">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPublisherId("all")}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium ${
-                      selectedPublisherId === "all"
-                        ? "bg-indigo-600 text-white font-bold"
-                        : "text-slate-700 bg-slate-50"
-                    }`}
-                  >
-                    All Publishers
-                  </button>
-                  {publishers.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setSelectedPublisherId(String(p.id))}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium ${
-                        selectedPublisherId === String(p.id)
-                          ? "bg-indigo-600 text-white font-bold"
-                          : "text-slate-700 bg-slate-50"
-                      }`}
-                    >
-                      {p.name || p.englishName}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-slate-100 flex gap-2">
-              <button
-                type="button"
-                onClick={handleResetFilters}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600"
-              >
-                Reset
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowMobileFilter(false)}
-                className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold"
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Mobile Filter Drawer */}
+      <EBookMobileFilterDrawer
+        isOpen={showMobileFilter}
+        onClose={() => setShowMobileFilter(false)}
+        selectedPlan={selectedPlan}
+        onSelectPlan={setSelectedPlan}
+        selectedGenre={selectedGenre}
+        onSelectGenre={setSelectedGenre}
+        genres={genres}
+        selectedPublisher={selectedPublisher}
+        onSelectPublisher={setSelectedPublisher}
+        publishers={publishers}
+        totalEBooks={eBooks.length}
+        onResetFilters={handleResetFilters}
+      />
 
       <Footer />
     </div>

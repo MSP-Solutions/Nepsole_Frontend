@@ -2,6 +2,7 @@
 
 import {
   ChevronDown,
+  ChevronRight,
   Heart,
   LayoutDashboard,
   LogOut,
@@ -9,6 +10,8 @@ import {
   ShoppingBag,
   UserRound,
   X,
+  BookOpen,
+  Sparkles,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -20,6 +23,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -43,6 +47,8 @@ const navLinks = [
   { name: "Authors", href: "/authors" },
   { name: "Publishers", href: "/publishers" },
   { name: "E-Books", href: "/eBooks" },
+  { name: "About Us", href: "/about" },
+  { name: "Contact Us", href: "/contact" },
 ];
 
 const Header = () => {
@@ -122,6 +128,11 @@ const Header = () => {
     };
   }, [pathname]);
 
+  // Close mobile menu on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
+
   const handleLogout = async () => {
     try {
       await clearCookies();
@@ -145,55 +156,53 @@ const Header = () => {
 
   const userName = user ? getUserDisplayName(user) : "";
   const userInitials = user ? getUserInitials(userName) : "";
-
   const isAdmin = user?.role === "ADMIN" || user?.role === "ROLE_ADMIN";
-
   const dashboardLink = isAdmin ? "/admin/dashboard" : "/user/dashboard";
-
   const ordersLink = isAdmin ? "/admin/orders" : "/user/orders";
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white/95 shadow-sm backdrop-blur-md">
-      <div className="mx-auto flex min-h-16 w-full max-w-[1440px] items-center gap-2 px-3 sm:px-5 md:px-6 lg:min-h-[82px] lg:gap-5 lg:px-8 xl:px-10">
-        {/* Logo */}
+    <header className="sticky top-0 z-50 w-full border-b border-slate-200/90 bg-white/95 shadow-xs backdrop-blur-md transition-all">
+      {/* Primary Header Row */}
+      <div className="mx-auto flex h-16 sm:h-[72px] lg:h-[76px] w-full max-w-[1440px] items-center justify-between gap-3 px-3 sm:px-5 md:px-6 lg:px-8 xl:px-10">
+        {/* Left: Brand Logo */}
         <Link
           href="/"
-          className="flex shrink-0 items-center transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]"
+          className="group flex shrink-0 items-center gap-2 transition-transform duration-200 hover:scale-[1.01] active:scale-[0.99]"
         >
-          <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden sm:h-[68px] sm:w-[68px] lg:h-[76px] lg:w-[76px] xl:h-[82px] xl:w-[82px]">
+          <div className="relative flex h-11 w-11 sm:h-14 sm:w-16 lg:h-16 lg:w-26 items-center justify-center overflow-hidden">
             <Image
               src="/logobg.jpg"
-              alt="Logo"
-              width={600}
-              height={600}
+              alt="Nepsole Logo"
+              width={500}
+              height={500}
               priority
               className="h-full w-full object-contain"
             />
           </div>
         </Link>
 
-        {/* Desktop Search */}
-        <div className="hidden min-w-0 max-w-[760px] flex-1 sm:flex mx-auto px-2 lg:px-10">
+        {/* Center: Desktop & Tablet Search Bar */}
+        <div className="hidden min-w-0 max-w-2xl flex-1 md:flex mx-auto px-4 lg:px-8">
           <HeaderSearch />
         </div>
 
-        {/* Right Actions */}
-        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5 lg:gap-2 xl:gap-3">
-          {/* Wishlist */}
+        {/* Right: Actions (Wishlist, Cart, User Account, Mobile Toggle) */}
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 lg:gap-2.5">
+          {/* Wishlist Button */}
           <Link
             href="/user/wishlist"
             title="My Wishlist"
-            className="group relative flex h-10 items-center justify-center rounded-xl px-2 text-gray-700 transition-all duration-200 hover:bg-rose-50 hover:text-rose-600 sm:px-2.5 lg:h-11 lg:gap-2 lg:px-3"
+            className="group relative flex h-10 items-center justify-center rounded-xl px-2.5 text-slate-700 transition-all duration-200 hover:bg-rose-50 hover:text-rose-600 sm:px-3 lg:gap-2"
           >
             <div className="relative flex items-center justify-center">
               <Heart
                 size={20}
-                strokeWidth={1.7}
-                className="transition-transform duration-200 group-hover:scale-105"
+                strokeWidth={1.8}
+                className="transition-transform duration-200 group-hover:scale-110"
               />
 
               {wishlistCount > 0 && (
-                <span className="absolute -right-2 -top-2 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white shadow-sm">
+                <span className="absolute -right-2.5 -top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white shadow-xs animate-in zoom-in-50 duration-150">
                   {wishlistCount > 99 ? "99+" : wishlistCount}
                 </span>
               )}
@@ -204,78 +213,113 @@ const Header = () => {
             </span>
           </Link>
 
-          {/* Cart */}
+          {/* Cart Popover / Link */}
           <div className="flex items-center">
             <HeaderCart />
           </div>
 
-          {/* Account */}
+          {/* Vertical Divider on Desktop */}
+          <div className="hidden h-6 w-px bg-slate-200 lg:block mx-1" />
+
+          {/* User Account / Login */}
           {isLoaded && user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex h-10 items-center rounded-xl p-1.5 text-left transition-all duration-200 hover:bg-gray-100 focus:outline-none sm:h-11 lg:gap-2 lg:px-1.5"
+                  className="flex h-10 items-center rounded-xl p-1 text-left transition-all duration-200 hover:bg-slate-100 focus:outline-none sm:h-11 lg:gap-2 lg:px-2 cursor-pointer"
                 >
-                  {/* Avatar */}
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1749A0] text-[10px] font-bold text-white shadow-sm sm:h-9 sm:w-9">
+                  {/* User Avatar */}
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#0F2557] to-[#1749A0] text-[11px] font-bold text-white shadow-xs sm:h-9 sm:w-9 ring-2 ring-indigo-50">
                     {userInitials}
                   </div>
 
-                  {/* User Info */}
-                  <div className="hidden max-w-[130px] leading-tight lg:block xl:max-w-[160px]">
-                    <p className="truncate text-[10px] text-gray-500">
-                      Welcome back,
+                  {/* User Details */}
+                  <div className="hidden max-w-[120px] leading-tight lg:block xl:max-w-[150px]">
+                    <p className="truncate text-[10px] text-slate-400 font-medium">
+                      Welcome,
                     </p>
-
-                    <p className="truncate text-xs font-bold text-gray-900">
+                    <p className="truncate text-xs font-bold text-slate-900">
                       {userName}
                     </p>
                   </div>
 
                   <ChevronDown
-                    size={13}
-                    className="hidden text-gray-400 lg:block"
+                    size={14}
+                    className="hidden text-slate-400 lg:block transition-transform duration-200"
                   />
                 </button>
               </DropdownMenuTrigger>
 
               <DropdownMenuContent
                 align="end"
-                className="z-50 w-60 rounded-2xl border border-gray-200 bg-white p-2 shadow-xl"
+                className="z-50 w-64 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl animate-in fade-in-50 zoom-in-95 duration-150"
               >
-                {/* User Info */}
-                <div className="mb-1 border-b border-gray-100 px-3 py-2.5">
-                  <p className="truncate text-sm font-bold text-gray-900">
-                    {userName}
-                  </p>
-
-                  {user.email && (
-                    <p className="mt-0.5 truncate text-[11px] text-gray-500">
-                      {user.email}
-                    </p>
-                  )}
+                {/* User Info Header */}
+                <div className="mb-1 rounded-xl bg-slate-50 p-3 border border-slate-100">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1749A0] text-xs font-bold text-white shadow-xs">
+                      {userInitials}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-bold text-slate-900">
+                        {userName}
+                      </p>
+                      {user.email && (
+                        <p className="truncate text-[11px] text-slate-500">
+                          {user.email}
+                        </p>
+                      )}
+                    </div>
+                  </div>
 
                   {isAdmin && (
-                    <span className="mt-1.5 inline-block rounded-md bg-amber-100 px-2 py-0.5 text-[9px] font-bold text-amber-800">
-                      Admin
-                    </span>
+                    <div className="mt-2 flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md w-fit">
+                      <Sparkles size={11} />
+                      <span>Administrator</span>
+                    </div>
                   )}
                 </div>
 
-                <DropdownMenuItem asChild>
-                  <Link
-                    href={dashboardLink}
-                    className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-medium text-gray-700 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
-                  >
-                    <LayoutDashboard className="h-4 w-4 text-gray-500" />
-                    <span>{isAdmin ? "Admin Dashboard" : "Dashboard"}</span>
-                  </Link>
-                </DropdownMenuItem>
+                <div className="space-y-0.5">
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href={dashboardLink}
+                      className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                    >
+                      <LayoutDashboard className="h-4 w-4 text-slate-500" />
+                      <span>
+                        {isAdmin ? "Admin Dashboard" : "My Dashboard"}
+                      </span>
+                    </Link>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href={ordersLink}
+                      className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                    >
+                      <ShoppingBag className="h-4 w-4 text-slate-500" />
+                      <span>Order History</span>
+                    </Link>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href="/user/wishlist"
+                      className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                    >
+                      <Heart className="h-4 w-4 text-rose-500" />
+                      <span>Saved Wishlist</span>
+                    </Link>
+                  </DropdownMenuItem>
+                </div>
+
+                <DropdownMenuSeparator className="my-1 bg-slate-100" />
 
                 <DropdownMenuItem
                   onClick={handleLogout}
-                  className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50"
+                  className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50"
                 >
                   <LogOut className="h-4 w-4 text-rose-500" />
                   <span>Sign Out</span>
@@ -285,55 +329,35 @@ const Header = () => {
           ) : (
             <Link
               href="/login"
-              className="flex h-10 items-center gap-2 rounded-xl px-2 transition-colors hover:bg-gray-100 hover:text-[#1749A0] sm:px-2.5 lg:h-11 lg:px-3"
+              className="flex h-9 sm:h-10 items-center gap-2 rounded-xl bg-[#0F2557] px-3.5 sm:px-4 text-xs font-semibold text-white transition-all duration-200 hover:bg-[#1749A0] shadow-xs active:scale-[0.98]"
             >
-              <UserRound
-                size={19}
-                strokeWidth={1.6}
-                className="text-gray-600"
-              />
-
-              <div className="hidden leading-tight lg:block">
-                <p className="text-[10px] text-gray-500">Login / Register</p>
-
-                <p className="text-xs font-semibold text-gray-900">
-                  My Account
-                </p>
-              </div>
+              <UserRound size={15} />
+              <span className="hidden sm:inline">Sign In</span>
             </Link>
           )}
 
-          {/* Mobile / Tablet Menu */}
+          {/* Mobile / Tablet Menu Toggle */}
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen((prev) => !prev)}
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-gray-700 transition-colors hover:bg-gray-100 lg:hidden"
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-700 transition-colors hover:bg-slate-100 lg:hidden cursor-pointer"
             aria-label="Toggle menu"
             aria-expanded={isMobileMenuOpen}
           >
-            {isMobileMenuOpen ? <X size={21} /> : <Menu size={21} />}
+            {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
         </div>
       </div>
-      <div className="border-t border-gray-100 px-3 py-2.5 sm:px-5 md:px-6 lg:hidden">
+
+      {/* Mobile Search Row (visible below md) */}
+      <div className="border-t border-slate-100 px-3 py-2.5 sm:px-5 md:hidden bg-slate-50/50">
         <HeaderSearch isMobile />
       </div>
-      <div className="hidden border-t border-gray-100 bg-gray-50/80 lg:block">
-        <div className="mx-auto flex h-11 max-w-[1440px] items-center gap-4 px-8 xl:px-10">
-          {/* Browse Genre */}
-          <button
-            type="button"
-            className="flex h-8 w-[200px] shrink-0 items-center gap-2 rounded-lg bg-[#0F2557] px-3.5 text-xs font-semibold text-white transition-all duration-200 hover:bg-[#1749A0]"
-          >
-            <Menu size={14} />
 
-            <span>Browse Genre</span>
-
-            <ChevronDown className="ml-auto" size={12} />
-          </button>
-
-          {/* Navigation */}
-          <nav className="flex h-full items-center">
+      {/* Desktop Secondary Navigation Bar (visible on lg+) */}
+      <div className="hidden border-t border-slate-100 bg-slate-50/80 lg:block">
+        <div className="mx-auto flex h-11 max-w-[1440px] items-center justify-between px-8 xl:px-6">
+          <nav className="flex h-full items-center gap-1">
             {navLinks.map((link) => {
               const active = isLinkActive(link.href);
 
@@ -341,16 +365,16 @@ const Header = () => {
                 <Link
                   key={link.name}
                   href={link.href}
-                  className={`relative flex h-full items-center px-4 text-xs font-medium transition-colors ${
+                  className={`relative flex h-full items-center px-4 text-xs font-semibold transition-colors duration-150 ${
                     active
-                      ? "font-semibold text-[#1749A0]"
-                      : "text-gray-700 hover:text-[#1749A0]"
+                      ? "text-[#1749A0]"
+                      : "text-slate-600 hover:text-[#1749A0]"
                   }`}
                 >
-                  {link.name}
+                  <span>{link.name}</span>
 
                   {active && (
-                    <span className="absolute bottom-0 left-4 right-4 h-0.5 rounded-full bg-[#1749A0]" />
+                    <span className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-[#1749A0]" />
                   )}
                 </Link>
               );
@@ -358,113 +382,117 @@ const Header = () => {
           </nav>
         </div>
       </div>
+
+      {/* Mobile Menu Drawer (Slide-down with backdrop shadow) */}
       {isMobileMenuOpen && (
-        <div className="border-t border-gray-200 bg-white px-3 py-3 shadow-lg sm:px-5 md:px-6 lg:hidden">
-          {/* Logged In User */}
+        <div className="border-t border-slate-200 bg-white px-4 py-4 shadow-xl lg:hidden animate-in slide-in-from-top-3 duration-200">
+          {/* User Section */}
           {user ? (
-            <div className="mb-3 rounded-2xl border border-gray-200 bg-gray-50 p-3">
+            <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-3.5">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1749A0] text-xs font-bold text-white">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1749A0] text-sm font-bold text-white shadow-xs">
                   {userInitials}
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-gray-900">
+                  <p className="truncate text-sm font-bold text-slate-900">
                     {userName}
                   </p>
 
                   {user.email && (
-                    <p className="truncate text-[11px] text-gray-500">
+                    <p className="truncate text-xs text-slate-500">
                       {user.email}
                     </p>
                   )}
 
                   {isAdmin && (
-                    <span className="mt-1 inline-block rounded-md bg-amber-100 px-2 py-0.5 text-[9px] font-bold text-amber-800">
+                    <span className="mt-1 inline-block rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
                       Admin
                     </span>
                   )}
                 </div>
               </div>
-              <div className="mt-3 grid grid-cols-3 gap-2 border-t border-gray-200 pt-3">
+
+              {/* Quick Actions Grid */}
+              <div className="mt-3.5 grid grid-cols-3 gap-2 border-t border-slate-200/80 pt-3">
                 <Link
                   href={dashboardLink}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white py-2.5 text-[11px] font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+                  className="flex flex-col items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white py-2 px-1 text-[11px] font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 active:bg-slate-100"
                 >
-                  <LayoutDashboard size={14} />
-                  Dashboard
+                  <LayoutDashboard size={15} className="text-indigo-600" />
+                  <span>Dashboard</span>
                 </Link>
 
                 <Link
                   href={ordersLink}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white py-2.5 text-[11px] font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+                  className="flex flex-col items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white py-2 px-1 text-[11px] font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 active:bg-slate-100"
                 >
-                  <ShoppingBag size={14} />
-                  Orders
+                  <ShoppingBag size={15} className="text-amber-600" />
+                  <span>Orders</span>
                 </Link>
 
                 <Link
                   href="/user/wishlist"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white py-2.5 text-[11px] font-semibold text-rose-600 transition-colors hover:bg-rose-50"
+                  className="flex flex-col items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white py-2 px-1 text-[11px] font-semibold text-rose-600 shadow-2xs hover:bg-rose-50 active:bg-rose-100"
                 >
-                  <Heart size={14} />
-                  Wishlist
+                  <Heart size={15} className="text-rose-500" />
+                  <span>Wishlist</span>
                 </Link>
               </div>
 
               <button
                 type="button"
                 onClick={handleLogout}
-                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold text-rose-600 transition-colors hover:bg-rose-50"
+                className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
               >
                 <LogOut size={14} />
-                Sign Out
+                <span>Sign Out</span>
               </button>
             </div>
           ) : (
             <Link
               href="/login"
               onClick={() => setIsMobileMenuOpen(false)}
-              className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#1749A0] px-4 py-3 text-xs font-bold text-white transition-colors hover:bg-[#0F2557]"
+              className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#0F2557] px-4 py-3 text-xs font-bold text-white shadow-xs transition-colors hover:bg-[#1749A0]"
             >
-              <UserRound size={15} />
-              Login / Register
+              <UserRound size={16} />
+              <span>Login / Register Account</span>
             </Link>
           )}
-          <button
-            type="button"
-            className="flex w-full items-center justify-between rounded-xl bg-[#0F2557] px-3.5 py-3 text-xs font-semibold text-white transition-colors hover:bg-[#1749A0]"
-          >
-            <span className="flex items-center gap-2">
-              <Menu size={15} />
-              Browse Genre
-            </span>
 
-            <ChevronDown size={14} />
-          </button>
-          <nav className="mt-2">
-            {navLinks.map((link) => {
-              const active = isLinkActive(link.href);
+          {/* Navigation Links */}
+          <div className="space-y-1">
+            <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Navigation
+            </p>
+            <nav className="space-y-0.5">
+              {navLinks.map((link) => {
+                const active = isLinkActive(link.href);
 
-              return (
-                <Link
-                  key={link.name}
-                  href={link.href}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={`flex items-center border-b border-gray-100 py-3.5 text-sm font-medium transition-colors last:border-0 ${
-                    active
-                      ? "font-semibold text-[#1749A0]"
-                      : "text-gray-700 hover:text-[#1749A0]"
-                  }`}
-                >
-                  {link.name}
-                </Link>
-              );
-            })}
-          </nav>
+                return (
+                  <Link
+                    key={link.name}
+                    href={link.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={`flex items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold transition-colors ${
+                      active
+                        ? "bg-indigo-50 text-[#1749A0]"
+                        : "text-slate-700 hover:bg-slate-50 hover:text-[#1749A0]"
+                    }`}
+                  >
+                    <span>{link.name}</span>
+                    <ChevronRight
+                      size={14}
+                      className={active ? "text-[#1749A0]" : "text-slate-300"}
+                    />
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
         </div>
       )}
     </header>

@@ -109,6 +109,11 @@ const navigation: NavItem[] = [
     icon: Truck,
   },
   {
+    title: "Contacts",
+    url: "/admin/contact",
+    icon: Users,
+  },
+  {
     title: "Settings",
     url: "/admin/settings",
     icon: Settings,

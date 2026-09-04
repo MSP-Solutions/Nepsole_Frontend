@@ -17,6 +17,7 @@ import {
   MapPin,
   ShoppingBag,
   Star,
+  Tablet,
 } from "lucide-react";
 import Link from "next/link";
 import React, { use, useEffect, useState } from "react";
@@ -29,12 +30,27 @@ export interface SocialLinkItem {
   url: string;
 }
 
+export interface AuthorBookItem {
+  id: number | string;
+  title: string;
+  price?: string | number;
+  discountPercent?: string | number;
+  description?: string;
+  coverImage?: string;
+  image?: string;
+  images?: any[];
+  bookImages?: any[];
+  rating?: number;
+  totalReviews?: number;
+  [key: string]: any;
+}
+
 export interface AuthorDetailData {
   id: number | string;
   name: string;
-  positions?: string;
+  positions?: string[] | string;
   bio?: string;
-  nationality?: string;
+  nationality?: string[] | string;
   imageUrl?: string | null;
   image?: string | null;
   profileImage?: string | null;
@@ -44,7 +60,8 @@ export interface AuthorDetailData {
   booksSold?: number | string;
   happyReaders?: number | string;
   socialLinks?: SocialLinkItem[] | string;
-  books?: any[];
+  books?: AuthorBookItem[];
+  ebooks?: any[];
   _count?: {
     books: number;
   };
@@ -129,8 +146,6 @@ export default function AuthorDetailsPage({ params }: AuthorDetailsProps) {
   const [author, setAuthor] = useState<AuthorDetailData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState("About");
-  const [emailSubscription, setEmailSubscription] = useState("");
-  const [subscribed, setSubscribed] = useState(false);
 
   const fetchAuthorDetails = async () => {
     setIsLoading(true);
@@ -153,15 +168,6 @@ export default function AuthorDetailsPage({ params }: AuthorDetailsProps) {
       fetchAuthorDetails();
     }
   }, [authorId]);
-
-  const handleSubscribe = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (emailSubscription) {
-      setSubscribed(true);
-      setEmailSubscription("");
-      setTimeout(() => setSubscribed(false), 4000);
-    }
-  };
 
   const getInitials = (name?: string) => {
     if (!name) return "AU";
@@ -191,8 +197,6 @@ export default function AuthorDetailsPage({ params }: AuthorDetailsProps) {
     }
     return [];
   };
-
-  const tabs = ["About", "Books", "Reviews"];
 
   if (isLoading) {
     return (
@@ -241,11 +245,20 @@ export default function AuthorDetailsPage({ params }: AuthorDetailsProps) {
   const decodedBio = parseQuillContent(author.bio);
   const socialLinks = getSocialLinks();
   const booksPublished =
-    author._count?.books ?? author.booksPublished ?? author.books?.length ?? 0;
+    author.booksPublished ?? author._count?.books ?? author.books?.length ?? 0;
   const yearsWriting = author.yearsOfWriting ?? "—";
   const booksSold = author.booksSold ?? "—";
   const happyReaders = author.happyReaders ?? "—";
   const authorBooks = author.books || [];
+  const authorEbooks = author.ebooks || [];
+
+  const tabs = [
+    { name: "About" },
+    ...(authorEbooks.length > 0
+      ? [{ name: "E-Books", count: authorEbooks.length }]
+      : []),
+    { name: "Books", count: authorBooks.length },
+  ];
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 overflow-x-clip w-full">
@@ -278,7 +291,7 @@ export default function AuthorDetailsPage({ params }: AuthorDetailsProps) {
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
                 {/* Author Avatar */}
                 <div className="relative shrink-0">
-                  <div className="relative h-28 w-28 rounded-full overflow-hidden border-4 border-white shadow-md bg-indigo-600 flex items-center justify-center text-white font-bold text-2xl">
+                  <div className="relative h-24 w-24 sm:h-28 sm:w-28 rounded-full overflow-hidden border-4 border-white shadow-md bg-indigo-600 flex items-center justify-center text-white font-bold text-2xl">
                     {profileImg ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -499,30 +512,38 @@ export default function AuthorDetailsPage({ params }: AuthorDetailsProps) {
           <div className="flex items-center gap-8 min-w-max">
             {tabs.map((tab) => (
               <button
-                key={tab}
+                key={tab.name}
                 type="button"
-                onClick={() => setActiveTab(tab)}
-                className={`py-3 text-xs font-semibold transition-all border-b-2 select-none cursor-pointer ${
-                  activeTab === tab
+                onClick={() => setActiveTab(tab.name)}
+                className={`py-3 text-xs font-semibold transition-all border-b-2 select-none cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === tab.name
                     ? "border-indigo-600 text-indigo-600"
                     : "border-transparent text-gray-400 hover:text-gray-600"
                 }`}
               >
-                {tab}
+                <span>{tab.name}</span>
+                {tab.count !== undefined && (
+                  <span
+                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                      activeTab === tab.name
+                        ? "bg-indigo-50 text-indigo-600"
+                        : "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                )}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Main Content & Sidebar Grid */}
+        {/* Main Content Area */}
         <div className="grid gap-6 items-start">
-          {/* Main Left Area (8 cols) */}
           <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-xs space-y-6">
+            {/* About Tab */}
             {activeTab === "About" && (
               <div className="space-y-4">
-                <h2 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3">
-                  Biography & Overview
-                </h2>
                 {decodedBio ? (
                   <div
                     className="text-sm leading-relaxed text-gray-700 prose prose-sm max-w-none break-words"
@@ -535,86 +556,126 @@ export default function AuthorDetailsPage({ params }: AuthorDetailsProps) {
                 )}
               </div>
             )}
-
+            {/* Books Tab */}
             {activeTab === "Books" && (
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
                   <div>
                     <h2 className="text-base font-bold text-gray-900">
-                      Books by {author.name}
+                      Books Authored by {author.name}
                     </h2>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      ({authorBooks.length} Books Found)
+                      Showing all {authorBooks.length} published titles.
                     </p>
                   </div>
                 </div>
 
                 {authorBooks.length === 0 ? (
-                  <div className="py-12 text-center text-gray-400 text-xs">
+                  <div className="py-16 text-center text-gray-400 text-xs">
                     <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     No books listed for this author yet.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-                    {authorBooks.map((book: any, idx: number) => {
+                  /* Compact, smaller book cards grid */
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5 sm:gap-4">
+                    {authorBooks.map((book: AuthorBookItem, idx: number) => {
                       const bookTitle = book.title || `Book #${idx + 1}`;
-                      const bookPrice = book.price ? `Rs. ${book.price}` : "";
+                      const priceNum = Number(book.price) || 0;
+                      const discountNum = Number(book.discountPercent) || 0;
+                      const finalPrice =
+                        discountNum > 0
+                          ? priceNum - (priceNum * discountNum) / 100
+                          : priceNum;
+
                       const bookImg =
+                        book.coverImage ||
+                        book.image ||
                         book.images?.[0]?.url ||
                         book.bookImages?.[0]?.url ||
-                        book.coverImage ||
                         null;
 
+                      const rating = Number(book.rating) || 0;
+                      const totalReviews = Number(book.totalReviews) || 0;
+
                       return (
-                        <div
+                        <Link
                           key={book.id || idx}
-                          className="group flex flex-col justify-between bg-white rounded-2xl border border-gray-100 p-3.5 shadow-2xs hover:shadow-md transition-all duration-200"
+                          href={`/books/${book.id}`}
+                          className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/80 bg-white transition-all duration-200 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-md"
                         >
-                          <div className="space-y-3">
-                            <div className="relative aspect-3/4 rounded-xl overflow-hidden shadow-sm bg-gradient-to-br from-slate-900 to-indigo-950 flex flex-col justify-between p-4 text-white">
-                              {bookImg ? (
-                                <img
-                                  src={bookImg}
-                                  alt={bookTitle}
-                                  className="absolute inset-0 w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="relative z-10 mt-auto text-center space-y-1">
-                                  <span className="block text-sm font-bold leading-tight drop-shadow-md">
-                                    {bookTitle}
-                                  </span>
-                                  <span className="block text-xs text-white/80 font-medium">
-                                    {author.name}
-                                  </span>
-                                </div>
-                              )}
+                          {/* Discount Badge */}
+                          {discountNum > 0 && (
+                            <div className="absolute left-2 top-2 z-10 rounded-md bg-rose-500 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-xs">
+                              -{discountNum}%
                             </div>
+                          )}
 
+                          {/* Book Image Container */}
+                          <div className="relative flex aspect-[3/4] w-full items-center justify-center overflow-hidden bg-slate-50 p-2.5">
+                            {bookImg ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={bookImg}
+                                alt={bookTitle}
+                                className="h-full w-auto max-w-full object-contain transition duration-300 group-hover:scale-105"
+                              />
+                            ) : (
+                              <div className="flex flex-col items-center justify-center text-slate-300">
+                                <BookOpen size={28} />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Book Details */}
+                          <div className="flex flex-1 flex-col justify-between border-t border-slate-100 p-2.5">
                             <div>
-                              <h4 className="text-xs font-bold text-gray-900 group-hover:text-indigo-600 transition-colors line-clamp-1">
+                              <h3
+                                className="line-clamp-1 text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors"
+                                title={bookTitle}
+                              >
                                 {bookTitle}
-                              </h4>
+                              </h3>
 
-                              {bookPrice && (
-                                <div className="flex items-baseline gap-2 mt-2">
-                                  <span className="text-xs font-bold text-rose-600">
-                                    {bookPrice}
+                              <p className="truncate text-[10px] text-slate-400 mt-0.5">
+                                {author.name}
+                              </p>
+
+                              {/* Rating & Reviews if available */}
+                              {totalReviews > 0 && (
+                                <div className="flex items-center gap-1 mt-1">
+                                  <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                                  <span className="text-[10px] font-bold text-slate-700">
+                                    {rating.toFixed(1)}
+                                  </span>
+                                  <span className="text-[9px] text-slate-400">
+                                    ({totalReviews})
                                   </span>
                                 </div>
                               )}
+
+                              {/* Price */}
+                              <div className="mt-1.5 flex items-baseline gap-1.5">
+                                <span className="text-xs font-bold text-[#1749A0]">
+                                  Rs. {Math.round(finalPrice).toLocaleString()}
+                                </span>
+
+                                {discountNum > 0 && (
+                                  <span className="text-[10px] text-slate-400 line-through">
+                                    Rs. {Math.round(priceNum).toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* View Button */}
+                            <div className="mt-2.5 pt-2 border-t border-slate-100">
+                              <span className="inline-flex w-full items-center justify-center gap-1 py-1 rounded-lg bg-slate-50 text-[10px] font-semibold text-slate-700 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                <span>View Book</span>
+                                <ChevronRight className="h-3 w-3" />
+                              </span>
                             </div>
                           </div>
-
-                          <div className="mt-4 pt-3 border-t border-gray-100">
-                            <Link
-                              href={book.id ? `/books/${book.id}` : "#"}
-                              className="w-full inline-flex items-center justify-center gap-1.5 py-1.5 rounded-xl border border-gray-200 text-[11px] font-semibold text-gray-700 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all cursor-pointer"
-                            >
-                              <span>View Book</span>
-                              <ChevronRight className="h-3.5 w-3.5" />
-                            </Link>
-                          </div>
-                        </div>
+                        </Link>
                       );
                     })}
                   </div>
@@ -622,10 +683,35 @@ export default function AuthorDetailsPage({ params }: AuthorDetailsProps) {
               </div>
             )}
 
-            {activeTab === "Reviews" && (
-              <div className="py-8 text-center text-gray-400 text-xs">
-                <Star className="h-8 w-8 mx-auto mb-2 text-amber-400 opacity-60" />
-                <p>Reader reviews for {author.name} will appear here.</p>
+            {/* E-Books Tab */}
+            {activeTab === "E-Books" && (
+              <div className="space-y-6">
+                <h2 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3">
+                  Digital E-Books by {author.name}
+                </h2>
+                {authorEbooks.length === 0 ? (
+                  <div className="py-12 text-center text-gray-400 text-xs">
+                    <Tablet className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    No digital e-books listed for this author.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5 sm:gap-4">
+                    {authorEbooks.map((ebook: any, idx: number) => (
+                      <Link
+                        key={ebook.id || idx}
+                        href={`/eBooks/${ebook.id}`}
+                        className="group flex flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-2.5 transition hover:shadow-md"
+                      >
+                        <div className="aspect-[3/4] bg-slate-100 rounded-xl flex items-center justify-center mb-2">
+                          <Tablet className="h-6 w-6 text-indigo-500" />
+                        </div>
+                        <h4 className="text-xs font-bold text-gray-900 truncate">
+                          {ebook.title}
+                        </h4>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

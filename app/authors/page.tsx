@@ -8,7 +8,6 @@ import { parseQuillContent } from "@/utils/quillDecoder";
 import { ArrowRight, BookOpen, MapPin, User, Users } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import toast from "react-hot-toast";
 
 export interface AuthorItem {
   id: number | string;
@@ -46,7 +45,7 @@ const AuthorsPage = () => {
       setAuthors(list);
     } catch (error: any) {
       console.error("Failed to fetch authors:", error);
-      toast.error(error?.response?.data?.message || "Failed to load authors.");
+      // toast.error(error?.response?.data?.message || "Failed to load authors.");
     } finally {
       setIsLoading(false);
     }
