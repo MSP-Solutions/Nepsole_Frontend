@@ -1,15 +1,15 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { axiosAuthInstance } from "@/utils/axiosInstances";
 import {
   BookOpen,
   Calendar,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   Eye,
   Loader2,
-  MapPin,
   RefreshCw,
   Search,
   ShoppingBag,
@@ -17,37 +17,75 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { axiosAuthInstance } from "@/utils/axiosInstances";
+import Link from "next/link";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 
-import { Order as ApiOrder, OrderItem as ApiOrderItem } from "@/types";
+import { Order as ApiOrder, PaginationMeta } from "@/types";
 
 export default function UserOrdersPage() {
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(10);
+  const [pagination, setPagination] = useState<PaginationMeta>({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+  });
 
-  // Fetch Orders from API
+  // Fetch Orders from API with page, limit=10, status params
   const fetchOrders = useCallback(async () => {
     setIsLoading(true);
     try {
-      let res;
-      try {
-        res = await axiosAuthInstance.get("/v1/orders/history");
-      } catch (err: any) {
-        if (err?.response?.status === 404) {
-          res = await axiosAuthInstance.get("/v1/orders");
-        } else {
-          throw err;
-        }
+      const params: Record<string, any> = {
+        page: currentPage,
+        limit: pageSize,
+      };
+
+      if (statusFilter !== "ALL") {
+        params.status = statusFilter;
       }
 
-      const dataList: ApiOrder[] = Array.isArray(res.data?.data)
-        ? res.data.data
-        : Array.isArray(res.data)
-          ? res.data
-          : [];
+      let res;
+      try {
+        res = await axiosAuthInstance.get("/v1/orders/history", { params });
+      } catch (err: any) {
+        throw err;
+      }
+
+      const resData = res.data;
+      const dataList: ApiOrder[] = Array.isArray(resData?.data?.orders)
+        ? resData.data.orders
+        : Array.isArray(resData?.data)
+          ? resData.data
+          : Array.isArray(resData)
+            ? resData
+            : [];
+
+      // Parse pagination metadata
+      const meta = resData?.pagination || resData?.data?.pagination;
+      if (meta) {
+        setPagination({
+          page: meta.page || currentPage,
+          limit: meta.limit || pageSize,
+          total: meta.total ?? dataList.length,
+          totalPages:
+            meta.totalPages ||
+            Math.ceil((meta.total ?? dataList.length) / pageSize) ||
+            1,
+        });
+      } else {
+        setPagination({
+          page: currentPage,
+          limit: pageSize,
+          total: dataList.length,
+          totalPages: Math.ceil(dataList.length / pageSize) || 1,
+        });
+      }
 
       // Sort newest first
       dataList.sort(
@@ -65,11 +103,21 @@ export default function UserOrdersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [currentPage, pageSize, statusFilter]);
 
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  const handleTabChange = (tabId: string) => {
+    setStatusFilter(tabId);
+    setCurrentPage(1);
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    setCurrentPage(1);
+  };
 
   // Status Badge Formatter
   const getStatusBadge = (status: string) => {
@@ -176,10 +224,26 @@ export default function UserOrdersPage() {
     });
   }, [orders, statusFilter, searchQuery]);
 
+  const isClientSideSearch = searchQuery.trim().length > 0;
+  const isServerPaged = pagination.total > 0 && !isClientSideSearch;
+
+  const totalItems = isServerPaged ? pagination.total : filteredOrders.length;
+  const totalPages = isServerPaged
+    ? pagination.totalPages
+    : Math.ceil(filteredOrders.length / pageSize) || 1;
+
+  const displayedOrders = useMemo(() => {
+    if (isServerPaged && orders.length <= pageSize) {
+      return filteredOrders;
+    }
+    const start = (currentPage - 1) * pageSize;
+    return filteredOrders.slice(start, start + pageSize);
+  }, [filteredOrders, isServerPaged, orders.length, currentPage, pageSize]);
+
   // Status counts for tab badges
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {
-      ALL: orders.length,
+      ALL: pagination.total || orders.length,
       PENDING: 0,
       CONFIRMED: 0,
       PROCESSING: 0,
@@ -188,18 +252,27 @@ export default function UserOrdersPage() {
       CANCELLED: 0,
     };
 
+    if (statusFilter !== "ALL" && pagination.total > 0) {
+      counts[statusFilter] = pagination.total;
+    }
+
     orders.forEach((o) => {
       const s = (o.status || "").toUpperCase();
-      if (s === "PENDING") counts.PENDING++;
-      else if (s === "CONFIRMED") counts.CONFIRMED++;
-      else if (s === "PROCESSING") counts.PROCESSING++;
-      else if (s === "SHIPPED" || s === "IN_TRANSIT") counts.SHIPPED++;
-      else if (s === "DELIVERED" || s === "COMPLETED") counts.DELIVERED++;
-      else if (s === "CANCELLED" || s === "FAILED") counts.CANCELLED++;
+      if (s === "PENDING") counts.PENDING = Math.max(counts.PENDING, 1);
+      else if (s === "CONFIRMED")
+        counts.CONFIRMED = Math.max(counts.CONFIRMED, 1);
+      else if (s === "PROCESSING")
+        counts.PROCESSING = Math.max(counts.PROCESSING, 1);
+      else if (s === "SHIPPED" || s === "IN_TRANSIT")
+        counts.SHIPPED = Math.max(counts.SHIPPED, 1);
+      else if (s === "DELIVERED" || s === "COMPLETED")
+        counts.DELIVERED = Math.max(counts.DELIVERED, 1);
+      else if (s === "CANCELLED" || s === "FAILED")
+        counts.CANCELLED = Math.max(counts.CANCELLED, 1);
     });
 
     return counts;
-  }, [orders]);
+  }, [orders, pagination.total, statusFilter]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
@@ -233,7 +306,7 @@ export default function UserOrdersPage() {
             return (
               <button
                 key={tab.id}
-                onClick={() => setStatusFilter(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition whitespace-nowrap cursor-pointer ${
                   statusFilter === tab.id
                     ? "bg-[#1749A0] text-white shadow-xs"
@@ -263,14 +336,17 @@ export default function UserOrdersPage() {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={handleSearchChange}
             placeholder="Search by Order # or Title..."
             className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#1749A0] focus:border-[#1749A0] transition"
           />
           {searchQuery && (
             <button
               type="button"
-              onClick={() => setSearchQuery("")}
+              onClick={() => {
+                setSearchQuery("");
+                setCurrentPage(1);
+              }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
             >
               <X className="w-3.5 h-3.5" />
@@ -287,7 +363,7 @@ export default function UserOrdersPage() {
             Loading your order history...
           </p>
         </div>
-      ) : filteredOrders.length === 0 ? (
+      ) : displayedOrders.length === 0 ? (
         <div className="py-20 bg-white rounded-2xl border border-slate-200/80 p-6 text-center shadow-2xs flex flex-col items-center justify-center">
           <div className="w-12 h-12 rounded-full bg-blue-50 text-[#1749A0] flex items-center justify-center mb-3">
             <ShoppingBag className="w-6 h-6" />
@@ -303,7 +379,7 @@ export default function UserOrdersPage() {
         </div>
       ) : (
         <div className="space-y-3.5">
-          {filteredOrders.map((order) => {
+          {displayedOrders.map((order) => {
             const statusConfig = getStatusBadge(order.status);
             const StatusIcon = statusConfig.icon;
             const itemsCount =
@@ -332,10 +408,6 @@ export default function UserOrdersPage() {
                 {/* Order Top Bar */}
                 <div className="p-4 sm:px-5 sm:py-3.5 bg-slate-50/70 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
                   <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
-                    <span className="font-bold text-slate-900">
-                      Order #{order.id}
-                    </span>
-                    <span className="text-slate-300 hidden sm:inline">•</span>
                     <span className="text-slate-500 text-[11px] sm:text-xs flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5 text-slate-400" />
                       <span>{orderDateStr}</span>
@@ -437,6 +509,90 @@ export default function UserOrdersPage() {
               </div>
             );
           })}
+
+          {/* Pagination Controls */}
+          {!isLoading && totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 mt-6 border-t border-slate-200/80 bg-white p-4 rounded-2xl border shadow-2xs">
+              <div className="text-xs text-slate-500 font-medium">
+                Showing{" "}
+                <span className="font-bold text-slate-800">
+                  {Math.min((currentPage - 1) * pageSize + 1, totalItems)}
+                </span>{" "}
+                to{" "}
+                <span className="font-bold text-slate-800">
+                  {Math.min(currentPage * pageSize, totalItems)}
+                </span>{" "}
+                of{" "}
+                <span className="font-bold text-slate-800">{totalItems}</span>{" "}
+                orders
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {/* Previous Button */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(1, prev - 1))
+                  }
+                  disabled={currentPage <= 1 || isLoading}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer shadow-2xs"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <span>Previous</span>
+                </button>
+
+                {/* Page Numbers */}
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((p) => {
+                      if (totalPages <= 7) return true;
+                      if (p === 1 || p === totalPages) return true;
+                      if (Math.abs(p - currentPage) <= 1) return true;
+                      return false;
+                    })
+                    .map((p, idx, arr) => {
+                      const prev = arr[idx - 1];
+                      const showEllipsis = prev && p - prev > 1;
+
+                      return (
+                        <React.Fragment key={p}>
+                          {showEllipsis && (
+                            <span className="px-1.5 text-slate-400 text-xs font-semibold">
+                              ...
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setCurrentPage(p)}
+                            disabled={isLoading}
+                            className={`min-w-[32px] h-8 text-xs font-semibold rounded-xl transition cursor-pointer flex items-center justify-center ${
+                              currentPage === p
+                                ? "bg-[#1749A0] text-white shadow-2xs font-bold"
+                                : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        </React.Fragment>
+                      );
+                    })}
+                </div>
+
+                {/* Next Button */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                  }
+                  disabled={currentPage >= totalPages || isLoading}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer shadow-2xs"
+                >
+                  <span>Next</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

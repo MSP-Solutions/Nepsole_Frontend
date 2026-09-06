@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Mail,
   Lock,
@@ -15,6 +15,7 @@ import {
 import toast from "react-hot-toast";
 
 import { axiosInstance } from "@/utils/axiosInstances";
+import ForgotPasswordDialog from "@/components/ForgotPasswordDialog";
 import {
   clearCookies,
   decodeJwt,
@@ -37,8 +38,9 @@ type FormData = {
   rememberMe: boolean;
 };
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [formData, setFormData] = useState<FormData>({
     email: "",
@@ -49,8 +51,18 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showVerificationDialog, setShowVerificationDialog] = useState(false);
+  const [showForgotPasswordDialog, setShowForgotPasswordDialog] = useState(false);
   const [unverifiedEmail, setUnverifiedEmail] = useState("");
   const [isResending, setIsResending] = useState(false);
+
+  useEffect(() => {
+    if (
+      searchParams.get("forgot") === "true" ||
+      searchParams.get("forgotPassword") === "true"
+    ) {
+      setShowForgotPasswordDialog(true);
+    }
+  }, [searchParams]);
 
   // Only clear session on login page if explicitly requested or let users proceed if already authenticated
   useEffect(() => {
@@ -307,8 +319,6 @@ export default function LoginPage() {
                 </label>
 
                 <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
                   <input
                     id="email"
                     name="email"
@@ -318,7 +328,7 @@ export default function LoginPage() {
                     onChange={handleChange}
                     placeholder="youremail@gmail.com"
                     disabled={isLoading}
-                    className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                    className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:bg-slate-50"
                   />
                 </div>
               </div>
@@ -332,18 +342,9 @@ export default function LoginPage() {
                   >
                     Password
                   </label>
-
-                  {/* <Link
-                    href="/forgot-password"
-                    className="text-xs font-medium text-indigo-600 transition hover:text-indigo-700 hover:underline"
-                  >
-                    Forgot password?
-                  </Link> */}
                 </div>
 
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
+                <div className="relative flex items-center">
                   <input
                     id="password"
                     name="password"
@@ -353,7 +354,7 @@ export default function LoginPage() {
                     onChange={handleChange}
                     placeholder="Enter your password"
                     disabled={isLoading}
-                    className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-11 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                    className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-4 pr-11 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:bg-slate-50"
                   />
 
                   <button
@@ -363,13 +364,23 @@ export default function LoginPage() {
                     aria-label={
                       showPassword ? "Hide password" : "Show password"
                     }
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600 disabled:cursor-not-allowed"
+                    className="absolute right-3.5 text-slate-400 transition hover:text-slate-600 disabled:cursor-not-allowed cursor-pointer"
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4" />
                     ) : (
                       <Eye className="h-4 w-4" />
                     )}
+                  </button>
+                </div>
+
+                <div className="flex justify-end mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPasswordDialog(true)}
+                    className="text-xs font-medium text-indigo-600 transition hover:text-indigo-700 hover:underline cursor-pointer"
+                  >
+                    Forgot password?
                   </button>
                 </div>
               </div>
@@ -460,6 +471,27 @@ export default function LoginPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Forgot Password Dialog */}
+      <ForgotPasswordDialog
+        open={showForgotPasswordDialog}
+        onOpenChange={setShowForgotPasswordDialog}
+        defaultEmail={formData.email}
+      />
     </>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
   );
 }

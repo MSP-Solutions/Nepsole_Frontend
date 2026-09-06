@@ -1,7 +1,11 @@
 "use client";
 
 import { axiosAuthInstance, axiosInstance } from "@/utils/axiosInstances";
-import { CART_CHANGE_EVENT, getUserCookie, WISHLIST_CHANGE_EVENT } from "@/utils/cookies";
+import {
+  CART_CHANGE_EVENT,
+  getUserCookie,
+  WISHLIST_CHANGE_EVENT,
+} from "@/utils/cookies";
 import {
   ArrowRight,
   BookOpen,
@@ -163,6 +167,7 @@ const TrendingBooks = () => {
 
     try {
       const user = await getUserCookie();
+      toast.dismiss();
       if (!user?.accessToken) {
         toast.error("Please login first to manage your wishlist");
         return;
@@ -200,11 +205,11 @@ const TrendingBooks = () => {
 
       const msg = response?.data?.message;
       if (msg) {
-        toast.success(msg);
+        toast.success(msg, { position: "top-center" });
       } else if (!isCurrentlyWishlisted) {
-        toast.success("Added to wishlist!");
+        toast.success("Added to wishlist!", { position: "top-center" });
       } else {
-        toast.success("Removed from wishlist");
+        toast.success("Removed from wishlist", { position: "top-center" });
       }
 
       window.dispatchEvent(new Event(WISHLIST_CHANGE_EVENT));
@@ -214,7 +219,9 @@ const TrendingBooks = () => {
         ...prev,
         [String(book.id)]: !prev[String(book.id)],
       }));
-      toast.error(err?.response?.data?.message || "Failed to update wishlist.");
+      toast.error(err?.response?.data?.message || "Failed to update wishlist.", {
+        position: "top-center",
+      });
     }
   };
 
@@ -299,12 +306,15 @@ const TrendingBooks = () => {
         window.dispatchEvent(new Event(CART_CHANGE_EVENT));
       }
 
-      toast.success(`"${book.title}" added to cart!`);
+      toast.success(`"${book.title}" added to cart!`, {
+        position: "top-center",
+      });
     } catch (error: any) {
       console.error("Cart error:", error);
       toast.dismiss();
       toast.error(
         error?.response?.data?.message || "Failed to add book to cart.",
+        { position: "top-center" },
       );
     } finally {
       setAddingCartId(null);

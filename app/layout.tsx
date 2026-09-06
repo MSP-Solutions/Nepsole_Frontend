@@ -28,7 +28,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     >
       <body className="min-h-full flex flex-col">
         <TokenRefresher />
-        <Toaster position="top-right" reverseOrder={false} />
+        <Toaster position="top-center" reverseOrder={false} />
         {children}
       </body>
     </html>
