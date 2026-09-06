@@ -54,6 +54,28 @@ const LinkedinIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
   </svg>
 );
 
+// Helper function to safely extract plain strings from nested response/error objects
+const parseStringMessage = (val: any): string => {
+  if (!val) return "";
+  if (typeof val === "string") return val.trim();
+  if (typeof val === "number" || typeof val === "boolean") return String(val);
+  if (Array.isArray(val)) {
+    return val
+      .map((item) => parseStringMessage(item))
+      .filter(Boolean)
+      .join(", ");
+  }
+  if (typeof val === "object") {
+    if (typeof val.message === "string") return val.message.trim();
+    if (Array.isArray(val.message)) return parseStringMessage(val.message);
+    if (typeof val.error === "string") return val.error.trim();
+    if (typeof val.error === "object") return parseStringMessage(val.error);
+    if (typeof val.details === "string") return val.details.trim();
+    if (Array.isArray(val.details)) return parseStringMessage(val.details);
+  }
+  return "";
+};
+
 export default function ContactPage() {
   const [formData, setFormData] = useState({
     name: "",
@@ -89,7 +111,16 @@ export default function ContactPage() {
   useEffect(() => {
     const fetchContactDetails = async () => {
       try {
-        const res = await axiosInstance.get("/v1/about");
+        let res;
+        try {
+          res = await axiosInstance.get("/v1/about");
+        } catch (err: any) {
+          if (err?.response?.status === 404) {
+            res = await axiosInstance.get("/api/v1/about");
+          } else {
+            throw err;
+          }
+        }
         const raw = res?.data;
         let data = null;
         if (raw?.data) {
@@ -101,16 +132,27 @@ export default function ContactPage() {
         }
         if (data) {
           setAboutInfo({
-            contact: data.contact,
-            email: data.email,
-            address: data.address,
-            googleMapUrl: data.googleMapUrl || data.mapUrl,
-            googleMapEmbedUrl: data.googleMapEmbedUrl || data.mapEmbedUrl,
-            facebookUrl: data.facebookUrl,
-            instagramUrl: data.instagramUrl,
-            twitterUrl: data.twitterUrl,
-            youtubeUrl: data.youtubeUrl,
-            linkedinUrl: data.linkedinUrl,
+            contact: typeof data.contact === "string" ? data.contact : "",
+            email: typeof data.email === "string" ? data.email : "",
+            address: typeof data.address === "string" ? data.address : "",
+            googleMapUrl:
+              typeof (data.googleMapUrl || data.mapUrl) === "string"
+                ? data.googleMapUrl || data.mapUrl
+                : null,
+            googleMapEmbedUrl:
+              typeof (data.googleMapEmbedUrl || data.mapEmbedUrl) === "string"
+                ? data.googleMapEmbedUrl || data.mapEmbedUrl
+                : null,
+            facebookUrl:
+              typeof data.facebookUrl === "string" ? data.facebookUrl : null,
+            instagramUrl:
+              typeof data.instagramUrl === "string" ? data.instagramUrl : null,
+            twitterUrl:
+              typeof data.twitterUrl === "string" ? data.twitterUrl : null,
+            youtubeUrl:
+              typeof data.youtubeUrl === "string" ? data.youtubeUrl : null,
+            linkedinUrl:
+              typeof data.linkedinUrl === "string" ? data.linkedinUrl : null,
           });
         }
       } catch {
@@ -149,17 +191,31 @@ export default function ContactPage() {
       message: "",
     });
 
-    try {
-      const response = await axiosInstance.post("/v1/contact", {
-        name: formData.name.trim(),
-        phone: formData.phone.trim(),
-        email: formData.email.trim(),
-        subject: formData.subject.trim() || "Book Inquiry",
-        message: formData.message.trim(),
-      });
+    const payload = {
+      name: formData.name.trim(),
+      phone: formData.phone.trim(),
+      email: formData.email.trim(),
+      subject: formData.subject.trim() || "Book Inquiry",
+      message: formData.message.trim(),
+    };
 
+    try {
+      let response;
+      try {
+        response = await axiosInstance.post("/v1/contact", payload);
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          response = await axiosInstance.post("/api/v1/contact", payload);
+        } else {
+          throw err;
+        }
+      }
+
+      const parsedSuccess = parseStringMessage(
+        response?.data?.message || response?.data?.data?.message,
+      );
       const resMsg =
-        response?.data?.message ||
+        parsedSuccess ||
         "Thank you! Your inquiry has been sent successfully. We will contact you shortly.";
 
       setStatus({
@@ -179,9 +235,13 @@ export default function ContactPage() {
       });
     } catch (error: any) {
       console.error("Contact Form Error:", error);
+
+      const parsedError =
+        parseStringMessage(error?.response?.data) ||
+        parseStringMessage(error?.message);
+
       const errMsg =
-        error?.response?.data?.message ||
-        error?.response?.data?.error ||
+        parsedError ||
         "Unable to send your inquiry right now. Please try again or reach out directly.";
 
       setStatus({
@@ -195,9 +255,18 @@ export default function ContactPage() {
     }
   };
 
-  const phoneDisplay = aboutInfo?.contact || "+977-9810330979";
-  const emailDisplay = aboutInfo?.email || "info@nepsole.com";
-  const addressDisplay = aboutInfo?.address || "Pokhara, Nepal";
+  const phoneDisplay =
+    typeof aboutInfo?.contact === "string" && aboutInfo.contact.trim()
+      ? aboutInfo.contact
+      : "+977-9810330979";
+  const emailDisplay =
+    typeof aboutInfo?.email === "string" && aboutInfo.email.trim()
+      ? aboutInfo.email
+      : "info@nepsole.com";
+  const addressDisplay =
+    typeof aboutInfo?.address === "string" && aboutInfo.address.trim()
+      ? aboutInfo.address
+      : "Pokhara, Nepal";
 
   const mapSearchQuery = encodeURIComponent(addressDisplay);
   const mapEmbedUrl =
