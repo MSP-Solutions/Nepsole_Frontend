@@ -308,8 +308,10 @@ export default function BookDetailPage({
   const getCoverImageForCart = (b: BookDetail): string | undefined => {
     const list = b.images || b.bookImages || [];
     if (!list.length) return undefined;
-    const cover: any = list.find((img: any) =>
-      typeof img === "object" && (img?.imageType === "COVER" || img?.type === "COVER")
+    const cover: any = list.find(
+      (img: any) =>
+        typeof img === "object" &&
+        (img?.imageType === "COVER" || img?.type === "COVER"),
     );
     if (cover && typeof cover === "object") return cover.url || cover.imageUrl;
     const first: any = list[0];
@@ -362,11 +364,14 @@ export default function BookDetailPage({
         if (!Array.isArray(currentCart)) currentCart = [];
 
         const existingIdx = currentCart.findIndex(
-          (c: any) => String(c.bookId) === String(book.id) || String(c.id) === String(book.id)
+          (c: any) =>
+            String(c.bookId) === String(book.id) ||
+            String(c.id) === String(book.id),
         );
 
         if (existingIdx >= 0) {
-          currentCart[existingIdx].quantity = (currentCart[existingIdx].quantity || 1) + quantity;
+          currentCart[existingIdx].quantity =
+            (currentCart[existingIdx].quantity || 1) + quantity;
         } else {
           currentCart.push({
             id: `item-${book.id}-${Date.now()}`,
@@ -398,7 +403,9 @@ export default function BookDetailPage({
       return true;
     } catch (error: any) {
       console.error("Add to Cart Error:", error);
-      toast.error(error?.response?.data?.message || "Failed to add book to cart.");
+      toast.error(
+        error?.response?.data?.message || "Failed to add book to cart.",
+      );
       return false;
     } finally {
       setIsAddingToCart(false);
@@ -895,29 +902,35 @@ export default function BookDetailPage({
         </div>
 
         {/* Description Tabs */}
-        <div id="book-tabs-section" className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-2xs space-y-6">
+        <div
+          id="book-tabs-section"
+          className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-2xs space-y-6"
+        >
           <div className="flex border-b border-slate-200 gap-6 text-xs font-bold text-slate-600 overflow-x-auto">
-            {["Description", "Product Details", "Customer Reviews", "Shipping & Returns"].map(
-              (tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveTab(tab)}
-                  className={`pb-3 border-b-2 transition-colors whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-                    activeTab === tab
-                      ? "border-amber-500 text-amber-600"
-                      : "border-transparent hover:text-slate-900"
-                  }`}
-                >
-                  <span>{tab}</span>
-                  {tab === "Customer Reviews" && reviewsCount > 0 && (
-                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 font-extrabold">
-                      {reviewsCount}
-                    </span>
-                  )}
-                </button>
-              ),
-            )}
+            {[
+              "Description",
+              "Product Details",
+              "Customer Reviews",
+              "Shipping & Returns",
+            ].map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`pb-3 border-b-2 transition-colors whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === tab
+                    ? "border-amber-500 text-amber-600"
+                    : "border-transparent hover:text-slate-900"
+                }`}
+              >
+                <span>{tab}</span>
+                {tab === "Customer Reviews" && reviewsCount > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 font-extrabold">
+                    {reviewsCount}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
 
           {activeTab === "Description" && (

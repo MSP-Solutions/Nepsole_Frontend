@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import UserStatsOverview from "@/components/user/dashboard/UserStatsOverview";
 import UserRecentOrders from "@/components/user/dashboard/UserRecentOrders";
-import UserRecentWishlist from "@/components/user/dashboard/UserRecentWishlist";
 import UserRecommendedBooks from "@/components/user/dashboard/UserRecommendedBooks";
 
 export default function UserDashboardPage() {
@@ -22,12 +21,9 @@ export default function UserDashboardPage() {
       <UserStatsOverview onRefresh={handleRefreshAll} />
 
       {/* 2. Middle Row: Recent Orders (8 cols) + Recent Wishlist (4 cols) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div>
         <div className="lg:col-span-8">
           <UserRecentOrders />
-        </div>
-        <div className="lg:col-span-4">
-          <UserRecentWishlist />
         </div>
       </div>
 

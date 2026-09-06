@@ -30,6 +30,7 @@ import { axiosAuthInstance } from "@/utils/axiosInstances";
 import {
   AUTH_CHANGE_EVENT,
   CART_CHANGE_EVENT,
+  WISHLIST_CHANGE_EVENT,
   clearCookies,
   getUserCookie,
   getUserDisplayName,
@@ -43,9 +44,9 @@ import HeaderSearch from "@/components/HeaderSearch";
 const navLinks = [
   { name: "Home", href: "/" },
   { name: "Books", href: "/books" },
+  { name: "E-Books", href: "/eBooks" },
   { name: "Authors", href: "/authors" },
   { name: "Publishers", href: "/publishers" },
-  { name: "E-Books", href: "/eBooks" },
   { name: "About Us", href: "/about" },
   { name: "Contact Us", href: "/contact" },
 ];
@@ -114,11 +115,13 @@ const Header = () => {
 
     window.addEventListener(AUTH_CHANGE_EVENT, handleAuthChange);
     window.addEventListener(CART_CHANGE_EVENT, handleWishlistChange);
+    window.addEventListener(WISHLIST_CHANGE_EVENT, handleWishlistChange);
     window.addEventListener("focus", handleWishlistChange);
 
     return () => {
       window.removeEventListener(AUTH_CHANGE_EVENT, handleAuthChange);
       window.removeEventListener(CART_CHANGE_EVENT, handleWishlistChange);
+      window.removeEventListener(WISHLIST_CHANGE_EVENT, handleWishlistChange);
       window.removeEventListener("focus", handleWishlistChange);
     };
   }, [pathname]);
@@ -296,26 +299,6 @@ const Header = () => {
                       <span>
                         {isAdmin ? "Admin Dashboard" : "My Dashboard"}
                       </span>
-                    </Link>
-                  </DropdownMenuItem>
-
-                  <DropdownMenuItem asChild>
-                    <Link
-                      href={ordersLink}
-                      className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
-                    >
-                      <ShoppingBag className="h-4 w-4 text-slate-500" />
-                      <span>Order History</span>
-                    </Link>
-                  </DropdownMenuItem>
-
-                  <DropdownMenuItem asChild>
-                    <Link
-                      href="/user/wishlist"
-                      className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-rose-50 hover:text-rose-600"
-                    >
-                      <Heart className="h-4 w-4 text-rose-500" />
-                      <span>Saved Wishlist</span>
                     </Link>
                   </DropdownMenuItem>
                 </div>

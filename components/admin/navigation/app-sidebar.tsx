@@ -13,6 +13,7 @@ import {
   LayoutGrid,
   Loader2,
   LogOut,
+  Quote,
   Settings,
   ShoppingBag,
   StarsIcon,
@@ -112,6 +113,11 @@ const navigation: NavItem[] = [
     title: "Contacts",
     url: "/admin/contact",
     icon: Users,
+  },
+  {
+    title: "Testimonials",
+    url: "/admin/testimonial",
+    icon: Quote,
   },
   {
     title: "Settings",

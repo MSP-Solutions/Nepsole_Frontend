@@ -1,17 +1,18 @@
 "use client";
 
+import {
+  BooksFilterSidebar,
+  BooksMobileFilterDrawer,
+} from "@/components/books/BooksFilterSidebar";
 import Footer from "@/components/footer";
 import Header from "@/components/header";
 import TopHeader from "@/components/topHeader";
 import { BookItem, PaginationMeta } from "@/types";
 import { axiosAuthInstance, axiosInstance } from "@/utils/axiosInstances";
-import { getUserCookie } from "@/utils/cookies";
+import { CART_CHANGE_EVENT, getUserCookie, WISHLIST_CHANGE_EVENT } from "@/utils/cookies";
 import {
   ArrowUpDown,
-  Bookmark,
   BookOpen,
-  Building2,
-  Check,
   ChevronLeft,
   ChevronRight,
   Filter,
@@ -52,10 +53,13 @@ export default function BooksPage() {
   const [wishlistedBookIds, setWishlistedBookIds] = useState<
     Record<string, boolean>
   >({});
+  const [addingCartId, setAddingCartId] = useState<string | number | null>(
+    null,
+  );
 
   // Pagination States (default limit: 10, page: 1)
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(10);
+  const [pageSize, setPageSize] = useState<number>(12);
   const [pagination, setPagination] = useState<PaginationMeta>({
     total: 0,
     page: 1,
@@ -253,8 +257,11 @@ export default function BooksPage() {
         if (Array.isArray(data)) {
           const map: Record<string, boolean> = {};
           data.forEach((item: any) => {
-            const bId = item?.bookId || item?.book?.id || item?.id;
+            const ebId = item?.ebookId || item?.eBookId || item?.ebook?.id;
+            const bId = item?.bookId || item?.book?.id;
+            if (ebId) map[String(ebId)] = true;
             if (bId) map[String(bId)] = true;
+            if (!ebId && !bId && item?.id) map[String(item.id)] = true;
           });
           setWishlistedBookIds(map);
         }
@@ -286,12 +293,6 @@ export default function BooksPage() {
     return null;
   };
 
-  const getPrimaryGenreName = (book: BookItem): string => {
-    const list = book.genres || book.genreBooks || [];
-    if (list.length === 0) return "";
-    return list[0].name || list[0].englishName || list[0].genre?.name || "";
-  };
-
   const toggleWishlist = async (id: number | string) => {
     try {
       const user = await getUserCookie();
@@ -310,11 +311,14 @@ export default function BooksPage() {
       }));
 
       const numId = Number(id);
-      let response;
+      const targetId = isNaN(numId) ? id : numId;
 
-      response = await axiosAuthInstance.post("/v1/wishlist/toggle", {
-        bookId: isNaN(numId) ? id : numId,
-      });
+      const response = await axiosAuthInstance.post(
+        "/v1/wishlist/toggle?type=BOOK",
+        {
+          bookId: targetId,
+        },
+      );
 
       const resMsg = response?.data?.message;
       if (resMsg) {
@@ -324,6 +328,8 @@ export default function BooksPage() {
       } else {
         toast.success("Removed from wishlist");
       }
+
+      window.dispatchEvent(new Event(WISHLIST_CHANGE_EVENT));
     } catch (error: any) {
       console.error("Wishlist Toggle Error:", error);
       // Revert optimistic update
@@ -336,6 +342,101 @@ export default function BooksPage() {
         error?.response?.data?.error ||
         "Failed to update wishlist. Please try again.";
       toast.error(msg);
+    }
+  };
+
+  // Add to Cart
+  const handleAddToCart = async (e: React.MouseEvent, book: BookItem) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    try {
+      const user = await getUserCookie();
+      if (!user?.accessToken) {
+        toast.error("Please login first to add books to your cart");
+        return;
+      }
+
+      setAddingCartId(book.id);
+      const priceNum = Number(book.price) || 0;
+      const discountNum = Number(book.discountPercent) || 0;
+      const finalPrice =
+        discountNum > 0 ? priceNum - (priceNum * discountNum) / 100 : priceNum;
+      const numId = Number(book.id);
+
+      try {
+        await axiosAuthInstance.post("/v1/cart", {
+          bookId: !isNaN(numId) ? numId : book.id,
+          quantity: 1,
+        });
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          await axiosAuthInstance.post("/api/v1/cart", {
+            bookId: !isNaN(numId) ? numId : book.id,
+            quantity: 1,
+          });
+        } else {
+          throw err;
+        }
+      }
+
+      // Sync local storage
+      try {
+        const coverImg = getCoverImage(book);
+        const authorName = (book.authors || book.authorBooks || [])
+          .map((a: any) => a.name || a.englishName || a.author?.name || "")
+          .filter(Boolean)
+          .join(", ");
+        const saved = localStorage.getItem("nepsole_cart");
+        let currentCart: any[] = [];
+        if (saved) {
+          try {
+            currentCart = JSON.parse(saved);
+          } catch {}
+        }
+        if (!Array.isArray(currentCart)) currentCart = [];
+
+        const existingIdx = currentCart.findIndex(
+          (c: any) =>
+            String(c.bookId) === String(book.id) ||
+            String(c.id) === String(book.id),
+        );
+
+        if (existingIdx >= 0) {
+          currentCart[existingIdx].quantity =
+            (currentCart[existingIdx].quantity || 1) + 1;
+        } else {
+          currentCart.push({
+            id: `item-${book.id}-${Date.now()}`,
+            bookId: book.id,
+            title: book.title,
+            author: authorName,
+            price: finalPrice,
+            originalPrice: priceNum,
+            discountPercent: discountNum,
+            quantity: 1,
+            coverImage: coverImg,
+            format: "Paperback",
+            stock: Number(book.stock) || 10,
+          });
+        }
+
+        localStorage.setItem("nepsole_cart", JSON.stringify(currentCart));
+      } catch {}
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event(CART_CHANGE_EVENT));
+      }
+
+      toast.success(`"${book.title}" added to cart!`);
+    } catch (error: any) {
+      console.error("Cart error:", error);
+      toast.dismiss();
+      toast.error(
+        error?.response?.data?.message || "Failed to add book to cart.",
+      );
+    } finally {
+      setAddingCartId(null);
     }
   };
 
@@ -580,133 +681,19 @@ export default function BooksPage() {
 
         {/* Main Section */}
         <div className="grid grid-cols-1 lg:grid-cols-4 xl:grid-cols-5 gap-5 items-start mt-4">
-          {/* Sidebar */}
-          <aside className="hidden lg:block lg:col-span-1 bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-5 sticky top-20">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                <Filter className="w-3.5 h-3.5 text-amber-500" />
-                Refine Books
-              </h2>
-              {activeFiltersCount > 0 && (
-                <button
-                  type="button"
-                  onClick={handleResetFilters}
-                  className="text-[11px] text-amber-600 hover:text-amber-700 font-semibold cursor-pointer"
-                >
-                  Reset
-                </button>
-              )}
-            </div>
-
-            {/* Categories */}
-            <div className="space-y-1.5">
-              <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                <Bookmark className="w-3 h-3 text-amber-500" /> Genres
-              </h3>
-              <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
-                <button
-                  type="button"
-                  onClick={() => setSelectedGenre("all")}
-                  className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center justify-between cursor-pointer ${
-                    selectedGenre === "all"
-                      ? "bg-amber-500 text-white font-semibold shadow-2xs"
-                      : "text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  <span>All Genres</span>
-                  <span
-                    className={`text-[10px] ${
-                      selectedGenre === "all"
-                        ? "text-amber-100"
-                        : "text-slate-400"
-                    }`}
-                  >
-                    {books.length}
-                  </span>
-                </button>
-
-                {isLoadingFilters ? (
-                  <div className="py-3 text-center text-xs text-slate-400 flex items-center justify-center gap-1.5">
-                    <Loader2 className="w-3 h-3 animate-spin text-amber-500" />
-                    Loading...
-                  </div>
-                ) : (
-                  genres.map((gen) => {
-                    const genName = gen.name || gen.englishName || "";
-                    const isSelected = selectedGenre === genName;
-                    return (
-                      <button
-                        key={gen.id || genName}
-                        type="button"
-                        onClick={() => setSelectedGenre(genName)}
-                        className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center justify-between cursor-pointer ${
-                          isSelected
-                            ? "bg-amber-500 text-white font-semibold shadow-2xs"
-                            : "text-slate-600 hover:bg-slate-50"
-                        }`}
-                      >
-                        <span className="truncate">
-                          {gen.name || gen.englishName}
-                        </span>
-                        {isSelected && <Check className="w-3 h-3 shrink-0" />}
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            <hr className="border-slate-100" />
-
-            {/* Publishers */}
-            <div className="space-y-1.5">
-              <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                <Building2 className="w-3 h-3 text-indigo-500" /> Publishers
-              </h3>
-              <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
-                <button
-                  type="button"
-                  onClick={() => setSelectedPublisher("all")}
-                  className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center justify-between cursor-pointer ${
-                    selectedPublisher === "all"
-                      ? "bg-indigo-600 text-white font-semibold shadow-2xs"
-                      : "text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  <span>All Publishers</span>
-                </button>
-
-                {isLoadingFilters ? (
-                  <div className="py-3 text-center text-xs text-slate-400 flex items-center justify-center gap-1.5">
-                    <Loader2 className="w-3 h-3 animate-spin text-indigo-500" />
-                    Loading...
-                  </div>
-                ) : (
-                  publishers.map((pub) => {
-                    const pubName = pub.name || pub.englishName || "";
-                    const isSelected = selectedPublisher === pubName;
-                    return (
-                      <button
-                        key={pub.id || pubName}
-                        type="button"
-                        onClick={() => setSelectedPublisher(pubName)}
-                        className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center justify-between cursor-pointer ${
-                          isSelected
-                            ? "bg-indigo-600 text-white font-semibold shadow-2xs"
-                            : "text-slate-600 hover:bg-slate-50"
-                        }`}
-                      >
-                        <span className="truncate">
-                          {pub.name || pub.englishName}
-                        </span>
-                        {isSelected && <Check className="w-3 h-3 shrink-0" />}
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          </aside>
+          {/* Sidebar (desktop) */}
+          <BooksFilterSidebar
+            genres={genres}
+            publishers={publishers}
+            isLoadingFilters={isLoadingFilters}
+            selectedGenre={selectedGenre}
+            selectedPublisher={selectedPublisher}
+            totalBooks={books.length}
+            activeFiltersCount={activeFiltersCount}
+            onGenreChange={setSelectedGenre}
+            onPublisherChange={setSelectedPublisher}
+            onReset={handleResetFilters}
+          />
 
           {/* Right Column (Catalog) */}
           <section
@@ -772,16 +759,15 @@ export default function BooksPage() {
                 ))}
               </div>
             ) : displayedBooks.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                 {displayedBooks.map((book) => {
-                  const coverUrl = getCoverImage(book);
+                  const cover = getCoverImage(book);
                   const priceNum = Number(book.price) || 0;
                   const discountNum = Number(book.discountPercent) || 0;
-                  const discountedPrice =
+                  const finalPrice =
                     discountNum > 0
                       ? priceNum - (priceNum * discountNum) / 100
                       : priceNum;
-                  const genreName = getPrimaryGenreName(book);
                   const authorName = (book.authors || book.authorBooks || [])
                     .map(
                       (a: any) =>
@@ -789,6 +775,13 @@ export default function BooksPage() {
                     )
                     .filter(Boolean)
                     .join(", ");
+                  const genresList = book.genres || book.genreBooks || [];
+                  const publisherName =
+                    book.publisher?.name || book.publisher?.englishName || "";
+                  const publisherLogo = book.publisher?.publicationLogoUrl;
+                  const soldCount = Number(
+                    book.soldCount || book.sold || book.salesCount || 0,
+                  );
                   const isWishlisted = Boolean(
                     wishlistedBookIds[String(book.id)],
                   );
@@ -798,115 +791,172 @@ export default function BooksPage() {
                     Number(book.stock) <= 0;
 
                   return (
-                    <div
+                    <Link
                       key={book.id}
-                      className="bg-white rounded-xl border border-slate-200/90 p-2.5 sm:p-3 flex flex-col justify-between relative group hover:shadow-md hover:border-amber-400/70 transition-all duration-200"
+                      href={`/books/${book.id}`}
+                      className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white transition duration-200 hover:-translate-y-1 hover:border-slate-300 hover:shadow-md"
                     >
-                      {/* Discount and Wishlist overlay */}
-                      <div className="absolute top-2 left-2 right-2 flex items-center justify-between z-10 pointer-events-none">
-                        {discountNum > 0 ? (
-                          <span className="bg-rose-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-2xs pointer-events-auto">
-                            -{discountNum}%
-                          </span>
-                        ) : (
-                          <span />
-                        )}
+                      {/* Discount Badge */}
+                      {discountNum > 0 && (
+                        <div className="absolute left-2.5 top-2.5 z-10 rounded-lg bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs">
+                          -{discountNum}%
+                        </div>
+                      )}
 
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            toggleWishlist(book.id);
-                          }}
-                          className={`p-1.5 rounded-full shadow-2xs transition-colors cursor-pointer pointer-events-auto ${
-                            isWishlisted
-                              ? "bg-rose-50 text-rose-600 border border-rose-200"
-                              : "bg-white/90 text-slate-400 hover:text-rose-500 border border-slate-200/60 hover:bg-white"
-                          }`}
-                          title={
-                            isWishlisted
-                              ? "Remove from wishlist"
-                              : "Add to wishlist"
+                      {/* Wishlist */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          toggleWishlist(book.id);
+                        }}
+                        aria-label="Add to wishlist"
+                        className={`absolute right-2.5 top-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full backdrop-blur-xs transition shadow-2xs cursor-pointer ${
+                          isWishlisted
+                            ? "bg-rose-50 text-rose-600"
+                            : "bg-white/80 text-slate-400 hover:text-rose-500 hover:bg-white"
+                        }`}
+                      >
+                        <Heart
+                          size={14}
+                          className={
+                            isWishlisted ? "fill-rose-500 text-rose-500" : ""
                           }
-                        >
-                          <Heart
-                            className={`w-3 h-3 ${
-                              isWishlisted ? "fill-rose-500 text-rose-500" : ""
-                            }`}
+                        />
+                      </button>
+
+                      {/* Cover Image */}
+                      <div className="flex h-[175px] sm:h-[200px] items-center justify-center overflow-hidden bg-slate-50/70 p-3 relative">
+                        {cover ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={cover}
+                            alt={book.title}
+                            className="h-full w-auto max-w-full object-contain transition duration-300 group-hover:scale-105"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLElement).style.display =
+                                "none";
+                            }}
                           />
-                        </button>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center text-slate-300">
+                            <BookOpen size={36} />
+                          </div>
+                        )}
+                        {isOutOfStock && (
+                          <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
+                            <span className="px-2 py-0.5 rounded bg-rose-600 text-white text-[9px] font-bold uppercase tracking-wider">
+                              Out of Stock
+                            </span>
+                          </div>
+                        )}
                       </div>
 
-                      <div>
-                        {/* Responsive Aspect Cover */}
-                        <Link href={`/books/${book.id}`} className="block">
-                          <div className="relative aspect-[3/4] w-full bg-slate-50 rounded-lg overflow-hidden flex items-center justify-center mb-2 group-hover:scale-[1.01] transition-transform duration-200 border border-slate-100">
-                            {coverUrl ? (
-                              <img
-                                src={coverUrl}
-                                alt={book.title}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="flex flex-col items-center justify-center text-slate-300">
-                                <BookOpen className="w-7 h-7 mb-0.5" />
-                                <span className="text-[9px] text-slate-400 font-semibold tracking-wider uppercase">
-                                  Book
+                      {/* Details */}
+                      <div className="flex flex-1 flex-col justify-between border-t border-slate-100 p-3">
+                        <div className="space-y-1.5">
+                          {/* Genre Badges */}
+                          {genresList.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {genresList.slice(0, 2).map((g: any) => (
+                                <span
+                                  key={g.id}
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-100/80 text-[9px] font-semibold text-amber-700 uppercase tracking-wider truncate max-w-[80px]"
+                                >
+                                  {g.icon && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={g.icon}
+                                      alt=""
+                                      className="w-2.5 h-2.5 object-contain shrink-0"
+                                    />
+                                  )}
+                                  <span className="truncate">
+                                    {g.name || g.englishName}
+                                  </span>
                                 </span>
-                              </div>
-                            )}
+                              ))}
+                              {genresList.length > 2 && (
+                                <span className="px-1.5 py-0.5 rounded bg-slate-50 border border-slate-100 text-[9px] font-semibold text-slate-400">
+                                  +{genresList.length - 2}
+                                </span>
+                              )}
+                            </div>
+                          )}
 
-                            {isOutOfStock && (
-                              <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-1.5">
-                                <span className="px-2 py-0.5 rounded bg-rose-600 text-white text-[9px] font-bold uppercase tracking-wider">
-                                  Out of Stock
+                          {/* Title */}
+                          <h3 className="line-clamp-1 text-xs sm:text-sm font-bold text-slate-900 group-hover:text-[#1749A0] transition-colors">
+                            {book.title}
+                          </h3>
+
+                          {/* Author */}
+                          <p className="truncate text-[11px] text-slate-400">
+                            {authorName || "Nepsole Author"}
+                          </p>
+
+                          {/* Publisher */}
+                          {publisherName && (
+                            <div className="flex items-center gap-1.5">
+                              {publisherLogo ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={publisherLogo}
+                                  alt={publisherName}
+                                  className="w-3.5 h-3.5 rounded-full object-cover border border-slate-200 shrink-0"
+                                />
+                              ) : (
+                                <div className="w-3.5 h-3.5 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
+                                  <span className="text-[7px] font-bold text-indigo-600">
+                                    {publisherName.charAt(0).toUpperCase()}
+                                  </span>
+                                </div>
+                              )}
+                              <span className="text-[10px] text-slate-500 truncate font-medium">
+                                {publisherName}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Price + Sold */}
+                          <div className="flex items-baseline justify-between gap-1.5 pt-0.5">
+                            <div className="flex items-baseline gap-1.5">
+                              <span className="text-xs sm:text-sm font-black text-[#1749A0]">
+                                Rs. {Math.round(finalPrice).toLocaleString()}
+                              </span>
+                              {discountNum > 0 && (
+                                <span className="text-[10px] text-slate-400 line-through">
+                                  Rs. {Math.round(priceNum).toLocaleString()}
                                 </span>
-                              </div>
+                              )}
+                            </div>
+                            {soldCount > 0 && (
+                              <span className="text-[9px] text-slate-400 font-medium whitespace-nowrap">
+                                {soldCount.toLocaleString()} sold
+                              </span>
                             )}
                           </div>
-                        </Link>
-                        {genreName && (
-                          <span className="inline-block text-[9px] font-semibold uppercase tracking-wider text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded mb-1 border border-amber-100/80 truncate max-w-full">
-                            {genreName}
-                          </span>
-                        )}
-                        <Link href={`/books/${book.id}`}>
-                          <h2
-                            className="text-xs font-bold text-slate-900 group-hover:text-amber-600 transition-colors line-clamp-1 leading-snug"
-                            title={book.title}
+                        </div>
+                        <div className="mt-3 flex gap-1.5">
+                          <button
+                            type="button"
+                            onClick={(e) => handleAddToCart(e, book)}
+                            disabled={addingCartId === book.id || isOutOfStock}
+                            className="flex-1 h-8 rounded-xl bg-slate-900 hover:bg-[#1749A0] active:scale-[0.98] text-white text-[11px] font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            {book.title}
-                          </h2>
-                        </Link>
-                        {authorName && (
-                          <p
-                            className="text-[11px] text-slate-500 truncate mt-0.5"
-                            title={authorName}
-                          >
-                            {authorName}
-                          </p>
-                        )}
-                        <div className="mt-1.5 flex items-baseline gap-1.5 flex-wrap">
-                          <span className="text-xs sm:text-sm font-bold text-slate-900">
-                            Rs. {discountedPrice.toLocaleString()}
-                          </span>
-                          {discountNum > 0 && (
-                            <span className="text-[10px] text-slate-400 line-through">
-                              Rs. {priceNum.toLocaleString()}
-                            </span>
-                          )}
+                            {addingCartId === book.id ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              <>
+                                <ShoppingCart size={12} />
+                                <span className="hidden sm:inline">Add to Cart</span>
+                                <span className="sm:hidden">Cart</span>
+                              </>
+                            )}
+                          </button>
                         </div>
                       </div>
-                      <div className="mt-2.5 pt-2 border-t border-slate-100">
-                        <Link
-                          href={`/books/${book.id}`}
-                          className="w-full bg-slate-900 hover:bg-amber-500 hover:text-slate-950 text-white text-[11px] font-medium py-1.5 px-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer text-center"
-                        >
-                          <ShoppingCart className="w-3 h-3" />
-                          <span>View Details</span>
-                        </Link>
-                      </div>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
@@ -1021,131 +1071,21 @@ export default function BooksPage() {
         </div>
       </main>
 
-      {/* Mobile Drawer */}
-      {showMobileFilter && (
-        <div className="fixed inset-0 z-50 lg:hidden flex">
-          <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
-            onClick={() => setShowMobileFilter(false)}
-          />
-
-          <div className="relative ml-auto w-full max-w-xs bg-white h-full shadow-2xl flex flex-col p-5 overflow-y-auto z-10 animate-in slide-in-from-right duration-200">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                <Filter className="w-4 h-4 text-amber-500" />
-                Filter Books
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowMobileFilter(false)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="flex-1 py-3 space-y-4">
-              <div>
-                <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-800 mb-2">
-                  Genres & Categories
-                </h4>
-                <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedGenre("all")}
-                    className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg flex items-center justify-between ${
-                      selectedGenre === "all"
-                        ? "bg-amber-500 text-white font-bold"
-                        : "text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    <span>All Genres</span>
-                    <span>{books.length}</span>
-                  </button>
-                  {genres.map((gen) => {
-                    const genName = gen.name || gen.englishName || "";
-                    const isSelected = selectedGenre === genName;
-                    return (
-                      <button
-                        key={gen.id || genName}
-                        type="button"
-                        onClick={() => setSelectedGenre(genName)}
-                        className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg flex items-center justify-between ${
-                          isSelected
-                            ? "bg-amber-500 text-white font-bold"
-                            : "text-slate-600 hover:bg-slate-50"
-                        }`}
-                      >
-                        <span className="truncate">
-                          {gen.name || gen.englishName}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <hr className="border-slate-100" />
-
-              <div>
-                <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-800 mb-2">
-                  Publishers
-                </h4>
-                <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPublisher("all")}
-                    className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg flex items-center justify-between ${
-                      selectedPublisher === "all"
-                        ? "bg-indigo-600 text-white font-bold"
-                        : "text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    <span>All Publishers</span>
-                  </button>
-                  {publishers.map((pub) => {
-                    const pubName = pub.name || pub.englishName || "";
-                    const isSelected = selectedPublisher === pubName;
-                    return (
-                      <button
-                        key={pub.id || pubName}
-                        type="button"
-                        onClick={() => setSelectedPublisher(pubName)}
-                        className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg flex items-center justify-between ${
-                          isSelected
-                            ? "bg-indigo-600 text-white font-bold"
-                            : "text-slate-600 hover:bg-slate-50"
-                        }`}
-                      >
-                        <span className="truncate">
-                          {pub.name || pub.englishName}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleResetFilters}
-                className="flex-1 py-2 text-xs font-semibold text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition"
-              >
-                Reset
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowMobileFilter(false)}
-                className="flex-1 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition"
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Mobile Filter Drawer */}
+      <BooksMobileFilterDrawer
+        isOpen={showMobileFilter}
+        onClose={() => setShowMobileFilter(false)}
+        genres={genres}
+        publishers={publishers}
+        isLoadingFilters={isLoadingFilters}
+        selectedGenre={selectedGenre}
+        selectedPublisher={selectedPublisher}
+        totalBooks={books.length}
+        activeFiltersCount={activeFiltersCount}
+        onGenreChange={setSelectedGenre}
+        onPublisherChange={setSelectedPublisher}
+        onReset={handleResetFilters}
+      />
 
       <Footer />
     </div>

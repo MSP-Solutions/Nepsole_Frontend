@@ -12,7 +12,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { axiosAuthInstance, axiosInstance } from "@/utils/axiosInstances";
-import { getUserCookie } from "@/utils/cookies";
+import { getUserCookie, WISHLIST_CHANGE_EVENT } from "@/utils/cookies";
 import toast from "react-hot-toast";
 
 export interface RecommendedBook {
@@ -83,8 +83,11 @@ export default function UserRecommendedBooks() {
       if (Array.isArray(data)) {
         const map: Record<string, boolean> = {};
         data.forEach((item: any) => {
-          const bId = item?.bookId || item?.book?.id || item?.id;
+          const ebId = item?.ebookId || item?.eBookId || item?.ebook?.id;
+          const bId = item?.bookId || item?.book?.id;
+          if (ebId) map[String(ebId)] = true;
           if (bId) map[String(bId)] = true;
+          if (!ebId && !bId && item?.id) map[String(item.id)] = true;
         });
         setWishlistedMap(map);
       }
@@ -138,8 +141,10 @@ export default function UserRecommendedBooks() {
       }));
 
       const numId = Number(id);
-      await axiosAuthInstance.post("/v1/wishlist/toggle", {
-        bookId: isNaN(numId) ? id : numId,
+      const targetId = isNaN(numId) ? id : numId;
+
+      await axiosAuthInstance.post("/v1/wishlist/toggle?type=BOOK", {
+        bookId: targetId,
       });
 
       if (!isCurrently) {
@@ -147,6 +152,8 @@ export default function UserRecommendedBooks() {
       } else {
         toast.success(`Removed "${title}" from wishlist`);
       }
+
+      window.dispatchEvent(new Event(WISHLIST_CHANGE_EVENT));
     } catch (err) {
       // Revert optimistic
       setWishlistedMap((prev) => ({

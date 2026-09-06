@@ -1,7 +1,7 @@
 "use client";
 
 import { axiosAuthInstance, axiosInstance } from "@/utils/axiosInstances";
-import { CART_CHANGE_EVENT, getUserCookie } from "@/utils/cookies";
+import { CART_CHANGE_EVENT, getUserCookie, WISHLIST_CHANGE_EVENT } from "@/utils/cookies";
 import {
   ArrowRight,
   BookOpen,
@@ -115,8 +115,11 @@ const TrendingBooks = () => {
         if (Array.isArray(data)) {
           const map: Record<string, boolean> = {};
           data.forEach((item: any) => {
-            const bId = item?.bookId || item?.book?.id || item?.id;
+            const ebId = item?.ebookId || item?.eBookId || item?.ebook?.id;
+            const bId = item?.bookId || item?.book?.id;
+            if (ebId) map[String(ebId)] = true;
             if (bId) map[String(bId)] = true;
+            if (!ebId && !bId && item?.id) map[String(item.id)] = true;
           });
           setWishlistedMap(map);
         }
@@ -175,15 +178,24 @@ const TrendingBooks = () => {
       }));
 
       const numId = Number(book.id);
+      const targetId = !isNaN(numId) ? numId : book.id;
+      const isEBook = Boolean(
+        book.isEBook || book.isEbook || book.ebookId || book.type === "EBOOK",
+      );
+      const typeParam = isEBook ? "type=EBOOK" : "type=BOOK";
+      const payload = isEBook ? { ebookId: targetId } : { bookId: targetId };
+
       let response;
       try {
-        response = await axiosAuthInstance.post("/v1/wishlist/toggle", {
-          bookId: !isNaN(numId) ? numId : book.id,
-        });
+        response = await axiosAuthInstance.post(
+          `/v1/wishlist/toggle?${typeParam}`,
+          payload,
+        );
       } catch {
-        response = await axiosAuthInstance.post("/v1/wishlist", {
-          bookId: !isNaN(numId) ? numId : book.id,
-        });
+        response = await axiosAuthInstance.post(
+          `/v1/wishlist?${typeParam}`,
+          payload,
+        );
       }
 
       const msg = response?.data?.message;
@@ -194,6 +206,8 @@ const TrendingBooks = () => {
       } else {
         toast.success("Removed from wishlist");
       }
+
+      window.dispatchEvent(new Event(WISHLIST_CHANGE_EVENT));
     } catch (err: any) {
       // Revert optimistic update
       setWishlistedMap((prev) => ({

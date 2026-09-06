@@ -1,15 +1,19 @@
 "use client";
 
 import { axiosAuthInstance } from "@/utils/axiosInstances";
+import { WISHLIST_CHANGE_EVENT } from "@/utils/cookies";
 import {
   BookOpen,
   Heart,
+  HeartIcon,
   Loader2,
+  LucideMove,
   Search,
   ShoppingCart,
   Trash2,
   X,
 } from "lucide-react";
+import { Lovers_Quarrel } from "next/font/google";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
@@ -44,6 +48,9 @@ export default function WishlistPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("latest");
   const [removingId, setRemovingId] = useState<string | number | null>(null);
+  const [wishlistedMap, setWishlistedMap] = useState<Record<string, boolean>>(
+    {},
+  );
 
   const fetchWishlist = async () => {
     setIsLoading(true);
@@ -84,18 +91,31 @@ export default function WishlistPage() {
   }, []);
 
   const extractBook = (item: WishlistItem): WishlistBook => {
-    if (item.book && typeof item.book === "object") {
-      return {
-        ...item.book,
-        wishlistRecordId: item.id,
-      };
-    }
-    return item as WishlistBook;
+    const isEBook = item.itemType === "EBOOK" || Boolean(item.ebook);
+    const content = isEBook ? item.ebook || item : item.book || item;
+    const realId = isEBook
+      ? item.ebookId || item.ebook?.id || content.id
+      : item.bookId || item.book?.id || content.id;
+
+    return {
+      ...content,
+      id: realId,
+      wishlistRecordId: item.id,
+      itemType: isEBook ? "EBOOK" : "BOOK",
+      isEBook,
+      ebookId: item.ebookId || (isEBook ? realId : undefined),
+      bookId: item.bookId || (!isEBook ? realId : undefined),
+    };
   };
 
   const getCoverImage = (book: WishlistBook) => {
-    if (typeof book.coverImage === "string") return book.coverImage;
-    if (typeof book.image === "string") return book.image;
+    if (typeof book.coverImageUrl === "string" && book.coverImageUrl)
+      return book.coverImageUrl;
+    if (typeof book.coverImage === "string" && book.coverImage)
+      return book.coverImage;
+    if (typeof book.image === "string" && book.image) return book.image;
+    if (typeof book.imageUrl === "string" && book.imageUrl)
+      return book.imageUrl;
 
     const images = book.images || book.bookImages || [];
     if (!images.length) return null;
@@ -186,11 +206,42 @@ export default function WishlistPage() {
     setRemovingId(bookId);
 
     try {
-      const id = Number(bookId);
-
-      await axiosAuthInstance.post("/v1/wishlist/toggle", {
-        bookId: Number.isNaN(id) ? bookId : id,
+      const itemObj = items.find((i) => {
+        const b = extractBook(i);
+        const bId = b.id || i.bookId || i.id;
+        return String(bId) === String(bookId);
       });
+
+      const isEBook = Boolean(
+        itemObj?.ebookId ||
+        itemObj?.eBookId ||
+        itemObj?.isEbook ||
+        itemObj?.type === "EBOOK" ||
+        itemObj?.book?.ebookId ||
+        itemObj?.book?.type === "EBOOK",
+      );
+
+      const typeParam = isEBook ? "type=EBOOK" : "type=BOOK";
+      const id = Number(bookId);
+      const targetId = Number.isNaN(id) ? bookId : id;
+      const payload = isEBook ? { ebookId: targetId } : { bookId: targetId };
+
+      try {
+        await axiosAuthInstance.post(
+          `/v1/wishlist/toggle?${typeParam}`,
+          payload,
+        );
+      } catch {
+        try {
+          await axiosAuthInstance.delete(
+            `/v1/wishlist/remove/${targetId}?${typeParam}`,
+          );
+        } catch {
+          await axiosAuthInstance.delete(
+            `/v1/wishlist/${targetId}?${typeParam}`,
+          );
+        }
+      }
 
       setItems((prev) =>
         prev.filter((item) => {
@@ -200,7 +251,8 @@ export default function WishlistPage() {
         }),
       );
 
-      toast.success("Book removed from wishlist");
+      toast.success("Item removed from wishlist");
+      window.dispatchEvent(new Event(WISHLIST_CHANGE_EVENT));
     } catch (error: any) {
       toast.error(
         error?.response?.data?.message ||
@@ -228,53 +280,6 @@ export default function WishlistPage() {
           <p className="text-xs text-slate-500 mt-0.5">
             Your saved reading list • Tap any book to view details or order
           </p>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-          {/* Search bar */}
-          <div className="relative w-full sm:w-60">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search wishlist..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-7 py-1.5 text-xs rounded-xl border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1749A0]/20 focus:border-[#1749A0] transition shadow-2xs"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Sort */}
-          <div className="flex items-center gap-1 shrink-0">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#1749A0]/20 cursor-pointer shadow-2xs"
-            >
-              <option value="latest">Recently Added</option>
-              <option value="price-low">Price: Low to High</option>
-              <option value="price-high">Price: High to Low</option>
-              <option value="discount">Highest Discount</option>
-              <option value="title">Title (A-Z)</option>
-            </select>
-          </div>
-
-          {/* Browse Store CTA */}
-          <Link
-            href="/books"
-            className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1749A0] hover:bg-[#0F2557] text-white text-xs font-semibold transition shadow-2xs shrink-0 cursor-pointer"
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>Browse Books</span>
-          </Link>
         </div>
       </div>
 
@@ -305,9 +310,16 @@ export default function WishlistPage() {
             const finalPrice =
               discount > 0 ? price - (price * discount) / 100 : price;
 
-            const bookId = book.id || book.bookId;
+            const bookId = book.id || book.bookId || book.ebookId;
             const isRemoving = removingId === bookId;
-            const isOutOfStock = Number(book.stock) <= 0;
+            const isWishlisted = true;
+            const isEBook = Boolean(book.isEBook || book.itemType === "EBOOK");
+            const isFree =
+              isEBook &&
+              ((book.plan && String(book.plan).toUpperCase() === "FREE") ||
+                price === 0);
+            const isOutOfStock = !isEBook && Number(book.stock) <= 0;
+            const itemUrl = isEBook ? `/eBooks/${bookId}` : `/books/${bookId}`;
 
             return (
               <div
@@ -326,31 +338,41 @@ export default function WishlistPage() {
                       <div className="flex flex-col items-center justify-center text-slate-300">
                         <BookOpen className="w-8 h-8 mb-1" />
                         <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
-                          Book
+                          {isEBook ? "E-Book" : "Book"}
                         </span>
                       </div>
                     )}
 
-                    {/* Discount badge */}
-                    {discount > 0 && (
-                      <span className="absolute left-1.5 top-1.5 rounded-md bg-rose-600 px-1.5 py-0.5 text-[9px] font-extrabold text-white shadow-2xs">
-                        -{discount}%
+                    {/* Badges */}
+                    {isEBook ? (
+                      <span className="absolute left-1.5 top-1.5 rounded-md bg-indigo-600 px-1.5 py-0.5 text-[9px] font-extrabold text-white shadow-2xs">
+                        {isFree ? "FREE" : "E-BOOK"}
                       </span>
+                    ) : (
+                      discount > 0 && (
+                        <span className="absolute left-1.5 top-1.5 rounded-md bg-rose-600 px-1.5 py-0.5 text-[9px] font-extrabold text-white shadow-2xs">
+                          -{discount}%
+                        </span>
+                      )
                     )}
 
                     {/* Quick Remove Button */}
                     <button
                       type="button"
                       onClick={() => handleRemove(bookId)}
-                      disabled={isRemoving}
-                      title="Remove from wishlist"
-                      className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white/95 text-slate-400 hover:text-rose-600 hover:bg-rose-50 shadow-2xs border border-slate-200/60 transition-all cursor-pointer disabled:opacity-50"
+                      aria-label="Add to wishlist"
+                      className={`absolute right-2.5 top-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full backdrop-blur-xs transition shadow-2xs cursor-pointer ${
+                        isWishlisted
+                          ? "bg-rose-50 text-rose-600"
+                          : "bg-white/80 text-slate-400 hover:text-rose-500 hover:bg-white"
+                      }`}
                     >
-                      {isRemoving ? (
-                        <Loader2 className="w-3 h-3 animate-spin text-rose-500" />
-                      ) : (
-                        <Trash2 className="w-3 h-3" />
-                      )}
+                      <Heart
+                        size={14}
+                        className={
+                          isWishlisted ? "fill-rose-500 text-rose-500" : ""
+                        }
+                      />
                     </button>
 
                     {/* Out of Stock Overlay */}
@@ -371,7 +393,7 @@ export default function WishlistPage() {
                   )}
 
                   {/* Title & Author */}
-                  <Link href={`/books/${bookId}`} className="block">
+                  <Link href={itemUrl} className="block">
                     <h2
                       className="text-xs font-bold text-slate-900 group-hover:text-[#1749A0] transition-colors line-clamp-1 leading-snug"
                       title={book.title}
@@ -386,14 +408,22 @@ export default function WishlistPage() {
 
                   {/* Price */}
                   <div className="mt-1.5 flex items-baseline gap-1.5 flex-wrap">
-                    <span className="text-xs sm:text-sm font-extrabold text-slate-900">
-                      Rs. {Math.round(finalPrice).toLocaleString()}
-                    </span>
-
-                    {discount > 0 && (
-                      <span className="text-[10px] text-slate-400 line-through">
-                        Rs. {Math.round(price).toLocaleString()}
+                    {isFree ? (
+                      <span className="text-xs sm:text-sm font-extrabold text-emerald-600">
+                        Free Reading
                       </span>
+                    ) : (
+                      <>
+                        <span className="text-xs sm:text-sm font-extrabold text-slate-900">
+                          Rs. {Math.round(finalPrice).toLocaleString()}
+                        </span>
+
+                        {discount > 0 && (
+                          <span className="text-[10px] text-slate-400 line-through">
+                            Rs. {Math.round(price).toLocaleString()}
+                          </span>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -401,18 +431,22 @@ export default function WishlistPage() {
                 {/* Bottom Actions */}
                 <div className="mt-2.5 pt-2 border-t border-slate-100 grid grid-cols-2 gap-1.5">
                   <Link
-                    href={`/books/${bookId}`}
+                    href={itemUrl}
                     className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-[11px] font-semibold transition cursor-pointer"
                   >
                     <span>Details</span>
                   </Link>
 
                   <Link
-                    href={`/books/${bookId}`}
+                    href={itemUrl}
                     className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-[#1749A0] hover:bg-[#0F2557] text-white text-[11px] font-bold transition shadow-2xs cursor-pointer"
                   >
-                    <ShoppingCart className="w-3 h-3" />
-                    <span>Order</span>
+                    {isEBook ? (
+                      <BookOpen className="w-3 h-3" />
+                    ) : (
+                      <ShoppingCart className="w-3 h-3" />
+                    )}
+                    <span>{isEBook ? "Read" : "Order"}</span>
                   </Link>
                 </div>
               </div>

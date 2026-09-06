@@ -3,6 +3,7 @@ import Cookies from "js-cookie";
 const USER_COOKIE = "nepsole";
 export const AUTH_CHANGE_EVENT = "nepsole-auth-change";
 export const CART_CHANGE_EVENT = "nepsole-cart-change";
+export const WISHLIST_CHANGE_EVENT = "nepsole-wishlist-change";
 
 export interface UserCookie {
   accessToken: string;

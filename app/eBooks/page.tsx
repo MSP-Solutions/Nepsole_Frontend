@@ -12,7 +12,7 @@ import Header from "@/components/header";
 import TopHeader from "@/components/topHeader";
 import { PaginationMeta } from "@/types/book";
 import { axiosAuthInstance, axiosInstance } from "@/utils/axiosInstances";
-import { getUserCookie } from "@/utils/cookies";
+import { getUserCookie, WISHLIST_CHANGE_EVENT } from "@/utils/cookies";
 import {
   ArrowUpDown,
   ChevronRight,
@@ -257,13 +257,11 @@ export default function EBooksPage() {
         if (Array.isArray(data)) {
           const map: Record<string, boolean> = {};
           data.forEach((item: any) => {
-            const bId =
-              item?.ebookId ||
-              item?.eBookId ||
-              item?.bookId ||
-              item?.ebook?.id ||
-              item?.id;
+            const ebId = item?.ebookId || item?.eBookId || item?.ebook?.id;
+            const bId = item?.bookId || item?.book?.id;
+            if (ebId) map[String(ebId)] = true;
             if (bId) map[String(bId)] = true;
+            if (!ebId && !bId && item?.id) map[String(item.id)] = true;
           });
           setWishlistedIds(map);
         }
@@ -293,10 +291,14 @@ export default function EBooksPage() {
       }));
 
       const numId = Number(id);
-      const response = await axiosAuthInstance.post("/v1/wishlist/toggle", {
-        ebookId: isNaN(numId) ? id : numId,
-        bookId: isNaN(numId) ? id : numId,
-      });
+      const targetId = isNaN(numId) ? id : numId;
+
+      const response = await axiosAuthInstance.post(
+        "/v1/wishlist/toggle?type=EBOOK",
+        {
+          ebookId: targetId,
+        },
+      );
 
       const resMsg = response?.data?.message;
       if (resMsg) {
@@ -306,6 +308,8 @@ export default function EBooksPage() {
       } else {
         toast.success("Removed from wishlist");
       }
+
+      window.dispatchEvent(new Event(WISHLIST_CHANGE_EVENT));
     } catch (error: any) {
       console.error("Wishlist Toggle Error:", error);
       // Revert optimistic update

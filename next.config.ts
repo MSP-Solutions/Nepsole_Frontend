@@ -11,11 +11,29 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "cdn-icons-png.flaticon.com",
       },
-      {
-        protocol: "https",
-        hostname: "**",
-      },
     ],
+  },
+
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+          {
+            key: "X-Frame-Options",
+            value: "DENY",
+          },
+          {
+            key: "Content-Security-Policy",
+            value: "frame-ancestors 'none';",
+          },
+        ],
+      },
+    ];
   },
 };
 

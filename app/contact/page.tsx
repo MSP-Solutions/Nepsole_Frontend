@@ -9,9 +9,11 @@ import {
   BookOpen,
   CheckCircle2,
   Clock,
+  ExternalLink,
   Mail,
   MapPin,
   MessageSquare,
+  Navigation,
   Phone,
   Send,
   Sparkles,
@@ -75,6 +77,8 @@ export default function ContactPage() {
     contact?: string;
     email?: string;
     address?: string;
+    googleMapUrl?: string | null;
+    googleMapEmbedUrl?: string | null;
     facebookUrl?: string | null;
     instagramUrl?: string | null;
     twitterUrl?: string | null;
@@ -100,6 +104,8 @@ export default function ContactPage() {
             contact: data.contact,
             email: data.email,
             address: data.address,
+            googleMapUrl: data.googleMapUrl || data.mapUrl,
+            googleMapEmbedUrl: data.googleMapEmbedUrl || data.mapEmbedUrl,
             facebookUrl: data.facebookUrl,
             instagramUrl: data.instagramUrl,
             twitterUrl: data.twitterUrl,
@@ -192,6 +198,11 @@ export default function ContactPage() {
   const phoneDisplay = aboutInfo?.contact || "+977-9810330979";
   const emailDisplay = aboutInfo?.email || "info@nepsole.com";
   const addressDisplay = aboutInfo?.address || "Pokhara, Nepal";
+
+  const mapSearchQuery = encodeURIComponent(addressDisplay);
+  const mapEmbedUrl =
+    aboutInfo?.googleMapEmbedUrl ||
+    `https://maps.google.com/maps?q=${mapSearchQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50/70 text-slate-800 antialiased">
@@ -293,21 +304,6 @@ export default function ContactPage() {
                       </span>
                       <span className="text-sm font-bold text-white">
                         {addressDisplay}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Working Hours */}
-                  <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-white/5 border border-white/10">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/20">
-                      <Clock className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <span className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider block">
-                        Customer Support Hours
-                      </span>
-                      <span className="text-sm font-medium text-white">
-                        Sunday – Friday: 9:00 AM – 6:00 PM
                       </span>
                     </div>
                   </div>
@@ -571,13 +567,31 @@ export default function ContactPage() {
                       </>
                     )}
                   </button>
-
-                  <p className="text-center text-[11px] text-slate-400 pt-1">
-                    Your contact information is strictly protected and only used
-                    to respond to your inquiry.
-                  </p>
                 </form>
               </div>
+            </div>
+          </div>
+
+          {/* Google Maps Location Section */}
+          <div className="overflow-hidden rounded-3xl bg-white p-6 sm:p-8 shadow-sm border border-slate-200/90 space-y-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-5">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">
+                  Find Us on Google Maps
+                </h3>
+              </div>
+            </div>
+
+            {/* Map Frame */}
+            <div className="relative w-full h-[380px] sm:h-[450px] rounded-2xl overflow-hidden border border-slate-200 shadow-inner bg-slate-100">
+              <iframe
+                title="Nepsole Google Map Location"
+                src={mapEmbedUrl}
+                className="w-full h-full border-0"
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
             </div>
           </div>
         </div>

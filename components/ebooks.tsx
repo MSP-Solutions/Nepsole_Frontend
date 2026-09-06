@@ -1,7 +1,7 @@
 "use client";
 
 import { axiosAuthInstance, axiosInstance } from "@/utils/axiosInstances";
-import { getUserCookie } from "@/utils/cookies";
+import { getUserCookie, WISHLIST_CHANGE_EVENT } from "@/utils/cookies";
 import {
   ArrowRight,
   BookOpen,
@@ -109,8 +109,11 @@ const Ebooks = () => {
         if (Array.isArray(data)) {
           const map: Record<string, boolean> = {};
           data.forEach((item: any) => {
-            const bId = item?.bookId || item?.book?.id || item?.id;
+            const ebId = item?.ebookId || item?.eBookId || item?.ebook?.id;
+            const bId = item?.bookId || item?.book?.id;
+            if (ebId) map[String(ebId)] = true;
             if (bId) map[String(bId)] = true;
+            if (!ebId && !bId && item?.id) map[String(item.id)] = true;
           });
           setWishlistedMap(map);
         }
@@ -182,14 +185,19 @@ const Ebooks = () => {
       }));
 
       const numId = Number(book.id);
+      const targetId = !isNaN(numId) ? numId : book.id;
+
       let response;
       try {
-        response = await axiosAuthInstance.post("/v1/wishlist/toggle", {
-          bookId: !isNaN(numId) ? numId : book.id,
-        });
+        response = await axiosAuthInstance.post(
+          "/v1/wishlist/toggle?type=EBOOK",
+          {
+            ebookId: targetId,
+          },
+        );
       } catch {
-        response = await axiosAuthInstance.post("/v1/wishlist", {
-          bookId: !isNaN(numId) ? numId : book.id,
+        response = await axiosAuthInstance.post("/v1/wishlist?type=EBOOK", {
+          ebookId: targetId,
         });
       }
 
@@ -201,6 +209,8 @@ const Ebooks = () => {
       } else {
         toast.success("Removed from wishlist");
       }
+
+      window.dispatchEvent(new Event(WISHLIST_CHANGE_EVENT));
     } catch (err: any) {
       // Revert optimistic update
       setWishlistedMap((prev) => ({
