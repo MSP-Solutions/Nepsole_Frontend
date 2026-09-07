@@ -304,11 +304,6 @@ export default function SettingsPage() {
               </div>
 
               <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
-                  <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                  Session Protected
-                </span>
-
                 <button
                   type="button"
                   onClick={() => setIsPasswordOpen(true)}

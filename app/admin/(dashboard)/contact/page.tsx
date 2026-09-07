@@ -328,7 +328,6 @@ export default function AdminContactPage() {
               <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                 <th className="py-3 px-4">Sender / Contact</th>
                 <th className="py-3 px-4">Subject</th>
-                <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4">Message Preview</th>
                 <th className="py-3 px-4">Date & Time</th>
                 <th className="py-3 px-4 text-right">Actions</th>
@@ -418,29 +417,12 @@ export default function AdminContactPage() {
                         </div>
                       </div>
                     </td>
-
                     {/* Subject */}
                     <td className="py-3.5 px-4">
                       <span className="inline-block px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-100/80 text-indigo-700 font-semibold text-[11px]">
                         {contact.subject || "Book Inquiry"}
                       </span>
                     </td>
-
-                    {/* Status Badge (Replied vs Pending) */}
-                    <td className="py-3.5 px-4">
-                      {contact.isReplied ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-[10px]">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          <span>Replied</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 font-bold text-[10px]">
-                          <Clock className="w-3 h-3 text-amber-600" />
-                          <span>Pending</span>
-                        </span>
-                      )}
-                    </td>
-
                     {/* Message Preview */}
                     <td className="py-3.5 px-4 max-w-xs sm:max-w-md">
                       <p
@@ -450,12 +432,10 @@ export default function AdminContactPage() {
                         {contact.message}
                       </p>
                     </td>
-
                     {/* Date */}
                     <td className="py-3.5 px-4 text-slate-500 text-[11px] whitespace-nowrap">
                       {formatDate(contact.createdAt || contact.updatedAt)}
                     </td>
-
                     {/* Actions */}
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">

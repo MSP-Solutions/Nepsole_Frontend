@@ -233,13 +233,6 @@ export default function AdminSettingsPage() {
               the control panel.
             </p>
           </div>
-
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 px-3.5 py-2 text-xs font-medium text-emerald-700 border border-emerald-200">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              Session Protected
-            </span>
-          </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">

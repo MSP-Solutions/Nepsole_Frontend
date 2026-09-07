@@ -70,26 +70,6 @@ const navigation: NavItem[] = [
     icon: Languages,
   },
   {
-    title: "E-Books",
-    url: "/admin/eBooks",
-    icon: Book,
-  },
-  {
-    title: "Books",
-    url: "/admin/books",
-    icon: BookOpen,
-  },
-  {
-    title: "Reviews",
-    url: "/admin/reviews",
-    icon: StarsIcon,
-  },
-  {
-    title: "Orders",
-    url: "/admin/orders",
-    icon: ShoppingBag,
-  },
-  {
     title: "Authors",
     url: "/admin/authors",
     icon: Feather,
@@ -100,9 +80,29 @@ const navigation: NavItem[] = [
     icon: Building2,
   },
   {
-    title: "Users",
-    url: "/admin/users",
-    icon: Users,
+    title: "Books",
+    url: "/admin/books",
+    icon: BookOpen,
+  },
+  {
+    title: "E-Books",
+    url: "/admin/eBooks",
+    icon: Book,
+  },
+  {
+    title: "Reviews",
+    url: "/admin/reviews",
+    icon: StarsIcon,
+  },
+  {
+    title: "Testimonials",
+    url: "/admin/testimonial",
+    icon: Quote,
+  },
+  {
+    title: "Orders",
+    url: "/admin/orders",
+    icon: ShoppingBag,
   },
   {
     title: "Delivery Options",
@@ -110,15 +110,16 @@ const navigation: NavItem[] = [
     icon: Truck,
   },
   {
+    title: "Users",
+    url: "/admin/users",
+    icon: Users,
+  },
+  {
     title: "Contacts",
     url: "/admin/contact",
     icon: Users,
   },
-  {
-    title: "Testimonials",
-    url: "/admin/testimonial",
-    icon: Quote,
-  },
+
   {
     title: "Settings",
     url: "/admin/settings",
