@@ -90,7 +90,9 @@ export function BooksFilterSidebar({
           ) : (
             genres.map((gen) => {
               const genName = gen.name || gen.englishName || "";
-              const isSelected = selectedGenre === genName;
+              const isSelected =
+                selectedGenre.toLowerCase() === genName.toLowerCase() ||
+                (gen.id && String(gen.id) === selectedGenre);
               return (
                 <button
                   key={gen.id || genName}
@@ -229,7 +231,9 @@ export function BooksMobileFilterDrawer({
               </button>
               {genres.map((gen) => {
                 const genName = gen.name || gen.englishName || "";
-                const isSelected = selectedGenre === genName;
+                const isSelected =
+                  selectedGenre.toLowerCase() === genName.toLowerCase() ||
+                  (gen.id && String(gen.id) === selectedGenre);
                 return (
                   <button
                     key={gen.id || genName}

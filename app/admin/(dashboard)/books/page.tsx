@@ -333,7 +333,7 @@ export default function BooksPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2.5">
             <BookOpen className="w-6 h-6 text-indigo-600" />
-            Books Catalog
+            Books
           </h1>
           <p className="text-xs text-gray-500 font-medium mt-0.5">
             {effectiveTotal > 0
@@ -655,10 +655,10 @@ export default function BooksPage() {
                   onChange={(e) => handlePageSizeChange(Number(e.target.value))}
                   className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 outline-none focus:border-indigo-500 font-medium cursor-pointer shadow-xs"
                 >
+                  <option value={5}>5</option>
                   <option value={10}>10</option>
+                  <option value={15}>15</option>
                   <option value={20}>20</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
                 </select>
               </div>
             </div>

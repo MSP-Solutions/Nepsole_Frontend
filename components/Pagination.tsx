@@ -3,38 +3,41 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import React from "react";
 
-interface EBookPaginationProps {
+export interface PaginationProps {
   currentPage: number;
   pageSize: number;
-  effectiveTotal: number;
-  effectiveTotalPages: number;
-  isLoading: boolean;
+  totalItems: number;
+  totalPages: number;
+  itemLabel?: string;
+  isLoading?: boolean;
   onPageChange: (page: number) => void;
+  activeColorClass?: string;
 }
 
-export default function EBookPagination({
+export default function Pagination({
   currentPage,
   pageSize,
-  effectiveTotal,
-  effectiveTotalPages,
-  isLoading,
+  totalItems,
+  totalPages,
+  itemLabel = "items",
+  isLoading = false,
   onPageChange,
-}: EBookPaginationProps) {
-  if (isLoading || (effectiveTotalPages <= 1 && effectiveTotal <= pageSize)) {
+  activeColorClass = "bg-amber-500 text-white shadow-2xs font-bold",
+}: PaginationProps) {
+  if (totalPages <= 1 && totalItems <= pageSize) {
     return null;
   }
 
-  const startItem = effectiveTotal === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const endItem = Math.min(currentPage * pageSize, effectiveTotal);
+  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(currentPage * pageSize, totalItems);
 
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 mt-6 border-t border-slate-200">
       <div className="text-xs text-slate-500">
-        Showing{" "}
-        <span className="font-semibold text-slate-800">{startItem}</span> to{" "}
-        <span className="font-semibold text-slate-800">{endItem}</span> of{" "}
-        <span className="font-semibold text-slate-800">{effectiveTotal}</span>{" "}
-        e-books
+        Showing <span className="font-semibold text-slate-800">{startItem}</span>{" "}
+        to <span className="font-semibold text-slate-800">{endItem}</span> of{" "}
+        <span className="font-semibold text-slate-800">{totalItems}</span>{" "}
+        {itemLabel}
       </div>
 
       <div className="flex items-center gap-1.5 flex-wrap">
@@ -49,12 +52,12 @@ export default function EBookPagination({
           <span>Previous</span>
         </button>
 
-        {/* Page Numbers with Ellipsis */}
+        {/* Page Numbers */}
         <div className="flex items-center gap-1">
-          {Array.from({ length: effectiveTotalPages }, (_, i) => i + 1)
+          {Array.from({ length: totalPages }, (_, i) => i + 1)
             .filter((p) => {
-              if (effectiveTotalPages <= 7) return true;
-              if (p === 1 || p === effectiveTotalPages) return true;
+              if (totalPages <= 7) return true;
+              if (p === 1 || p === totalPages) return true;
               if (Math.abs(p - currentPage) <= 1) return true;
               return false;
             })
@@ -75,7 +78,7 @@ export default function EBookPagination({
                     disabled={isLoading}
                     className={`min-w-[32px] h-8 text-xs font-semibold rounded-lg transition cursor-pointer flex items-center justify-center ${
                       currentPage === p
-                        ? "bg-amber-500 text-white shadow-2xs font-bold"
+                        ? activeColorClass
                         : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
                     }`}
                   >
@@ -90,7 +93,7 @@ export default function EBookPagination({
         <button
           type="button"
           onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage >= effectiveTotalPages || isLoading}
+          disabled={currentPage >= totalPages || isLoading}
           className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer shadow-2xs"
         >
           <span>Next</span>
@@ -100,4 +103,3 @@ export default function EBookPagination({
     </div>
   );
 }
-

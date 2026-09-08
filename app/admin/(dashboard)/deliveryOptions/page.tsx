@@ -150,7 +150,7 @@ export default function DeliveryOptionsPage() {
               setOptionToEdit(null);
               setIsAddEditDialogOpen(true);
             }}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 sm:w-auto cursor-pointer shadow-xs"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 sm:w-auto cursor-pointer shadow-xs"
           >
             <Plus className="h-4 w-4" />
             <span>Add Delivery Option</span>

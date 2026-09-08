@@ -9,7 +9,11 @@ import Header from "@/components/header";
 import TopHeader from "@/components/topHeader";
 import { BookItem, PaginationMeta } from "@/types";
 import { axiosAuthInstance, axiosInstance } from "@/utils/axiosInstances";
-import { CART_CHANGE_EVENT, getUserCookie, WISHLIST_CHANGE_EVENT } from "@/utils/cookies";
+import {
+  CART_CHANGE_EVENT,
+  getUserCookie,
+  WISHLIST_CHANGE_EVENT,
+} from "@/utils/cookies";
 import {
   ArrowUpDown,
   BookOpen,
@@ -25,7 +29,8 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 
 export interface OptionItem {
@@ -36,7 +41,12 @@ export interface OptionItem {
   [key: string]: any;
 }
 
-export default function BooksPage() {
+function BooksPageContent() {
+  const searchParams = useSearchParams();
+  const genreParam = searchParams.get("genre") || searchParams.get("genreId") || "";
+  const publisherParam = searchParams.get("publisher") || searchParams.get("publisherId") || "";
+  const queryParam = searchParams.get("search") || searchParams.get("q") || "";
+
   const [books, setBooks] = useState<BookItem[]>([]);
   const [genres, setGenres] = useState<OptionItem[]>([]);
   const [publishers, setPublishers] = useState<OptionItem[]>([]);
@@ -45,9 +55,9 @@ export default function BooksPage() {
   const [isLoadingFilters, setIsLoadingFilters] = useState<boolean>(true);
 
   // Filter & Search States
-  const [selectedGenre, setSelectedGenre] = useState<string>("all");
-  const [selectedPublisher, setSelectedPublisher] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [selectedGenre, setSelectedGenre] = useState<string>(genreParam || "all");
+  const [selectedPublisher, setSelectedPublisher] = useState<string>(publisherParam || "all");
+  const [searchQuery, setSearchQuery] = useState<string>(queryParam || "");
   const [sortBy, setSortBy] = useState<string>("featured");
   const [showMobileFilter, setShowMobileFilter] = useState<boolean>(false);
   const [wishlistedBookIds, setWishlistedBookIds] = useState<
@@ -66,6 +76,44 @@ export default function BooksPage() {
     limit: 10,
     totalPages: 1,
   });
+
+  // Sync selectedGenre and other filters if URL query params change
+  useEffect(() => {
+    if (genreParam) {
+      const matched = genres.find(
+        (g) =>
+          String(g.id) === genreParam ||
+          (g.name && g.name.toLowerCase() === genreParam.toLowerCase()) ||
+          (g.englishName && g.englishName.toLowerCase() === genreParam.toLowerCase())
+      );
+      if (matched) {
+        setSelectedGenre(matched.name || matched.englishName || genreParam);
+      } else {
+        setSelectedGenre(genreParam);
+      }
+    }
+  }, [genreParam, genres]);
+
+  useEffect(() => {
+    if (publisherParam) {
+      const matched = publishers.find(
+        (p) =>
+          String(p.id) === publisherParam ||
+          (p.name && p.name.toLowerCase() === publisherParam.toLowerCase())
+      );
+      if (matched) {
+        setSelectedPublisher(matched.name || publisherParam);
+      } else {
+        setSelectedPublisher(publisherParam);
+      }
+    }
+  }, [publisherParam, publishers]);
+
+  useEffect(() => {
+    if (queryParam) {
+      setSearchQuery(queryParam);
+    }
+  }, [queryParam]);
 
   // Fetch Filters (Genres & Publishers)
   useEffect(() => {
@@ -448,6 +496,7 @@ export default function BooksPage() {
           const normSelectedGenre = selectedGenre.toLowerCase().trim();
           const hasGenre = (book.genres || book.genreBooks || []).some(
             (g: any) => {
+              const gId = String(g.id || g.genreId || g.genre?.id || "").toLowerCase().trim();
               const gName = (
                 g.name ||
                 g.englishName ||
@@ -457,7 +506,10 @@ export default function BooksPage() {
               )
                 .toLowerCase()
                 .trim();
-              return gName === normSelectedGenre;
+              return (
+                gName === normSelectedGenre ||
+                (gId && gId === normSelectedGenre)
+              );
             },
           );
           if (!hasGenre) return false;
@@ -721,7 +773,7 @@ export default function BooksPage() {
 
               <div className="flex items-center gap-1.5">
                 <span className="text-slate-400 font-medium flex items-center gap-1 text-[11px]">
-                  <ArrowUpDown className="w-3 h-3" /> Sort:
+                  Sort:
                 </span>
                 <select
                   value={sortBy}
@@ -949,7 +1001,9 @@ export default function BooksPage() {
                             ) : (
                               <>
                                 <ShoppingCart size={12} />
-                                <span className="hidden sm:inline">Add to Cart</span>
+                                <span className="hidden sm:inline">
+                                  Add to Cart
+                                </span>
                                 <span className="sm:hidden">Cart</span>
                               </>
                             )}
@@ -1091,3 +1145,21 @@ export default function BooksPage() {
     </div>
   );
 }
+
+export default function BooksPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <div className="flex flex-col items-center gap-2">
+            <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+            <p className="text-xs text-slate-500 font-medium">Loading books...</p>
+          </div>
+        </div>
+      }
+    >
+      <BooksPageContent />
+    </Suspense>
+  );
+}
+

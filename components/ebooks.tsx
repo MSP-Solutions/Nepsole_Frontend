@@ -50,16 +50,7 @@ const Ebooks = () => {
     const fetchEBooks = async () => {
       setIsLoading(true);
       try {
-        let res;
-        try {
-          res = await axiosInstance.get("/v1/ebook?limit=12");
-        } catch (err: any) {
-          if (err?.response?.status === 404) {
-            res = await axiosInstance.get("/api/v1/ebook");
-          } else {
-            throw err;
-          }
-        }
+        const res = await axiosInstance.get("/v1/ebook?limit=20");
 
         const data = res.data?.data || res.data;
         const list: BookItem[] = Array.isArray(data)
@@ -347,7 +338,7 @@ const Ebooks = () => {
         {/* Header */}
         <div className="mb-5 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-            <span>Trending E-Books</span>
+            <span>E-Books</span>
           </h2>
 
           <div className="flex items-center gap-3">

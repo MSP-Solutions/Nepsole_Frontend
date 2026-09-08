@@ -59,7 +59,7 @@ const TrendingBooks = () => {
     const fetchTrendingBooks = async () => {
       setIsLoading(true);
       try {
-        const res = await axiosInstance.get("/v1/book/trending?limit=20");
+        const res = await axiosInstance.get("/v1/book?limit=20");
 
         const data = res.data?.data || res.data;
         const list: BookItem[] = Array.isArray(data)
@@ -436,7 +436,7 @@ const TrendingBooks = () => {
         {/* Header */}
         <div className="mb-5 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-            <span>Trending Books</span>
+            <span>Books</span>
           </h2>
 
           <div className="flex items-center gap-3">

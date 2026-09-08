@@ -70,7 +70,7 @@ const customerLinks: FooterItem[] = [
   { label: "My Account", href: "/user/profile" },
   { label: "Wishlist", href: "/user/wishlist" },
   { label: "Cart", href: "/cart" },
-  { label: "Terms & Conditions", href: "#" },
+  { label: "Terms & Conditions", href: "/termsandconditions" },
 ];
 
 const defaultPopularGenres: FooterItem[] = [
@@ -304,13 +304,19 @@ export default function Footer() {
           </p>
 
           <div className="flex items-center justify-center gap-4">
-            <Link href="#" className="transition-colors hover:text-slate-700">
+            <Link
+              href="/privacyPolicy"
+              className="transition-colors hover:text-slate-700"
+            >
               Privacy Policy
             </Link>
 
             <span className="h-3 w-px bg-slate-200" />
 
-            <Link href="#" className="transition-colors hover:text-slate-700">
+            <Link
+              href="/termsandconditions"
+              className="transition-colors hover:text-slate-700"
+            >
               Terms
             </Link>
           </div>

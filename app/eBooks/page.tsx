@@ -585,30 +585,10 @@ export default function EBooksPage() {
               </div>
 
               <div className="flex items-center gap-3">
-                {/* Limit selector */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-slate-400 font-medium text-[11px]">
-                    Per page:
-                  </span>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-800 text-xs font-medium focus:ring-2 focus:ring-indigo-500/20 focus:outline-none cursor-pointer"
-                  >
-                    <option value={10}>10</option>
-                    <option value={20}>20</option>
-                    <option value={30}>30</option>
-                    <option value={50}>50</option>
-                  </select>
-                </div>
-
                 {/* Sort selector */}
                 <div className="flex items-center gap-1.5">
                   <span className="text-slate-400 font-medium flex items-center gap-1 text-[11px]">
-                    <ArrowUpDown className="w-3 h-3" /> Sort:
+                    Sort:
                   </span>
                   <select
                     value={sortBy}

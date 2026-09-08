@@ -65,7 +65,7 @@ const Authors = () => {
   const fetchAuthors = async () => {
     setIsLoading(true);
     try {
-      const response = await axiosInstance.get("/v1/author");
+      const response = await axiosInstance.get("/v1/author?limit=4");
       const list =
         response.data?.data ||
         response.data?.authors ||
@@ -182,11 +182,7 @@ const Authors = () => {
               className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-indigo-600 hover:text-indigo-800 transition group"
             >
               <span>View All Authors</span>
-              {authors.length > 0 && (
-                <span className="rounded-full bg-indigo-100 text-indigo-700 px-2 py-0.5 text-[11px] font-bold">
-                  {authors.length}
-                </span>
-              )}
+
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
@@ -364,8 +360,7 @@ const Authors = () => {
                   Looking for more authors?
                 </h3>
                 <p className="text-xs text-slate-300 mt-0.5">
-                  Browse our complete directory of {authors.length} writers and
-                  storytellers.
+                  Browse our complete directory of writers and storytellers.
                 </p>
               </div>
             </div>
@@ -373,7 +368,7 @@ const Authors = () => {
               href="/authors"
               className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white text-slate-900 font-semibold text-xs sm:text-sm hover:bg-indigo-50 hover:shadow-md transition shrink-0 w-full sm:w-auto"
             >
-              <span>Explore All {authors.length} Authors</span>
+              <span>Explore All Authors</span>
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>

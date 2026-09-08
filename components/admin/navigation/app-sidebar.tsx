@@ -6,6 +6,7 @@ import {
   BookOpen,
   Building2,
   ChevronLeft,
+  Contact,
   Feather,
   ImageOffIcon,
   ImagesIcon,
@@ -13,9 +14,11 @@ import {
   LayoutGrid,
   Loader2,
   LogOut,
+  PenLineIcon,
   Quote,
   Settings,
   ShoppingBag,
+  StarIcon,
   StarsIcon,
   Truck,
   Users,
@@ -77,7 +80,7 @@ const navigation: NavItem[] = [
   {
     title: "Publishers",
     url: "/admin/publishers",
-    icon: Building2,
+    icon: PenLineIcon,
   },
   {
     title: "Books",
@@ -92,7 +95,7 @@ const navigation: NavItem[] = [
   {
     title: "Reviews",
     url: "/admin/reviews",
-    icon: StarsIcon,
+    icon: StarIcon,
   },
   {
     title: "Testimonials",
@@ -117,7 +120,7 @@ const navigation: NavItem[] = [
   {
     title: "Contacts",
     url: "/admin/contact",
-    icon: Users,
+    icon: Contact,
   },
 
   {
