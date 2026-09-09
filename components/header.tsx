@@ -1,10 +1,12 @@
 "use client";
 
 import {
+  AlertTriangle,
   ChevronDown,
   ChevronRight,
   Heart,
   LayoutDashboard,
+  Loader2,
   LogOut,
   Menu,
   ShoppingBag,
@@ -18,6 +20,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +50,7 @@ import {
 
 import HeaderCart from "@/components/HeaderCart";
 import HeaderSearch from "@/components/HeaderSearch";
+import AuthDialog from "@/components/auth/AuthDialog";
 
 const navLinks = [
   { name: "Home", href: "/" },
@@ -56,6 +67,12 @@ const Header = () => {
   const [user, setUser] = useState<UserCookie | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [wishlistCount, setWishlistCount] = useState(0);
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [authDialogMode, setAuthDialogMode] = useState<"login" | "signup">(
+    "login",
+  );
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const pathname = usePathname();
   const router = useRouter();
@@ -131,11 +148,13 @@ const Header = () => {
     setIsMobileMenuOpen(false);
   }, [pathname]);
 
-  const handleLogout = async () => {
+  const handleConfirmLogout = async () => {
     try {
+      setIsLoggingOut(true);
       await clearCookies();
 
       setUser(null);
+      setShowLogoutDialog(false);
       setIsMobileMenuOpen(false);
       toast.dismiss();
       toast.success("Logged out successfully");
@@ -144,6 +163,8 @@ const Header = () => {
       router.refresh();
     } catch (error) {
       console.error("Logout failed:", error);
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
@@ -161,9 +182,8 @@ const Header = () => {
   const handleWishlistClick = (e: React.MouseEvent) => {
     if (!user?.accessToken) {
       e.preventDefault();
-      toast.dismiss();
-      toast.error("Please log in to view your wishlist");
-      router.push("/login");
+      setAuthDialogMode("login");
+      setAuthDialogOpen(true);
     }
   };
 
@@ -196,30 +216,50 @@ const Header = () => {
         {/* Right: Actions (Wishlist, Cart, User Account, Mobile Toggle) */}
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 lg:gap-2.5">
           {/* Wishlist Button */}
-          <Link
-            href={user?.accessToken ? "/user/wishlist" : "/login"}
-            onClick={handleWishlistClick}
-            title="My Wishlist"
-            className="group relative flex h-10 items-center justify-center rounded-xl px-2.5 text-slate-700 transition-all duration-200 hover:bg-rose-50 hover:text-rose-600 sm:px-3 lg:gap-2"
-          >
-            <div className="relative flex items-center justify-center">
-              <Heart
-                size={20}
-                strokeWidth={1.8}
-                className="transition-transform duration-200 group-hover:scale-110"
-              />
+          {user?.accessToken ? (
+            <Link
+              href="/user/wishlist"
+              title="My Wishlist"
+              className="group relative flex h-10 items-center justify-center rounded-xl px-2.5 text-slate-700 transition-all duration-200 hover:bg-rose-50 hover:text-rose-600 sm:px-3 lg:gap-2"
+            >
+              <div className="relative flex items-center justify-center">
+                <Heart
+                  size={20}
+                  strokeWidth={1.8}
+                  className="transition-transform duration-200 group-hover:scale-110"
+                />
 
-              {wishlistCount > 0 && (
-                <span className="absolute -right-2.5 -top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white shadow-xs animate-in zoom-in-50 duration-150">
-                  {wishlistCount > 99 ? "99+" : wishlistCount}
-                </span>
-              )}
-            </div>
+                {wishlistCount > 0 && (
+                  <span className="absolute -right-2.5 -top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white shadow-xs animate-in zoom-in-50 duration-150">
+                    {wishlistCount > 99 ? "99+" : wishlistCount}
+                  </span>
+                )}
+              </div>
 
-            <span className="hidden text-xs font-semibold lg:block">
-              Wishlist
-            </span>
-          </Link>
+              <span className="hidden text-xs font-semibold lg:block">
+                Wishlist
+              </span>
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={handleWishlistClick}
+              title="My Wishlist"
+              className="group relative flex h-10 items-center justify-center rounded-xl px-2.5 text-slate-700 transition-all duration-200 hover:bg-rose-50 hover:text-rose-600 sm:px-3 lg:gap-2 cursor-pointer"
+            >
+              <div className="relative flex items-center justify-center">
+                <Heart
+                  size={20}
+                  strokeWidth={1.8}
+                  className="transition-transform duration-200 group-hover:scale-110"
+                />
+              </div>
+
+              <span className="hidden text-xs font-semibold lg:block">
+                Wishlist
+              </span>
+            </button>
+          )}
 
           {/* Cart Popover / Link */}
           <div className="flex items-center">
@@ -306,7 +346,7 @@ const Header = () => {
                 <DropdownMenuSeparator className="my-1 bg-slate-100" />
 
                 <DropdownMenuItem
-                  onClick={handleLogout}
+                  onClick={() => setShowLogoutDialog(true)}
                   className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50"
                 >
                   <LogOut className="h-4 w-4 text-rose-500" />
@@ -315,13 +355,17 @@ const Header = () => {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Link
-              href="/login"
-              className="flex h-9 sm:h-10 items-center gap-2 rounded-xl bg-[#0F2557] px-3.5 sm:px-4 text-xs font-semibold text-white transition-all duration-200 hover:bg-[#1749A0] shadow-xs active:scale-[0.98]"
+            <button
+              type="button"
+              onClick={() => {
+                setAuthDialogMode("login");
+                setAuthDialogOpen(true);
+              }}
+              className="flex h-9 sm:h-10 items-center gap-2 rounded-xl bg-[#0F2557] px-3.5 sm:px-4 text-xs font-semibold text-white transition-all duration-200 hover:bg-[#1749A0] shadow-xs active:scale-[0.98] cursor-pointer"
             >
               <UserRound size={15} />
               <span className="hidden sm:inline">Sign In</span>
-            </Link>
+            </button>
           )}
 
           {/* Mobile / Tablet Menu Toggle */}
@@ -433,7 +477,10 @@ const Header = () => {
 
               <button
                 type="button"
-                onClick={handleLogout}
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setShowLogoutDialog(true);
+                }}
                 className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
               >
                 <LogOut size={14} />
@@ -441,14 +488,18 @@ const Header = () => {
               </button>
             </div>
           ) : (
-            <Link
-              href="/login"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#0F2557] px-4 py-3 text-xs font-bold text-white shadow-xs transition-colors hover:bg-[#1749A0]"
+            <button
+              type="button"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                setAuthDialogMode("login");
+                setAuthDialogOpen(true);
+              }}
+              className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#0F2557] px-4 py-3 text-xs font-bold text-white shadow-xs transition-colors hover:bg-[#1749A0] cursor-pointer"
             >
               <UserRound size={16} />
               <span>Login / Register Account</span>
-            </Link>
+            </button>
           )}
 
           {/* Navigation Links */}
@@ -483,6 +534,61 @@ const Header = () => {
           </div>
         </div>
       )}
+
+      {/* Unified Auth Dialog Modal */}
+      <AuthDialog
+        open={authDialogOpen}
+        onOpenChange={setAuthDialogOpen}
+        defaultMode={authDialogMode}
+      />
+
+      {/* Logout Confirmation Dialog */}
+      <Dialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+        <DialogContent className="sm:max-w-md bg-[#0c193c] text-white border border-slate-800 rounded-2xl p-6 shadow-2xl">
+          <DialogHeader className="space-y-3">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/10 text-rose-500 border border-rose-500/20">
+              <AlertTriangle className="h-6 w-6 stroke-[2]" />
+            </div>
+            <DialogTitle className="text-center text-lg font-bold text-white">
+              Confirm Logout
+            </DialogTitle>
+            <DialogDescription className="text-center text-xs text-slate-400 leading-relaxed">
+              Are you sure you want to log out? Logging out will clear all
+              stored session cookies and redirect you to the login page.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-4 border-t border-slate-800/60 mt-4">
+            <button
+              type="button"
+              disabled={isLoggingOut}
+              onClick={() => setShowLogoutDialog(false)}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-700 text-xs font-semibold text-slate-300 hover:bg-white/5 transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              disabled={isLoggingOut}
+              onClick={handleConfirmLogout}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+            >
+              {isLoggingOut ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Logging out...</span>
+                </>
+              ) : (
+                <>
+                  <LogOut className="h-4 w-4" />
+                  <span>Yes, Log out</span>
+                </>
+              )}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 };

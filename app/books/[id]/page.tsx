@@ -3,8 +3,20 @@
 import Footer from "@/components/footer";
 import Header from "@/components/header";
 import TopHeader from "@/components/topHeader";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { axiosAuthInstance, axiosInstance } from "@/utils/axiosInstances";
-import { CART_CHANGE_EVENT, getUserCookie } from "@/utils/cookies";
+import {
+  CART_CHANGE_EVENT,
+  getUserCookie,
+  openAuthModal,
+  WISHLIST_CHANGE_EVENT,
+} from "@/utils/cookies";
 import { parseQuillContent } from "@/utils/quillDecoder";
 import {
   Award,
@@ -12,7 +24,9 @@ import {
   BookOpen,
   Building2,
   Calendar,
+  ChevronLeft,
   ChevronRight,
+  ExternalLink,
   Eye,
   Heart,
   Languages,
@@ -30,6 +44,7 @@ import {
   Star,
   Truck,
   User,
+  ZoomIn,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -134,6 +149,8 @@ export default function BookDetailPage({
   const [quantity, setQuantity] = useState<number>(1);
   const [activeTab, setActiveTab] = useState<string>("Description");
   const [isWishlisted, setIsWishlisted] = useState<boolean>(false);
+  const [isWishlistLoading, setIsWishlistLoading] = useState<boolean>(false);
+  const [isImageDialogOpen, setIsImageDialogOpen] = useState<boolean>(false);
   const [isAddingToCart, setIsAddingToCart] = useState<boolean>(false);
   const [reviewsCount, setReviewsCount] = useState<number>(0);
   const [avgRating, setAvgRating] = useState<number>(0);
@@ -160,6 +177,55 @@ export default function BookDetailPage({
     }
   }, [id]);
 
+  // Fetch Wishlist status for the current book
+  useEffect(() => {
+    const checkWishlistStatus = async () => {
+      try {
+        const user = await getUserCookie();
+        if (!user?.accessToken) {
+          setIsWishlisted(false);
+          return;
+        }
+
+        const res = await axiosAuthInstance.get("/v1/wishlist");
+        const data =
+          res?.data?.data ||
+          res?.data?.wishlist ||
+          res?.data?.items ||
+          res?.data ||
+          [];
+
+        if (Array.isArray(data)) {
+          const found = data.some((item: any) => {
+            const bId = item?.bookId || item?.book?.id;
+            const ebId = item?.ebookId || item?.eBookId || item?.ebook?.id;
+            return (
+              (bId && String(bId) === String(id)) ||
+              (ebId && String(ebId) === String(id)) ||
+              (!bId && !ebId && String(item?.id) === String(id))
+            );
+          });
+          setIsWishlisted(found);
+        }
+      } catch {
+        // Silently handle error if not logged in
+      }
+    };
+
+    if (id) {
+      checkWishlistStatus();
+    }
+
+    const handleWishlistEvent = () => {
+      checkWishlistStatus();
+    };
+
+    window.addEventListener(WISHLIST_CHANGE_EVENT, handleWishlistEvent);
+    return () => {
+      window.removeEventListener(WISHLIST_CHANGE_EVENT, handleWishlistEvent);
+    };
+  }, [id]);
+
   // Fetch Recommended / Related Books
   useEffect(() => {
     const fetchRecommended = async () => {
@@ -179,17 +245,7 @@ export default function BookDetailPage({
 
     const fetchReviewsSummary = async () => {
       try {
-        let res;
-        try {
-          res = await axiosInstance.get(`/v1/reviews/book/${id}`);
-        } catch (err: any) {
-          if (err?.response?.status === 404) {
-            res = await axiosInstance.get(`/api/v1/reviews/book/${id}`);
-          } else {
-            throw err;
-          }
-        }
-
+        const res = await axiosInstance.get(`/v1/reviews/book/${id}`);
         const data = res?.data?.data || res?.data?.reviews || res?.data || [];
         const list = Array.isArray(data) ? data : [];
         const total = list.length;
@@ -398,11 +454,13 @@ export default function BookDetailPage({
       }
 
       if (showToast) {
+        toast.dismiss();
         toast.success(`Added ${quantity} copy(ies) to cart!`);
       }
       return true;
     } catch (error: any) {
       console.error("Add to Cart Error:", error);
+      toast.dismiss();
       toast.error(
         error?.response?.data?.message || "Failed to add book to cart.",
       );
@@ -416,6 +474,114 @@ export default function BookDetailPage({
     const success = await handleAddToCart(false);
     if (success) {
       router.push("/cart");
+    }
+  };
+
+  // Wishlist toggle with login check
+  const handleToggleWishlist = async () => {
+    try {
+      const user = await getUserCookie();
+      toast.dismiss();
+      if (!user?.accessToken) {
+        toast.error("Please login first to manage your wishlist");
+        openAuthModal("login");
+        return;
+      }
+
+      setIsWishlistLoading(true);
+      const prevWishlisted = isWishlisted;
+      // Optimistic update
+      setIsWishlisted(!prevWishlisted);
+
+      const numId = Number(id);
+      const targetId = !isNaN(numId) ? numId : id;
+
+      let response;
+      try {
+        response = await axiosAuthInstance.post(
+          "/v1/wishlist/toggle?type=BOOK",
+          {
+            bookId: targetId,
+          },
+        );
+      } catch {
+        try {
+          response = await axiosAuthInstance.post("/v1/wishlist?type=BOOK", {
+            bookId: targetId,
+          });
+        } catch {
+          response = await axiosAuthInstance.post(
+            "/api/v1/wishlist/toggle?type=BOOK",
+            {
+              bookId: targetId,
+            },
+          );
+        }
+      }
+
+      const msg = response?.data?.message;
+      toast.dismiss();
+      if (msg && typeof msg === "string") {
+        toast.success(msg);
+      } else if (!prevWishlisted) {
+        toast.success("Added to your wishlist!");
+      } else {
+        toast.success("Removed from your wishlist");
+      }
+
+      window.dispatchEvent(new Event(WISHLIST_CHANGE_EVENT));
+    } catch (err: any) {
+      // Revert optimistic update
+      setIsWishlisted((prev) => !prev);
+      console.error("Wishlist toggle error:", err);
+      toast.dismiss();
+      toast.error(
+        err?.response?.data?.message ||
+          "Failed to update wishlist. Please try again.",
+      );
+    } finally {
+      setIsWishlistLoading(false);
+    }
+  };
+
+  // Share handler with Web Share API and Clipboard fallback
+  const handleShare = async () => {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    const title = book?.title || "Book on Nepsole";
+
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({
+          title: `${title} | Nepsole`,
+          text: `Check out "${title}" on Nepsole!`,
+          url,
+        });
+        return;
+      } catch (err: any) {
+        if (err?.name === "AbortError") return;
+      }
+    }
+
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success("Book link copied to clipboard!");
+        return;
+      } catch {}
+    }
+
+    try {
+      const input = document.createElement("input");
+      input.value = url;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      document.body.removeChild(input);
+      toast.dismiss();
+      toast.success("Book link copied to clipboard!");
+    } catch {
+      toast.dismiss();
+      toast.error("Failed to copy link");
     }
   };
 
@@ -528,13 +694,21 @@ export default function BookDetailPage({
 
             {/* Main Preview Container */}
             <div className="flex-1 order-1 sm:order-2 flex flex-col items-center">
-              <div className="relative w-full max-w-[340px] aspect-[3/4] rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-50 p-2 flex items-center justify-center">
+              <div
+                onClick={() => currentImageUrl && setIsImageDialogOpen(true)}
+                className={`relative w-full max-w-[340px] aspect-[3/4] rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-50 p-2 flex items-center justify-center group ${
+                  currentImageUrl
+                    ? "cursor-zoom-in hover:border-amber-400 hover:shadow-md transition-all"
+                    : ""
+                }`}
+                title={currentImageUrl ? "Click to view full image" : ""}
+              >
                 {currentImageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={currentImageUrl}
                     alt={book.title}
-                    className="w-full h-full object-contain rounded-lg"
+                    className="w-full h-full object-contain rounded-lg transition-transform duration-300 group-hover:scale-[1.02]"
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center text-slate-300">
@@ -554,26 +728,28 @@ export default function BookDetailPage({
                 <span className="absolute bottom-3 left-3 px-2 py-0.5 rounded bg-black/60 text-white text-[9px] font-bold uppercase tracking-wider backdrop-blur-xs">
                   {currentImageType}
                 </span>
+
+                {currentImageUrl && (
+                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <span className="bg-white/90 backdrop-blur-xs text-slate-900 text-xs font-semibold px-3 py-1.5 rounded-lg shadow flex items-center gap-1.5">
+                      <ZoomIn className="w-3.5 h-3.5 text-amber-600" />
+                      View Full Image
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-center gap-3 mt-4 w-full">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (currentImageUrl) window.open(currentImageUrl, "_blank");
-                  }}
+                  onClick={() => setIsImageDialogOpen(true)}
                   className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-medium text-slate-700 transition cursor-pointer"
                 >
                   <Eye className="w-3.5 h-3.5" /> Full Image
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (navigator.clipboard) {
-                      navigator.clipboard.writeText(window.location.href);
-                      toast.success("Link copied to clipboard!");
-                    }
-                  }}
+                  onClick={handleShare}
                   className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-medium text-slate-700 transition cursor-pointer"
                 >
                   <Share2 className="w-3.5 h-3.5" /> Share Book
@@ -737,19 +913,16 @@ export default function BookDetailPage({
             <div className="flex items-center gap-4 pt-3 text-xs text-slate-600 border-t border-slate-100">
               <button
                 type="button"
-                onClick={() => {
-                  setIsWishlisted(!isWishlisted);
-                  toast.success(
-                    isWishlisted
-                      ? "Removed from wishlist"
-                      : "Added to wishlist!",
-                  );
-                }}
-                className={`flex items-center gap-1.5 transition-colors cursor-pointer ${
+                disabled={isWishlistLoading}
+                onClick={handleToggleWishlist}
+                className={`flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 ${
                   isWishlisted
                     ? "text-rose-600 font-bold"
                     : "hover:text-rose-600"
                 }`}
+                title={
+                  isWishlisted ? "Remove from wishlist" : "Add to wishlist"
+                }
               >
                 <Heart
                   className={`w-3.5 h-3.5 ${
@@ -761,13 +934,9 @@ export default function BookDetailPage({
 
               <button
                 type="button"
-                onClick={() => {
-                  if (navigator.clipboard) {
-                    navigator.clipboard.writeText(window.location.href);
-                    toast.success("Link copied to clipboard!");
-                  }
-                }}
+                onClick={handleShare}
                 className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors cursor-pointer"
+                title="Share this book"
               >
                 <Share2 className="w-3.5 h-3.5" /> Share
               </button>
@@ -810,7 +979,6 @@ export default function BookDetailPage({
                     Out of Stock
                   </span>
                 )}
-                <span>• Nepal Delivery</span>
               </div>
 
               {/* Quantity Stepper */}
@@ -872,11 +1040,6 @@ export default function BookDetailPage({
                   Buy Now
                 </button>
               </div>
-
-              <p className="text-[11px] text-center text-slate-500 flex items-center justify-center gap-1 pt-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-                Verified Authentic | 7 Days Return
-              </p>
             </div>
           </div>
         </div>
@@ -1128,32 +1291,95 @@ export default function BookDetailPage({
           </section>
         )}
 
-        {/* Newsletter Subscription */}
-        <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-5 shadow-sm">
-          <div>
-            <h4 className="font-bold text-sm sm:text-base">
-              Stay Updated with New Books & Offers
-            </h4>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Subscribe to our newsletter and get updates on new arrivals and
-              discounts.
-            </p>
-          </div>
-          <div className="flex w-full md:w-auto">
-            <input
-              type="email"
-              placeholder="Enter your email address"
-              className="px-3.5 py-2.5 text-xs rounded-l-xl bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none w-full md:w-64"
-            />
-            <button
-              type="button"
-              onClick={() => toast.success("Subscribed successfully!")}
-              className="px-4 py-2.5 bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold text-xs rounded-r-xl transition-colors whitespace-nowrap cursor-pointer"
-            >
-              Subscribe
-            </button>
-          </div>
-        </div>
+        {/* Full Image / Page Preview Dialog */}
+        <Dialog open={isImageDialogOpen} onOpenChange={setIsImageDialogOpen}>
+          <DialogContent className="sm:max-w-4xl max-w-[95vw] p-4 sm:p-6 bg-white rounded-2xl border border-slate-200 shadow-2xl flex flex-col gap-4 overflow-hidden max-h-[92vh]">
+            <DialogHeader className="flex flex-col gap-1 border-b border-slate-100 pb-3 pr-8 text-left">
+              <DialogTitle className="text-base sm:text-lg font-bold text-slate-900 line-clamp-1">
+                {book.title}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500">
+                {allImages.length > 0
+                  ? `Image ${selectedImageIndex + 1} of ${allImages.length} • ${currentImageType}`
+                  : "Book Preview"}
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Main Preview */}
+            <div className="relative flex-1 min-h-[280px] max-h-[58vh] flex items-center justify-center bg-slate-950/5 rounded-xl border border-slate-100 overflow-hidden p-4">
+              {currentImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={currentImageUrl}
+                  alt={book.title}
+                  className="max-h-[52vh] w-auto max-w-full object-contain rounded-lg shadow-sm transition-all duration-200 select-none"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center text-slate-400 py-12">
+                  <BookOpen className="w-16 h-16 mb-2" />
+                  <p className="text-xs font-semibold">No Image Available</p>
+                </div>
+              )}
+
+              {allImages.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedImageIndex(
+                        (prev) =>
+                          (prev - 1 + allImages.length) % allImages.length,
+                      );
+                    }}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-md flex items-center justify-center border border-slate-200 transition cursor-pointer"
+                    title="Previous image"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedImageIndex(
+                        (prev) => (prev + 1) % allImages.length,
+                      );
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-md flex items-center justify-center border border-slate-200 transition cursor-pointer"
+                    title="Next image"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Thumbnails row if multiple images */}
+            {allImages.length > 1 && (
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full justify-center">
+                {allImages.map((img, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setSelectedImageIndex(idx)}
+                    className={`w-12 h-16 rounded-md overflow-hidden border-2 transition-all shrink-0 cursor-pointer ${
+                      selectedImageIndex === idx
+                        ? "border-amber-500 ring-2 ring-amber-500/20"
+                        : "border-slate-200 opacity-60 hover:opacity-100"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={img.url}
+                      alt={`Thumb ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </main>
 
       <Footer />

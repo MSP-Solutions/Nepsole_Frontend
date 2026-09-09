@@ -11,6 +11,7 @@ import {
   AUTH_CHANGE_EVENT,
   CART_CHANGE_EVENT,
   getUserCookie,
+  openAuthModal,
   UserCookie,
 } from "@/utils/cookies";
 
@@ -80,15 +81,13 @@ const HeaderCart = ({
     const cookieUser = user || (await getUserCookie());
     if (!cookieUser?.accessToken) {
       e.preventDefault();
-      toast.dismiss();
-      toast.error("Please log in to view your cart");
-      router.push("/login");
+      openAuthModal("login");
     }
   };
 
   return (
     <Link
-      href={user ? "/cart" : "/login"}
+      href={user ? "/cart" : "#"}
       onClick={handleCartClick}
       className={`relative flex items-center gap-1.5 rounded-xl p-2 sm:px-2.5 sm:py-2 text-gray-700 transition-colors hover:bg-indigo-50/80 hover:text-[#1749A0] ${className}`}
       title="Shopping Cart"

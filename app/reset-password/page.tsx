@@ -57,7 +57,9 @@ function ResetPasswordForm() {
     const cleanToken = token.trim();
 
     if (!cleanToken) {
-      toast.error("Reset token is missing or invalid. Redirecting to forgot password...");
+      toast.error(
+        "Reset token is missing or invalid. Redirecting to forgot password...",
+      );
       router.replace("/login?forgot=true");
       return;
     }

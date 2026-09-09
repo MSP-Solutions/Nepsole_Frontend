@@ -104,6 +104,15 @@ export default function AdminOrdersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatusFilter, setSelectedStatusFilter] =
     useState<string>("All");
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({
+    ALL: 0,
+    PENDING: 0,
+    CONFIRMED: 0,
+    PROCESSING: 0,
+    SHIPPED: 0,
+    DELIVERED: 0,
+    CANCELLED: 0,
+  });
 
   // Fetch Orders from API
   const fetchOrders = useCallback(async () => {
@@ -143,9 +152,112 @@ export default function AdminOrdersPage() {
     }
   }, []);
 
+  // Fetch Admin Order Status Counts from /v1/orders/admin/status-counts
+  const fetchStatusCounts = useCallback(async () => {
+    try {
+      let res;
+      try {
+        res = await axiosAuthInstance.get("/v1/orders/admin/status-counts");
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          res = await axiosAuthInstance.get("/v1/orders/status-counts");
+        } else {
+          throw err;
+        }
+      }
+
+      const resData = res?.data?.data || res?.data || {};
+      const counts: Record<string, number> = {
+        ALL: 0,
+        PENDING: 0,
+        CONFIRMED: 0,
+        PROCESSING: 0,
+        SHIPPED: 0,
+        DELIVERED: 0,
+        CANCELLED: 0,
+      };
+
+      if (Array.isArray(resData)) {
+        let total = 0;
+        resData.forEach((item: any) => {
+          const status = (
+            item?.status ||
+            item?.name ||
+            item?.key ||
+            ""
+          ).toUpperCase();
+          const count =
+            Number(
+              item?.orderCount ??
+                item?.count ??
+                item?.total ??
+                item?.value ??
+                0,
+            ) || 0;
+
+          if (status in counts) {
+            counts[status] = count;
+          } else if (status === "IN_TRANSIT") {
+            counts.SHIPPED = (counts.SHIPPED || 0) + count;
+          } else if (status === "COMPLETED") {
+            counts.DELIVERED = (counts.DELIVERED || 0) + count;
+          } else if (status === "FAILED") {
+            counts.CANCELLED = (counts.CANCELLED || 0) + count;
+          }
+          total += count;
+        });
+
+        const allItem = resData.find(
+          (item: any) =>
+            (item?.status || item?.name || "").toUpperCase() === "ALL",
+        );
+        counts.ALL = allItem
+          ? Number(allItem.orderCount ?? allItem.count ?? allItem.total ?? 0)
+          : total;
+      } else if (typeof resData === "object" && resData !== null) {
+        let calculatedTotal = 0;
+        Object.entries(resData).forEach(([key, val]) => {
+          const upperKey = key.toUpperCase();
+          const countNum =
+            typeof val === "object" && val !== null
+              ? Number((val as any)?.orderCount ?? (val as any)?.count ?? 0) || 0
+              : Number(val) || 0;
+
+          if (upperKey === "ALL" || upperKey === "TOTAL") {
+            counts.ALL = countNum;
+          } else if (upperKey in counts) {
+            counts[upperKey] = countNum;
+            calculatedTotal += countNum;
+          } else if (upperKey === "IN_TRANSIT") {
+            counts.SHIPPED = (counts.SHIPPED || 0) + countNum;
+            calculatedTotal += countNum;
+          } else if (upperKey === "COMPLETED") {
+            counts.DELIVERED = (counts.DELIVERED || 0) + countNum;
+            calculatedTotal += countNum;
+          } else if (upperKey === "FAILED") {
+            counts.CANCELLED = (counts.CANCELLED || 0) + countNum;
+            calculatedTotal += countNum;
+          }
+        });
+
+        if (!counts.ALL) {
+          counts.ALL = calculatedTotal;
+        }
+      }
+
+      setStatusCounts(counts);
+    } catch (error) {
+      console.error("Failed to load admin order status counts:", error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  useEffect(() => {
+    fetchStatusCounts();
+  }, [fetchStatusCounts]);
 
   // Filter orders by search & status
   const filteredOrders = useMemo(() => {
@@ -241,7 +353,7 @@ export default function AdminOrdersPage() {
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-600 shadow-2xs">
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              <span>{totalOrdersCount} Total Orders</span>
+              <span>{statusCounts.ALL || totalOrdersCount} Total Orders</span>
             </div>
           </div>
         </div>
@@ -279,20 +391,34 @@ export default function AdminOrdersPage() {
               { id: "Shipped", label: "Shipped" },
               { id: "Delivered", label: "Delivered" },
               { id: "Cancelled", label: "Cancelled" },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setSelectedStatusFilter(tab.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
-                  selectedStatusFilter === tab.id
-                    ? "bg-[#1749A0] text-white shadow-xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200/70"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+            ].map((tab) => {
+              const count = statusCounts[tab.id.toUpperCase()] ?? 0;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setSelectedStatusFilter(tab.id)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
+                    selectedStatusFilter === tab.id
+                      ? "bg-[#1749A0] text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200/70"
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
+                      selectedStatusFilter === tab.id
+                        ? "bg-white/20 text-white"
+                        : count > 0
+                          ? "bg-blue-50 text-[#1749A0]"
+                          : "bg-slate-200/80 text-slate-500"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 

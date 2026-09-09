@@ -12,7 +12,11 @@ import Header from "@/components/header";
 import TopHeader from "@/components/topHeader";
 import { PaginationMeta } from "@/types/book";
 import { axiosAuthInstance, axiosInstance } from "@/utils/axiosInstances";
-import { getUserCookie, WISHLIST_CHANGE_EVENT } from "@/utils/cookies";
+import {
+  getUserCookie,
+  openAuthModal,
+  WISHLIST_CHANGE_EVENT,
+} from "@/utils/cookies";
 import {
   ArrowUpDown,
   ChevronRight,
@@ -214,6 +218,18 @@ export default function EBooksPage() {
     sortBy,
   ]);
 
+  // Reset price & discount sorting when switching to FREE plan
+  useEffect(() => {
+    if (
+      selectedPlan === "FREE" &&
+      (sortBy === "price_asc" ||
+        sortBy === "price_desc" ||
+        sortBy === "discount")
+    ) {
+      setSortBy("featured");
+    }
+  }, [selectedPlan, sortBy]);
+
   // Handle Page Navigation
   const handlePageChange = (newPage: number) => {
     if (
@@ -278,6 +294,7 @@ export default function EBooksPage() {
       const user = await getUserCookie();
       if (!user?.accessToken) {
         toast.error("Please login to save e-books to your wishlist");
+        openAuthModal("login");
         return;
       }
 
@@ -597,9 +614,13 @@ export default function EBooksPage() {
                   >
                     <option value="featured">Featured</option>
                     <option value="newest">Newest Releases</option>
-                    <option value="price_asc">Price: Low to High</option>
-                    <option value="price_desc">Price: High to Low</option>
-                    <option value="discount">Biggest Discount</option>
+                    {selectedPlan !== "FREE" && (
+                      <>
+                        <option value="price_asc">Price: Low to High</option>
+                        <option value="price_desc">Price: High to Low</option>
+                        <option value="discount">Biggest Discount</option>
+                      </>
+                    )}
                     <option value="rating">Top Rated</option>
                     <option value="title">Title (A to Z)</option>
                   </select>

@@ -30,7 +30,7 @@ export default function TopSellingBooks() {
       setLoading(true);
       try {
         const res = await axiosAuthInstance.get(
-          "/v1/dashboard/admin/top-selling-books"
+          "/v1/dashboard/admin/top-selling-books",
         );
         const data = res.data?.data || res.data || [];
         const list = Array.isArray(data)
@@ -53,9 +53,10 @@ export default function TopSellingBooks() {
     const cover = imgs.find((img: any) =>
       typeof img === "object"
         ? img.imageType === "COVER" || img.type === "COVER"
-        : false
+        : false,
     );
-    if (cover && typeof cover === "object") return cover.url || cover.imageUrl || null;
+    if (cover && typeof cover === "object")
+      return cover.url || cover.imageUrl || null;
     const first = imgs[0];
     if (typeof first === "string") return first;
     if (typeof first === "object") return first.url || first.imageUrl || null;
@@ -66,7 +67,13 @@ export default function TopSellingBooks() {
     const authors = book.authors || book.authorBooks || [];
     if (authors.length === 0) return "Unknown Author";
     const a = authors[0];
-    return a?.name || a?.englishName || a?.author?.name || a?.author?.englishName || "Author";
+    return (
+      a?.name ||
+      a?.englishName ||
+      a?.author?.name ||
+      a?.author?.englishName ||
+      "Author"
+    );
   };
 
   const rankBadges = [
@@ -86,7 +93,7 @@ export default function TopSellingBooks() {
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-bold text-slate-900">
-                Top Selling Titles
+                Top Selling Books
               </h2>
               <p className="text-xs text-slate-400">
                 Highest volume books in store
@@ -107,7 +114,10 @@ export default function TopSellingBooks() {
         <div className="mt-4 divide-y divide-slate-100">
           {loading ? (
             Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="py-3 flex items-center gap-3 animate-pulse">
+              <div
+                key={i}
+                className="py-3 flex items-center gap-3 animate-pulse"
+              >
                 <div className="w-10 h-14 bg-slate-100 rounded-lg shrink-0" />
                 <div className="flex-1 space-y-1.5">
                   <div className="w-3/4 h-3.5 bg-slate-100 rounded" />
@@ -133,7 +143,9 @@ export default function TopSellingBooks() {
                     {/* Rank Badge */}
                     <div
                       className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${
-                        idx < 3 ? rankBadges[idx] : "bg-slate-100 text-slate-500"
+                        idx < 3
+                          ? rankBadges[idx]
+                          : "bg-slate-100 text-slate-500"
                       }`}
                     >
                       {idx === 0 ? <Crown className="w-3 h-3" /> : idx + 1}

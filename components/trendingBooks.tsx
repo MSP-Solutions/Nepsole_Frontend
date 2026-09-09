@@ -4,6 +4,7 @@ import { axiosAuthInstance, axiosInstance } from "@/utils/axiosInstances";
 import {
   CART_CHANGE_EVENT,
   getUserCookie,
+  openAuthModal,
   WISHLIST_CHANGE_EVENT,
 } from "@/utils/cookies";
 import {
@@ -161,6 +162,7 @@ const TrendingBooks = () => {
       toast.dismiss();
       if (!user?.accessToken) {
         toast.error("Please login first to manage your wishlist");
+        openAuthModal("login");
         return;
       }
 
@@ -227,7 +229,9 @@ const TrendingBooks = () => {
     try {
       const user = await getUserCookie();
       if (!user?.accessToken) {
+        toast.dismiss();
         toast.error("Please login first to add books to your cart");
+        openAuthModal("login");
         return;
       }
 

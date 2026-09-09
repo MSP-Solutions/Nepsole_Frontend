@@ -171,11 +171,10 @@ export default function ChangePasswordDialog({
 
       const res = await axiosAuthInstance.post(
         "/v1/auth/change-password",
-        payload
+        payload,
       );
 
-      const successMsg =
-        res?.data?.message || "Password updated successfully!";
+      const successMsg = res?.data?.message || "Password updated successfully!";
       toast.success(`${successMsg} Logging out...`);
       handleReset();
       onOpenChange(false);
@@ -225,7 +224,8 @@ export default function ChangePasswordDialog({
                 Change Password
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500 mt-0.5">
-                Update your account password. You will need to log in again with your new password.
+                Update your account password. You will need to log in again with
+                your new password.
               </DialogDescription>
             </div>
           </div>
@@ -261,7 +261,9 @@ export default function ChangePasswordDialog({
                 onClick={() => setShowCurrent(!showCurrent)}
                 disabled={isSubmitting}
                 aria-label={
-                  showCurrent ? "Hide current password" : "Show current password"
+                  showCurrent
+                    ? "Hide current password"
+                    : "Show current password"
                 }
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition cursor-pointer"
               >
@@ -285,9 +287,7 @@ export default function ChangePasswordDialog({
               </label>
 
               {strengthMeta.label && (
-                <span
-                  className={`text-xs font-semibold ${strengthMeta.text}`}
-                >
+                <span className={`text-xs font-semibold ${strengthMeta.text}`}>
                   {strengthMeta.label}
                 </span>
               )}
@@ -312,9 +312,7 @@ export default function ChangePasswordDialog({
                 type="button"
                 onClick={() => setShowNew(!showNew)}
                 disabled={isSubmitting}
-                aria-label={
-                  showNew ? "Hide new password" : "Show new password"
-                }
+                aria-label={showNew ? "Hide new password" : "Show new password"}
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition cursor-pointer"
               >
                 {showNew ? (
@@ -407,7 +405,8 @@ export default function ChangePasswordDialog({
                 Password Requirements
               </span>
               <span className="text-[11px] text-slate-500">
-                {requirements.filter((r) => r.met).length} of {requirements.length} met
+                {requirements.filter((r) => r.met).length} of{" "}
+                {requirements.length} met
               </span>
             </div>
 

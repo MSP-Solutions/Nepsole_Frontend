@@ -4,6 +4,15 @@ const USER_COOKIE = "nepsole";
 export const AUTH_CHANGE_EVENT = "nepsole-auth-change";
 export const CART_CHANGE_EVENT = "nepsole-cart-change";
 export const WISHLIST_CHANGE_EVENT = "nepsole-wishlist-change";
+export const OPEN_AUTH_MODAL_EVENT = "nepsole-open-auth";
+
+export const openAuthModal = (mode: "login" | "signup" = "login") => {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent(OPEN_AUTH_MODAL_EVENT, { detail: { mode } }),
+    );
+  }
+};
 
 export interface UserCookie {
   accessToken: string;

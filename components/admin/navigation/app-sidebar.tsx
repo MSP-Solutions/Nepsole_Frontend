@@ -45,6 +45,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { clearCookies } from "@/utils/cookies";
+import toast from "react-hot-toast";
 
 const navigation: NavItem[] = [
   {
@@ -158,9 +159,14 @@ export default function AppSidebar() {
       setIsLoggingOut(true);
       await clearCookies();
       setShowLogoutDialog(false);
-      router.push("/login");
+      toast.dismiss();
+      toast.success("Logged out successfully");
+      router.push("/");
+      router.refresh();
     } catch (error) {
       console.error("Failed to log out:", error);
+      toast.dismiss();
+      toast.error("Failed to log out");
     } finally {
       setIsLoggingOut(false);
     }

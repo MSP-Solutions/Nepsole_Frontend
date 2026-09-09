@@ -1,9 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { BookOpen, Heart, LogOut, Settings, User } from "lucide-react";
 import {
   clearCookies,
   getUserCookie,
@@ -11,12 +7,11 @@ import {
   getUserInitials,
   UserCookie,
 } from "@/utils/cookies";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import {
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 

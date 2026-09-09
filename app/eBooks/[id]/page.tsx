@@ -10,7 +10,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { axiosAuthInstance, axiosInstance } from "@/utils/axiosInstances";
-import { getUserCookie, WISHLIST_CHANGE_EVENT } from "@/utils/cookies";
+import {
+  getUserCookie,
+  openAuthModal,
+  WISHLIST_CHANGE_EVENT,
+} from "@/utils/cookies";
 import { parseQuillContent } from "@/utils/quillDecoder";
 import {
   BookOpen,
@@ -307,6 +311,7 @@ export default function EBookDetailPage({
       const user = await getUserCookie();
       if (!user?.accessToken) {
         toast.error("Please login to save e-books to your wishlist");
+        openAuthModal("login");
         return;
       }
 

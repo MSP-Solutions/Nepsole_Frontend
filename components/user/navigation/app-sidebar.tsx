@@ -98,7 +98,7 @@ export default function AppSidebar() {
       setIsLoggingOut(true);
       await clearCookies();
       setShowLogoutDialog(false);
-      router.push("/login");
+      router.push("/");
     } catch (error) {
       console.error("Failed to log out:", error);
     } finally {

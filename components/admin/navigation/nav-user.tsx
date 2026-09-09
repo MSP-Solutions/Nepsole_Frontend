@@ -1,17 +1,9 @@
 "use client";
 
-import {
-  User,
-  ChevronsUpDown,
-  LogOut,
-  Settings,
-} from "lucide-react";
+import { User, ChevronsUpDown, LogOut, Settings } from "lucide-react";
 import Link from "next/link";
 
-import {
-  Avatar,
-  AvatarFallback,
-} from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 import {
   DropdownMenu,
@@ -39,15 +31,12 @@ interface NavUserProps {
   onLogout?: () => void;
 }
 
-export default function NavUser({
-  user,
-  company,
-  onLogout,
-}: NavUserProps) {
-  const profile = user || company || {
-    name: "Admin User",
-    role: "Super Admin",
-  };
+export default function NavUser({ user, company, onLogout }: NavUserProps) {
+  const profile = user ||
+    company || {
+      name: "Admin User",
+      role: "Super Admin",
+    };
 
   return (
     <SidebarMenu>
@@ -62,9 +51,7 @@ export default function NavUser({
               </Avatar>
 
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">
-                  {profile.name}
-                </span>
+                <span className="truncate font-medium">{profile.name}</span>
 
                 <span className="truncate text-xs text-muted-foreground">
                   {profile.role}
@@ -75,13 +62,12 @@ export default function NavUser({
             </SidebarMenuButton>
           </DropdownMenuTrigger>
 
-          <DropdownMenuContent
-            side="top"
-            align="start"
-            className="w-56"
-          >
+          <DropdownMenuContent side="top" align="start" className="w-56">
             <DropdownMenuItem asChild>
-              <Link href="/admin/profile" className="flex items-center gap-2 cursor-pointer">
+              <Link
+                href="/admin/profile"
+                className="flex items-center gap-2 cursor-pointer"
+              >
                 <Settings className="size-4 text-gray-500" />
                 <span>Account Settings</span>
               </Link>
