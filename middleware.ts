@@ -55,38 +55,35 @@ export function middleware(request: NextRequest) {
     rawRole === "ROLE_ADMIN" ||
     rawRole === "ADMINISTRATOR";
 
-  // 1. Admin route protection (e.g., /admin/dashboard)
+  // 1. If user is ADMIN, restrict access strictly to /admin routes
+  if (isAdmin) {
+    if (!pathname.startsWith("/admin")) {
+      return NextResponse.redirect(new URL("/admin/dashboard", request.url));
+    }
+    return NextResponse.next();
+  }
+
+  // 2. Admin route protection for non-admin users
   if (pathname.startsWith("/admin")) {
     if (!isAuthenticated) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(loginUrl);
     }
-
-    if (!isAdmin) {
-      return NextResponse.redirect(new URL("/user/dashboard", request.url));
-    }
+    return NextResponse.redirect(new URL("/user/dashboard", request.url));
   }
 
-  // 2. User route protection (e.g., /user/dashboard, /user/orders, /user/settings)
+  // 3. User route protection (e.g., /user/dashboard, /user/orders, /user/settings)
   if (pathname.startsWith("/user")) {
     if (!isAuthenticated) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(loginUrl);
     }
-
-    // Redirect ADMIN users away from /user/dashboard to /admin/dashboard
-    if (isAdmin && pathname === "/user/dashboard") {
-      return NextResponse.redirect(new URL("/admin/dashboard", request.url));
-    }
   }
 
-  // 3. Redirect authenticated users away from public auth pages (/login, /signup)
+  // 4. Redirect authenticated users away from public auth pages (/login, /signup)
   if (isAuthenticated && (pathname === "/login" || pathname === "/signup")) {
-    if (isAdmin) {
-      return NextResponse.redirect(new URL("/admin/dashboard", request.url));
-    }
     return NextResponse.redirect(new URL("/user/dashboard", request.url));
   }
 
@@ -97,9 +94,14 @@ export default middleware;
 
 export const config = {
   matcher: [
-    "/admin/:path*",
-    "/user/:path*",
-    "/login",
-    "/signup",
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico, sitemap.xml, robots.txt (metadata files)
+     * - static files (.svg, .png, .jpg, .jpeg, .gif, .webp, .ico)
+     */
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };
