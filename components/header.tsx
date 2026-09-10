@@ -42,6 +42,7 @@ import {
   CART_CHANGE_EVENT,
   WISHLIST_CHANGE_EVENT,
   clearCookies,
+  getTokenFromCookies,
   getUserCookie,
   getUserDisplayName,
   getUserInitials,
@@ -151,6 +152,16 @@ const Header = () => {
   const handleConfirmLogout = async () => {
     try {
       setIsLoggingOut(true);
+      const tokens = await getTokenFromCookies();
+      if (tokens?.refreshToken) {
+        try {
+          await axiosAuthInstance.post("/v1/auth/logout", {
+            refreshToken: tokens.refreshToken,
+          });
+        } catch (err) {
+          console.error("API logout error:", err);
+        }
+      }
       await clearCookies();
 
       setUser(null);

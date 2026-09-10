@@ -44,7 +44,8 @@ import {
   SidebarHeader,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { clearCookies } from "@/utils/cookies";
+import { axiosAuthInstance } from "@/utils/axiosInstances";
+import { clearCookies, getTokenFromCookies } from "@/utils/cookies";
 import toast from "react-hot-toast";
 
 const navigation: NavItem[] = [
@@ -157,6 +158,16 @@ export default function AppSidebar() {
   const handleConfirmLogout = async () => {
     try {
       setIsLoggingOut(true);
+      const tokens = await getTokenFromCookies();
+      if (tokens?.refreshToken) {
+        try {
+          await axiosAuthInstance.post("/v1/auth/logout", {
+            refreshToken: tokens.refreshToken,
+          });
+        } catch (err) {
+          console.error("API logout error:", err);
+        }
+      }
       await clearCookies();
       setShowLogoutDialog(false);
       toast.dismiss();

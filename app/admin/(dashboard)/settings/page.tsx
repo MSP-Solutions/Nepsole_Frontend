@@ -1,7 +1,15 @@
 "use client";
 
 import { axiosAuthInstance } from "@/utils/axiosInstances";
-import { clearCookies, getUserCookie } from "@/utils/cookies";
+import { clearCookies, getUserCookie, getTokenFromCookies } from "@/utils/cookies";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   CheckCircle2,
   Eye,
@@ -9,6 +17,8 @@ import {
   KeyRound,
   Loader2,
   Lock,
+  LogOut,
+  AlertTriangle,
   Shield,
   ShieldCheck,
   UserCheck,
@@ -23,6 +33,8 @@ export default function AdminSettingsPage() {
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showLogoutAllDialog, setShowLogoutAllDialog] = useState(false);
+  const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [adminUser, setAdminUser] = useState<{
     name?: string;
@@ -133,6 +145,33 @@ export default function AdminSettingsPage() {
     setShowCurrent(false);
     setShowNew(false);
     setShowConfirm(false);
+  };
+
+  const handleConfirmLogoutAll = async () => {
+    try {
+      setIsLoggingOutAll(true);
+      const tokens = await getTokenFromCookies();
+      if (tokens?.refreshToken) {
+        try {
+          await axiosAuthInstance.post("/v1/auth/logout-all", {
+            refreshToken: tokens.refreshToken,
+          });
+        } catch (err) {
+          console.error("API logout-all error:", err);
+        }
+      }
+      await clearCookies();
+      setShowLogoutAllDialog(false);
+      toast.dismiss();
+      toast.success("Successfully logged out from all devices");
+      router.push("/login");
+    } catch (error) {
+      console.error("Failed to log out from all devices:", error);
+      toast.dismiss();
+      toast.error("Failed to log out from all devices");
+    } finally {
+      setIsLoggingOutAll(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -507,9 +546,86 @@ export default function AdminSettingsPage() {
                 </button>
               </div>
             </form>
+
+            {/* Logout from all devices Card */}
+            <div className="rounded-2xl border border-rose-200/80 bg-rose-50/30 p-5 shadow-xs sm:p-6 mt-6">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100 text-rose-600">
+                    <Shield className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      Device Management
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Log out from all devices where your account is currently active.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-rose-100 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setShowLogoutAllDialog(true)}
+                  className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-semibold text-white shadow-2xs hover:bg-rose-700 transition active:scale-[0.98] cursor-pointer"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>Logout from all devices</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Logout All Devices Confirmation Dialog */}
+      <Dialog open={showLogoutAllDialog} onOpenChange={setShowLogoutAllDialog}>
+        <DialogContent className="sm:max-w-md bg-[#0c193c] text-white border border-slate-800 rounded-2xl p-6 shadow-2xl">
+          <DialogHeader className="space-y-3">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/10 text-rose-500 border border-rose-500/20">
+              <AlertTriangle className="h-6 w-6 stroke-[2]" />
+            </div>
+            <DialogTitle className="text-center text-lg font-bold text-white">
+              Confirm Logout All Devices
+            </DialogTitle>
+            <DialogDescription className="text-center text-xs text-slate-400 leading-relaxed">
+              Are you sure you want to log out from all devices? This will invalidate all your active sessions everywhere.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-4 border-t border-slate-800/60 mt-4">
+            <button
+              type="button"
+              disabled={isLoggingOutAll}
+              onClick={() => setShowLogoutAllDialog(false)}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-700 text-xs font-semibold text-slate-300 hover:bg-white/5 transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              disabled={isLoggingOutAll}
+              onClick={handleConfirmLogoutAll}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+            >
+              {isLoggingOutAll ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Logging out...</span>
+                </>
+              ) : (
+                <>
+                  <LogOut className="h-4 w-4" />
+                  <span>Yes, Log out everywhere</span>
+                </>
+              )}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
