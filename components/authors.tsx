@@ -254,7 +254,7 @@ const Authors = () => {
                 return (
                   <div
                     key={author.id}
-                    className="w-[270px] sm:w-[290px] md:w-[310px] lg:w-[calc(25%-18px)] shrink-0 snap-start group relative flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg hover:border-indigo-300"
+                    className="w-[270px] sm:w-[290px] md:w-[310px] lg:w-[calc(25%-18px)] shrink-0 snap-start group relative flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:border-indigo-300"
                   >
                     <div>
                       {/* Header: Avatar + Details */}

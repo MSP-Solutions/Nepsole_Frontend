@@ -111,7 +111,9 @@ export default function Hero() {
     const fetchGenres = async () => {
       setIsLoadingGenres(true);
       try {
-        const response = await axiosInstance.get("/v1/genre");
+        const response = await axiosInstance.get(
+          "/v1/genre/popular?page=1&limit=10",
+        );
         const data = response.data;
         const genreList = Array.isArray(data)
           ? data
@@ -203,7 +205,10 @@ export default function Hero() {
             {isLoadingGenres ? (
               <div className="p-2 space-y-2">
                 {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="flex items-center justify-between px-2 py-1.5 animate-pulse">
+                  <div
+                    key={i}
+                    className="flex items-center justify-between px-2 py-1.5 animate-pulse"
+                  >
                     <div className="flex items-center gap-2 flex-1">
                       <div className="h-4 w-4 rounded bg-gray-200 shrink-0" />
                       <div

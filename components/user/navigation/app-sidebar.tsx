@@ -53,6 +53,11 @@ const navigation: NavItem[] = [
     icon: Heart,
   },
   {
+    title: "Cart",
+    url: "/user/cart",
+    icon: ShoppingBag,
+  },
+  {
     title: "Settings",
     url: "/user/settings",
     icon: Settings,

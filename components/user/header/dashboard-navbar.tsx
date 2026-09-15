@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Bell, BookOpen, ExternalLink } from "lucide-react";
 import { usePathname } from "next/navigation";
 import UserMenu from "./user-menu";
 

@@ -5,9 +5,21 @@ import {
   getUserCookie,
   setUserCookie,
   isTokenExpiringSoon,
+  clearCookies,
+  openAuthModal,
 } from "./cookies";
+import toast from "react-hot-toast";
 
 let refreshPromise: Promise<string | null> | null = null;
+// Track the last time a refresh was performed to avoid refreshing too soon
+let lastRefreshTime: number = 0;
+// Minimum cooldown between refresh attempts (14 minutes in ms)
+const REFRESH_COOLDOWN_MS = 14 * 60 * 1000;
+
+/** Call this after login to prevent immediate token refresh attempts */
+export const markTokenFresh = () => {
+  lastRefreshTime = Date.now();
+};
 
 export const refreshAuthToken = async (): Promise<string | null> => {
   // If a refresh is already in progress, share the existing promise
@@ -23,28 +35,9 @@ export const refreshAuthToken = async (): Promise<string | null> => {
         return null;
       }
 
-      let response;
-      try {
-        response = await axiosInstance.post("/v1/auth/refresh", {
-          refreshToken: tokenData.refreshToken,
-        });
-      } catch (err: any) {
-        if (err?.response?.status === 404) {
-          response = await axios.post(
-            `${process.env.NEXT_PUBLIC_BASE_URL}/v1/auth/refresh`,
-            {
-              refreshToken: tokenData.refreshToken,
-            },
-            {
-              headers: {
-                "Content-Type": "application/json",
-              },
-            }
-          );
-        } else {
-          throw err;
-        }
-      }
+      const response = await axiosInstance.post("/v1/auth/refresh", {
+        refreshToken: tokenData.refreshToken,
+      });
 
       /**
        * Backend returns refreshed token or user payload.
@@ -79,9 +72,27 @@ export const refreshAuthToken = async (): Promise<string | null> => {
         });
       }
 
+      // Record the refresh time so we don't refresh again too soon
+      lastRefreshTime = Date.now();
       return newAccessToken;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Refresh Token Failed:", error);
+
+      // Logout if refresh token is rejected due to expiration (401)
+      if (error?.response?.status === 401) {
+        if (typeof window !== "undefined") {
+          toast.error("Your session has expired. Please log in again.", {
+            duration: 3000,
+          });
+          await clearCookies();
+          // openAuthModal("login");
+          // Small delay so the user can read the toast before redirect
+          setTimeout(() => {
+            window.location.href = "/";
+          }, 1500);
+        }
+      }
+
       return null;
     } finally {
       refreshPromise = null;
@@ -95,11 +106,15 @@ const fetchToken = async (): Promise<string | null> => {
   const tokenData = await getTokenFromCookies();
   let accessToken = tokenData?.jwtToken ?? null;
 
-  // Proactively refresh if token has expired or is expiring in less than 60s
+  // Only proactively refresh if:
+  // 1. Token is expiring in less than 60s
+  // 2. Enough time has passed since the last refresh (cooldown)
+  const timeSinceLastRefresh = Date.now() - lastRefreshTime;
   if (
     accessToken &&
     isTokenExpiringSoon(accessToken, 60) &&
-    tokenData?.refreshToken
+    tokenData?.refreshToken &&
+    timeSinceLastRefresh > REFRESH_COOLDOWN_MS
   ) {
     const refreshed = await refreshAuthToken();
     if (refreshed) {

@@ -356,9 +356,6 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-slate-800">
-      <TopHeader />
-      <Header />
-
       <main className="flex-1 w-full max-w-[1400px] mx-auto px-3.5 sm:px-6 lg:px-8 py-5 sm:py-7">
         {/* Page Title & Count Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 sm:pb-5 border-b border-slate-200 gap-3">
@@ -688,8 +685,6 @@ export default function CartPage() {
         summary={summary}
         onOrderSuccess={fetchCart}
       />
-
-      <Footer />
     </div>
   );
 }

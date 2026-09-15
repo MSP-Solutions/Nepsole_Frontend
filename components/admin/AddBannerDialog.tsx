@@ -7,7 +7,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { axiosMultipartInstance } from "@/utils/axiosInstances";
+import { axiosMultipartInstance, axiosAuthInstance } from "@/utils/axiosInstances";
 import {
   Upload,
   Image as ImageIcon,
@@ -44,6 +44,7 @@ export const AddBannerDialog: React.FC<AddBannerDialogProps> = ({
   bannerToEdit,
 }) => {
   const [title, setTitle] = useState("");
+  const [sortOrder, setSortOrder] = useState<number>(0);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -69,6 +70,7 @@ export const AddBannerDialog: React.FC<AddBannerDialogProps> = ({
 
   const resetForm = () => {
     setTitle("");
+    setSortOrder(0);
     setImagePreview(null);
     setSelectedFile(null);
     setIsDragOver(false);
@@ -81,6 +83,7 @@ export const AddBannerDialog: React.FC<AddBannerDialogProps> = ({
     if (open) {
       if (bannerToEdit) {
         setTitle(bannerToEdit.title || "");
+        setSortOrder(bannerToEdit.sortOrder || 0);
         const img = getBannerImage(bannerToEdit);
         setImagePreview(img || null);
         setSelectedFile(null);
@@ -151,6 +154,7 @@ export const AddBannerDialog: React.FC<AddBannerDialogProps> = ({
     try {
       const formData = new FormData();
       formData.append("title", title.trim());
+      formData.append("sortOrder", sortOrder.toString());
 
       if (selectedFile) {
         formData.append("image", selectedFile);
@@ -168,6 +172,18 @@ export const AddBannerDialog: React.FC<AddBannerDialogProps> = ({
             formData,
           );
         }
+
+        // Also call the reorder endpoint if it has changed, or to be safe
+        if (sortOrder !== (bannerToEdit.sortOrder || 0)) {
+          try {
+            await axiosAuthInstance.patch(`/v1/banner/${bannerToEdit.id}/reorder`, {
+              newOrder: sortOrder,
+            });
+          } catch (e) {
+            console.error("Failed to update sortOrder:", e);
+          }
+        }
+
         toast.success("Banner updated successfully!");
       } else {
         await axiosMultipartInstance.post("/v1/banner", formData);
@@ -224,19 +240,36 @@ export const AddBannerDialog: React.FC<AddBannerDialogProps> = ({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="space-y-5 p-6">
-          {/* Banner Title */}
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-700">
-              Banner Title <span className="text-rose-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Summer Book Fair - Up to 40% Off"
-              required
-              className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition focus:border-[#1749A0] focus:bg-white focus:ring-2 focus:ring-[#1749A0]/10"
-            />
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            {/* Banner Title */}
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-700">
+                Banner Title <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Summer Book Fair - Up to 40% Off"
+                required
+                className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition focus:border-[#1749A0] focus:bg-white focus:ring-2 focus:ring-[#1749A0]/10"
+              />
+            </div>
+
+            {/* Banner Sort Order */}
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-700">
+                Sort Order
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(parseInt(e.target.value) || 0)}
+                placeholder="0"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition focus:border-[#1749A0] focus:bg-white focus:ring-2 focus:ring-[#1749A0]/10"
+              />
+            </div>
           </div>
 
           {/* Banner Image Upload */}

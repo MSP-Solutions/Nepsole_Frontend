@@ -1,21 +1,14 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
-import {
-  Image as ImageIcon,
-  Plus,
-  Trash2,
-  Edit2,
-  Loader2,
-  RefreshCw,
-  Sparkles,
-} from "lucide-react";
-import toast from "react-hot-toast";
-import { axiosAuthInstance } from "@/utils/axiosInstances";
 import AddBannerDialog, {
   BannerItem,
 } from "@/components/admin/AddBannerDialog";
 import DeleteBannerDialog from "@/components/admin/DeleteBannerDialog";
+import { Switch } from "@/components/ui/switch";
+import { axiosAuthInstance } from "@/utils/axiosInstances";
+import { Edit2, Image as ImageIcon, Loader2, Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import toast from "react-hot-toast";
 
 export default function BannerPage() {
   const [banners, setBanners] = useState<BannerItem[]>([]);
@@ -105,6 +98,35 @@ export default function BannerPage() {
       toast.error(message);
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleToggleStatus = async (
+    bannerId: string | number,
+    currentStatus: boolean,
+  ) => {
+    try {
+      await axiosAuthInstance.patch(`/v1/banner/${bannerId}/status`, {
+        isActive: !currentStatus,
+      });
+      toast.success("Banner status updated.");
+      fetchBanners();
+    } catch (error: any) {
+      console.error("Status Update Error:", error);
+      toast.error(error?.response?.data?.message || "Failed to update status.");
+    }
+  };
+
+  const handleReorder = async (bannerId: string | number, newOrder: number) => {
+    try {
+      await axiosAuthInstance.patch(`/v1/banner/${bannerId}/reorder`, {
+        newOrder: newOrder,
+      });
+      toast.success("Banner order updated.");
+      fetchBanners();
+    } catch (error: any) {
+      console.error("Reorder Error:", error);
+      toast.error(error?.response?.data?.message || "Failed to update order.");
     }
   };
 
@@ -202,43 +224,70 @@ export default function BannerPage() {
                     </div>
 
                     {/* Bottom Details & Actions */}
-                    <div className="p-4 flex items-center justify-between border-t border-gray-100 bg-white">
-                      <div className="min-w-0 pr-2">
-                        <p className="text-xs font-semibold text-gray-900 truncate">
-                          {banner.title}
-                        </p>
-                        {banner.createdAt && (
-                          <p className="text-[11px] text-gray-400 mt-0.5">
-                            {new Date(banner.createdAt).toLocaleDateString(
-                              "en-US",
-                              {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              },
-                            )}
+                    <div className="p-4 flex flex-col gap-3 border-t border-gray-100 bg-white">
+                      <div className="flex items-start justify-between min-w-0">
+                        <div className="min-w-0 pr-2">
+                          <p className="text-xs font-semibold text-gray-900 truncate">
+                            {banner.title}
                           </p>
-                        )}
+                          {banner.createdAt && (
+                            <p className="text-[11px] text-gray-400 mt-0.5">
+                              {new Date(banner.createdAt).toLocaleDateString(
+                                "en-US",
+                                {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                },
+                              )}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </span>
+                          <Switch
+                            checked={banner.isActive ?? true}
+                            onCheckedChange={() =>
+                              handleToggleStatus(
+                                banner.id,
+                                banner.isActive ?? true,
+                              )
+                            }
+                          />
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditDialog(banner)}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-700 hover:bg-[#1749A0]/10 hover:text-[#1749A0] hover:border-[#1749A0]/30 transition cursor-pointer"
-                          title="Edit banner"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </button>
+                      <div className="flex items-center justify-between border-t border-gray-50 pt-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-medium text-gray-500">
+                            Order:{" "}
+                            <span className="font-bold text-gray-700">
+                              {banner.sortOrder || 0}
+                            </span>
+                          </span>
+                        </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handleOpenDeleteDialog(banner)}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition cursor-pointer"
-                          title="Delete banner"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditDialog(banner)}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-700 hover:bg-[#1749A0]/10 hover:text-[#1749A0] hover:border-[#1749A0]/30 transition cursor-pointer"
+                            title="Edit banner"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDeleteDialog(banner)}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition cursor-pointer"
+                            title="Delete banner"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

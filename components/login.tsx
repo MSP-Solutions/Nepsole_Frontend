@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 
-import { axiosInstance } from "@/utils/axiosInstances";
+import { axiosInstance, markTokenFresh } from "@/utils/axiosInstances";
 import ForgotPasswordDialog from "@/components/ForgotPasswordDialog";
 import {
   decodeJwt,
@@ -210,6 +210,7 @@ export function LoginForm({
       };
 
       await setUserCookie(userPayload);
+      markTokenFresh();
 
       toast.success("Login successfully");
       onSuccess?.();
@@ -255,6 +256,7 @@ export function LoginForm({
       }
 
       toast.error(message);
+      setFormData((prev) => ({ ...prev, password: "" }));
     } finally {
       setIsLoading(false);
     }

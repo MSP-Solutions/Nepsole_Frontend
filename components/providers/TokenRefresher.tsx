@@ -2,19 +2,24 @@
 
 import { useEffect, useRef } from "react";
 import { refreshAuthToken } from "@/utils/axiosInstances";
-import {
-  AUTH_CHANGE_EVENT,
-  getTokenFromCookies,
-  isTokenExpiringSoon,
-} from "@/utils/cookies";
+import { getTokenFromCookies, isTokenExpiringSoon } from "@/utils/cookies";
 
 // Check every 1 minute to detect tokens approaching expiry
 const CHECK_INTERVAL_MS = 60 * 1000;
 
 export default function TokenRefresher() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const isFirstCheckRef = useRef(true);
 
   const checkAndRefreshToken = async () => {
+    // Skip the very first check after mount — the user just logged in,
+    // so the token is fresh. We only want to refresh once it's actually
+    // close to expiring.
+    if (isFirstCheckRef.current) {
+      isFirstCheckRef.current = false;
+      return;
+    }
+
     try {
       const tokenData = await getTokenFromCookies();
       if (!tokenData?.refreshToken) return;
@@ -29,34 +34,28 @@ export default function TokenRefresher() {
   };
 
   useEffect(() => {
-    // Initial check on mount
-    checkAndRefreshToken();
-
-    // Setup periodic 1-minute checker
+    // DO NOT call refresh immediately on mount.
+    // Setup periodic 1-minute checker — the first tick is skipped via isFirstCheckRef.
     timerRef.current = setInterval(() => {
       checkAndRefreshToken();
     }, CHECK_INTERVAL_MS);
 
-    // Re-check when auth state changes (login, logout, cookie update)
-    const handleAuthChange = () => {
-      checkAndRefreshToken();
-    };
-
-    // Re-check immediately when user returns to tab after idle
+    // Re-check when user returns to tab after being idle for a while
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
+        // Reset the skip flag — if the user comes back to the tab,
+        // we should check if the token is still valid
+        isFirstCheckRef.current = false;
         checkAndRefreshToken();
       }
     };
 
-    window.addEventListener(AUTH_CHANGE_EVENT, handleAuthChange);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
-      window.removeEventListener(AUTH_CHANGE_EVENT, handleAuthChange);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
