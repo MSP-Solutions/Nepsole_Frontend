@@ -293,22 +293,59 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
     }
   };
 
-  // Image Upload handler for new images
+  // Image Upload handler for new images with validation
   const handleImageFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
+
+    const validFiles: File[] = [];
+    const maxSizeBytes = 10 * 1024 * 1024; // 10MB limit per image
+    const allowedTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+      "image/svg+xml",
+      "image/avif",
+    ];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!allowedTypes.includes(file.type) && !file.type.startsWith("image/")) {
+        toast.error(`"${file.name}" is not a supported image format.`);
+        continue;
+      }
+      if (file.size > maxSizeBytes) {
+        toast.error(`"${file.name}" exceeds the maximum allowed size of 10MB.`);
+        continue;
+      }
+      validFiles.push(file);
+    }
+
+    if (validFiles.length === 0) {
+      e.target.value = "";
+      return;
+    }
 
     const hasAnyCover =
       existingImages.some((img) => img.type === "COVER") ||
       uploadedImages.some((img) => img.type === "COVER");
 
-    const newItems: BookImageItem[] = Array.from(files).map((file, idx) => ({
+    const newItems: BookImageItem[] = validFiles.map((file, idx) => ({
       file,
       preview: URL.createObjectURL(file),
       type: !hasAnyCover && idx === 0 ? "COVER" : "INSIDE",
     }));
 
     setUploadedImages((prev) => [...prev, ...newItems]);
+    if (errors.images) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.images;
+        return next;
+      });
+    }
     e.target.value = "";
   };
 
@@ -399,7 +436,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
     }
   };
 
-  // Toggles for Multi-Selects
+  // Toggles for Multi-Selects with automatic error clearing
   const toggleSelection = (
     id: number | string,
     current: (number | string)[],
@@ -412,8 +449,54 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
     }
   };
 
+  const toggleAuthor = (id: number | string) => {
+    toggleSelection(id, selectedAuthors, setSelectedAuthors);
+    if (errors.authorIds || errors.authors) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.authorIds;
+        delete next.authors;
+        return next;
+      });
+    }
+  };
+
+  const toggleGenre = (id: number | string) => {
+    toggleSelection(id, selectedGenres, setSelectedGenres);
+    if (errors.genreIds || errors.genres) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.genreIds;
+        delete next.genres;
+        return next;
+      });
+    }
+  };
+
+  const toggleLanguage = (id: number | string) => {
+    toggleSelection(id, selectedLanguages, setSelectedLanguages);
+    if (errors.languageIds || errors.languages) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.languageIds;
+        delete next.languages;
+        return next;
+      });
+    }
+  };
+
   const validateForm = (): boolean => {
-    const result = bookFormSchema.safeParse(formData);
+    const allImages = [...existingImages, ...uploadedImages];
+    const dataToValidate = {
+      ...formData,
+      authorIds: selectedAuthors,
+      genreIds: selectedGenres,
+      languageIds: selectedLanguages,
+      images: allImages,
+      description: formData.description,
+    };
+
+    const result = bookFormSchema.safeParse(dataToValidate);
 
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
@@ -424,7 +507,10 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
         }
       });
       setErrors(fieldErrors);
-      toast.error("Please fill in all required fields correctly.");
+
+      const firstErrorMessage =
+        result.error.issues[0]?.message || "Please fill in all required fields.";
+      toast.error(firstErrorMessage);
       return false;
     }
 
@@ -832,7 +918,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               <div className="space-y-1.5 relative" ref={authorRef}>
                 <label className="block text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                   <User className="w-3.5 h-3.5 text-slate-400" />
-                  Author(s)
+                  Author(s) <span className="text-red-500">*</span>
                 </label>
 
                 <div
@@ -865,11 +951,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                               role="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                toggleSelection(
-                                  authId,
-                                  selectedAuthors,
-                                  setSelectedAuthors
-                                );
+                                toggleAuthor(authId);
                               }}
                               className="hover:text-indigo-900 cursor-pointer"
                             >
@@ -917,13 +999,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                           return (
                             <div
                               key={auth.id}
-                              onClick={() =>
-                                toggleSelection(
-                                  auth.id,
-                                  selectedAuthors,
-                                  setSelectedAuthors
-                                )
-                              }
+                              onClick={() => toggleAuthor(auth.id)}
                               className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs cursor-pointer transition ${
                                 isSelected
                                   ? "bg-indigo-50 text-indigo-700 font-semibold"
@@ -947,7 +1023,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               <div className="space-y-1.5 relative" ref={genreRef}>
                 <label className="block text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                   <Bookmark className="w-3.5 h-3.5 text-slate-400" />
-                  Genres / Categories
+                  Genres / Categories <span className="text-red-500">*</span>
                 </label>
 
                 <div
@@ -980,11 +1056,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                               role="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                toggleSelection(
-                                  genId,
-                                  selectedGenres,
-                                  setSelectedGenres
-                                );
+                                toggleGenre(genId);
                               }}
                               className="hover:text-emerald-900 cursor-pointer"
                             >
@@ -1032,13 +1104,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                           return (
                             <div
                               key={gen.id}
-                              onClick={() =>
-                                toggleSelection(
-                                  gen.id,
-                                  selectedGenres,
-                                  setSelectedGenres
-                                )
-                              }
+                              onClick={() => toggleGenre(gen.id)}
                               className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs cursor-pointer transition ${
                                 isSelected
                                   ? "bg-emerald-50 text-emerald-700 font-semibold"
@@ -1062,7 +1128,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               <div className="space-y-1.5 relative" ref={languageRef}>
                 <label className="block text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                   <Languages className="w-3.5 h-3.5 text-slate-400" />
-                  Language(s)
+                  Language(s) <span className="text-red-500">*</span>
                 </label>
 
                 <div
@@ -1095,11 +1161,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                               role="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                toggleSelection(
-                                  langId,
-                                  selectedLanguages,
-                                  setSelectedLanguages
-                                );
+                                toggleLanguage(langId);
                               }}
                               className="hover:text-sky-900 cursor-pointer"
                             >
@@ -1147,13 +1209,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                           return (
                             <div
                               key={lang.id}
-                              onClick={() =>
-                                toggleSelection(
-                                  lang.id,
-                                  selectedLanguages,
-                                  setSelectedLanguages
-                                )
-                              }
+                              onClick={() => toggleLanguage(lang.id)}
                               className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs cursor-pointer transition ${
                                 isSelected
                                   ? "bg-sky-50 text-sky-700 font-semibold"
@@ -1215,7 +1271,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               {/* Discount Percent */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Discount (%)
+                  Discount (%) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -1223,7 +1279,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                   step="0.01"
                   min="0"
                   max="100"
-                  placeholder="e.g. 10"
+                  placeholder="e.g. 0"
                   value={formData.discountPercent}
                   onChange={handleInputChange}
                   className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 shadow-sm transition ${
@@ -1267,13 +1323,13 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               {/* Sold Count */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Sold Count
+                  Sold Count <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
                   name="soldCount"
                   min="0"
-                  placeholder="e.g. 100"
+                  placeholder="e.g. 0"
                   value={formData.soldCount}
                   onChange={handleInputChange}
                   className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 shadow-sm transition ${
@@ -1303,7 +1359,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               {/* Publication Date */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Publication Date
+                  Publication Date <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
@@ -1326,7 +1382,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               {/* Pages */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Total Pages
+                  Total Pages <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -1351,7 +1407,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               {/* ISBN 10 */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  ISBN-10
+                  ISBN-10 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -1375,7 +1431,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               {/* ISBN 13 */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  ISBN-13
+                  ISBN-13 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -1410,7 +1466,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               {/* Width */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Width (cm)
+                  Width (cm) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -1436,7 +1492,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               {/* Height */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Height (cm)
+                  Height (cm) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -1462,7 +1518,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               {/* Depth */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Depth / Spine (cm)
+                  Depth / Spine (cm) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -1494,7 +1550,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-600 flex items-center gap-2">
                 <ImageIcon className="w-3.5 h-3.5" />
-                Book Images & Covers
+                Book Images & Covers <span className="text-red-500">*</span>
               </h3>
               <label
                 htmlFor="book-multi-images"
@@ -1516,7 +1572,11 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
             {!hasAnyImages ? (
               <label
                 htmlFor="book-multi-images"
-                className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-xl bg-slate-50/60 hover:bg-indigo-50/30 transition cursor-pointer text-center"
+                className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl transition cursor-pointer text-center ${
+                  errors.images
+                    ? "border-rose-400 bg-rose-50/20"
+                    : "border-slate-300 hover:border-indigo-400 bg-slate-50/60 hover:bg-indigo-50/30"
+                }`}
               >
                 <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2 shadow-sm">
                   <Upload className="w-5 h-5" />
@@ -1634,6 +1694,12 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                 </label>
               </div>
             )}
+
+            {errors.images && (
+              <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                {errors.images}
+              </p>
+            )}
           </div>
 
           <hr className="border-slate-200" />
@@ -1641,16 +1707,34 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
           {/* 6. Description (Rich Text Editor) */}
           <div className="space-y-2">
             <label className="block text-xs font-bold uppercase tracking-wider text-indigo-600">
-              Book Description & Summary
+              Book Description & Summary <span className="text-red-500">*</span>
             </label>
-            <TextEditorEdit
-              key={bookToEdit?.id ? `edit-book-${bookToEdit.id}` : "new-book"}
-              initialHtml={formData.description}
-              value={formData.description}
-              onChange={(val) =>
-                setFormData((prev) => ({ ...prev, description: val }))
-              }
-            />
+            <div
+              className={`rounded-lg transition ${
+                errors.description ? "ring-2 ring-rose-400 p-0.5" : ""
+              }`}
+            >
+              <TextEditorEdit
+                key={bookToEdit?.id ? `edit-book-${bookToEdit.id}` : "new-book"}
+                initialHtml={formData.description}
+                value={formData.description}
+                onChange={(val) => {
+                  setFormData((prev) => ({ ...prev, description: val }));
+                  if (errors.description) {
+                    setErrors((prev) => {
+                      const next = { ...prev };
+                      delete next.description;
+                      return next;
+                    });
+                  }
+                }}
+              />
+            </div>
+            {errors.description && (
+              <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                {errors.description}
+              </p>
+            )}
           </div>
         </form>
 
