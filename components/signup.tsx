@@ -13,10 +13,13 @@ import {
   BookOpen,
   ArrowRight,
   Loader2,
+  AlertCircle,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { axiosInstance } from "@/utils/axiosInstances";
-import { decodeJwt, setUserCookie } from "@/utils/cookies";
+import { openAuthModal } from "@/utils/cookies";
 import {
   Dialog,
   DialogContent,
@@ -45,6 +48,7 @@ type SignupFormData = {
   email: string;
   phoneNumber: string;
   password: string;
+  confirmPassword: string;
   agreeToTerms: boolean;
 };
 
@@ -60,10 +64,12 @@ export function SignupForm({
     email: "",
     phoneNumber: "",
     password: "",
+    confirmPassword: "",
     agreeToTerms: false,
   });
 
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -95,6 +101,7 @@ export function SignupForm({
     const email = formData.email.trim();
     const phoneNumber = formData.phoneNumber.trim();
     const password = formData.password;
+    const confirmPassword = formData.confirmPassword;
 
     if (!name) {
       const msg = "Please enter your full name.";
@@ -118,7 +125,22 @@ export function SignupForm({
       return;
     }
     if (password.length < 6) {
-      const msg = "Password must be at least 6 characters long.";
+      const msg = "Password must be at least 8 characters long.";
+      setErrorMessage(msg);
+      toast.dismiss();
+      toast.error(msg);
+      return;
+    }
+
+    if (!confirmPassword) {
+      const msg = "Please confirm your password.";
+      setErrorMessage(msg);
+      toast.dismiss();
+      toast.error(msg);
+      return;
+    }
+    if (password !== confirmPassword) {
+      const msg = "Passwords do not match.";
       setErrorMessage(msg);
       toast.dismiss();
       toast.error(msg);
@@ -163,68 +185,30 @@ export function SignupForm({
         }
       }
 
-      const responseData = response?.data;
-      const rawData = responseData?.data || responseData;
-      const nestedUser = rawData?.user || responseData?.user || {};
-      const token =
-        rawData?.accessToken ||
-        rawData?.token ||
-        nestedUser?.accessToken ||
-        responseData?.accessToken;
-
       toast.dismiss();
-      toast.success("Account created successfully!");
+      toast.success(
+        "Account created successfully! Please verify your email to log in.",
+        {
+          duration: 6000,
+        },
+      );
+
+      setFormData({
+        name: "",
+        email: "",
+        phoneNumber: "",
+        password: "",
+        confirmPassword: "",
+        agreeToTerms: false,
+      });
+
+      if (onSwitchToLogin) {
+        onSwitchToLogin();
+      } else {
+        openAuthModal("login");
+      }
 
       onSuccess?.();
-
-      if (token) {
-        const decodedToken = decodeJwt(token);
-        const role = (
-          rawData?.role ||
-          nestedUser?.role ||
-          decodedToken?.role ||
-          decodedToken?.roles?.[0] ||
-          decodedToken?.authorities?.[0] ||
-          responseData?.role ||
-          "USER"
-        )
-          .toString()
-          .toUpperCase();
-
-        const userPayload = {
-          ...decodedToken,
-          ...nestedUser,
-          ...rawData,
-          accessToken: token,
-          role,
-        };
-
-        await setUserCookie(userPayload);
-
-        if (redirectOnSuccess) {
-          const isAdmin =
-            role === "ADMIN" ||
-            role === "ROLE_ADMIN" ||
-            role === "ADMINISTRATOR";
-
-          setTimeout(() => {
-            if (isAdmin) {
-              router.push("/admin/dashboard");
-            } else {
-              router.push("/user/dashboard");
-            }
-            router.refresh();
-          }, 400);
-        }
-      } else if (redirectOnSuccess) {
-        setTimeout(() => {
-          if (onSwitchToLogin) {
-            onSwitchToLogin();
-          } else {
-            router.push("/login");
-          }
-        }, 800);
-      }
     } catch (error: any) {
       console.error("Signup Error:", error);
       const message = getErrorMessage(error);
@@ -335,7 +319,7 @@ export function SignupForm({
               required
               value={formData.password}
               onChange={handleChange}
-              placeholder="At least 6 characters"
+              placeholder="At least 8 characters"
               disabled={isLoading}
               className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-10 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none transition disabled:opacity-60"
             />
@@ -353,6 +337,97 @@ export function SignupForm({
               )}
             </button>
           </div>
+
+          {/* Password Notice / Alert (Visible by default) */}
+
+          {/* Password Requirements Guidance (Visible by default) */}
+          <div className="mt-2 space-y-1 rounded-xl border border-slate-100 bg-slate-50/80 p-2.5 text-[11px]">
+            <div className="flex items-center gap-1.5">
+              {formData.password.length >= 6 ? (
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              ) : (
+                <XCircle className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              )}
+              <span
+                className={
+                  formData.password.length >= 6
+                    ? "text-emerald-700 font-medium"
+                    : "text-slate-500"
+                }
+              >
+                At least 6 characters
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {/[A-Z]/.test(formData.password) ? (
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              )}
+              <span
+                className={
+                  /[A-Z]/.test(formData.password)
+                    ? "text-emerald-700 font-medium"
+                    : "text-amber-700 font-medium"
+                }
+              >
+                At least one uppercase letter (A-Z)
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Confirm Password */}
+        <div>
+          <label
+            htmlFor="signup-confirm-password"
+            className="block text-xs font-semibold text-slate-700 mb-1"
+          >
+            Confirm Password
+          </label>
+          <div className="relative">
+            <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              id="signup-confirm-password"
+              name="confirmPassword"
+              type={showConfirmPassword ? "text" : "password"}
+              required
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              placeholder="Re-enter your password"
+              disabled={isLoading}
+              className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-10 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none transition disabled:opacity-60"
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              disabled={isLoading}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+              title={showConfirmPassword ? "Hide password" : "Show password"}
+            >
+              {showConfirmPassword ? (
+                <EyeOff className="w-4 h-4" />
+              ) : (
+                <Eye className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+
+          {/* Confirm Password Match Indicator */}
+          {formData.confirmPassword.length > 0 &&
+            formData.password !== formData.confirmPassword && (
+              <div className="flex items-center gap-2 mt-1.5 px-3 py-1.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium animate-in fade-in duration-200">
+                <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                <span>Passwords do not match</span>
+              </div>
+            )}
+          {formData.confirmPassword.length > 0 &&
+            formData.password === formData.confirmPassword && (
+              <div className="flex items-center gap-2 mt-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium animate-in fade-in duration-200">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>Passwords match</span>
+              </div>
+            )}
         </div>
 
         {/* Terms Checkbox */}
@@ -443,9 +518,21 @@ export function SignupDialog({
         <SignupForm
           onSuccess={() => {
             onOpenChange(false);
+            if (onSwitchToLogin) {
+              onSwitchToLogin();
+            } else {
+              openAuthModal("login");
+            }
             onSuccess?.();
           }}
-          onSwitchToLogin={onSwitchToLogin}
+          onSwitchToLogin={() => {
+            onOpenChange(false);
+            if (onSwitchToLogin) {
+              onSwitchToLogin();
+            } else {
+              openAuthModal("login");
+            }
+          }}
           redirectOnSuccess={redirectOnSuccess}
           isDialog={true}
         />

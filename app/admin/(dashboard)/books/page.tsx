@@ -195,14 +195,23 @@ export default function BooksPage() {
     fetchBooks(1, newSize, searchTerm);
   };
 
+  // Helper to ensure all dialogs are closed before opening another
+  const closeAllModals = () => {
+    setIsViewModalOpen(false);
+    setIsAddModalOpen(false);
+    setIsDeleteDialogOpen(false);
+  };
+
   // Handle View Book
   const handleViewClick = (book: BookItem) => {
+    closeAllModals();
     setViewingBook(book);
     setIsViewModalOpen(true);
   };
 
   // Handle Edit Book
   const handleEditClick = (book: BookItem) => {
+    closeAllModals();
     // Extract author IDs
     const extractedAuthorIds = (book.authors || book.authorBooks || []).map(
       (a) => a.author?.id || a.id,
@@ -246,6 +255,7 @@ export default function BooksPage() {
 
   // Handle Delete Confirmation
   const handleDeleteClick = (book: BookItem) => {
+    closeAllModals();
     setBookToDelete(book);
     setIsDeleteDialogOpen(true);
   };
@@ -256,7 +266,7 @@ export default function BooksPage() {
     try {
       await axiosAuthInstance.delete(`/v1/book/${bookToDelete.id}`);
       toast.success(`"${bookToDelete.title}" deleted successfully!`);
-      setIsDeleteDialogOpen(false);
+      closeAllModals();
       setBookToDelete(null);
       fetchBooks();
     } catch (err: any) {
@@ -359,6 +369,7 @@ export default function BooksPage() {
           <button
             type="button"
             onClick={() => {
+              closeAllModals();
               setBookToEdit(null);
               setIsAddModalOpen(true);
             }}
@@ -727,10 +738,16 @@ export default function BooksPage() {
       {/* View Book Details Dialog */}
       <ViewBookDialog
         open={isViewModalOpen}
-        onOpenChange={setIsViewModalOpen}
+        onOpenChange={(open) => {
+          setIsViewModalOpen(open);
+          if (!open) {
+            setViewingBook(null);
+          }
+        }}
         book={viewingBook}
         onEdit={(book) => {
-          setIsViewModalOpen(false);
+          closeAllModals();
+          setViewingBook(null);
           handleEditClick(book);
         }}
       />
@@ -738,15 +755,30 @@ export default function BooksPage() {
       {/* Add / Edit Book Dialog */}
       <AddBookDialog
         open={isAddModalOpen}
-        onOpenChange={setIsAddModalOpen}
+        onOpenChange={(open) => {
+          setIsAddModalOpen(open);
+          if (!open) {
+            setBookToEdit(null);
+          }
+        }}
         bookToEdit={bookToEdit}
         onSuccess={() => {
+          closeAllModals();
+          setBookToEdit(null);
           fetchBooks();
         }}
       />
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <Dialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open);
+          if (!open) {
+            setBookToDelete(null);
+          }
+        }}
+      >
         <DialogContent
           showCloseButton={false}
           className="w-[95vw] max-w-md p-0 bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden"

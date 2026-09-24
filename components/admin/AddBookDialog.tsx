@@ -485,6 +485,72 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
     }
   };
 
+  const scrollToFirstError = (fieldErrors: Record<string, string>) => {
+    const errorKeys = Object.keys(fieldErrors);
+    if (errorKeys.length === 0) return;
+
+    // Field order matching form layout top-to-bottom
+    const fieldOrder = [
+      "title",
+      "publisherId",
+      "authorIds",
+      "authors",
+      "genreIds",
+      "genres",
+      "languageIds",
+      "languages",
+      "price",
+      "discountPercent",
+      "stock",
+      "soldCount",
+      "publicationDate",
+      "pages",
+      "isbn10",
+      "isbn13",
+      "widthCm",
+      "heightCm",
+      "depthCm",
+      "images",
+      "description",
+    ];
+
+    const targetField = fieldOrder.find((f) => fieldErrors[f]) || errorKeys[0];
+
+    setTimeout(() => {
+      let targetEl: HTMLElement | null = null;
+
+      if (targetField === "publisherId") {
+        targetEl = publisherRef.current;
+      } else if (targetField === "authorIds" || targetField === "authors") {
+        targetEl = authorRef.current;
+      } else if (targetField === "genreIds" || targetField === "genres") {
+        targetEl = genreRef.current;
+      } else if (targetField === "languageIds" || targetField === "languages") {
+        targetEl = languageRef.current;
+      } else if (targetField === "images") {
+        targetEl =
+          document.getElementById("images-section") ||
+          document.querySelector("input[name='images']");
+      } else if (targetField === "description") {
+        targetEl =
+          document.getElementById("description-section") ||
+          document.querySelector(".ql-editor");
+      } else {
+        targetEl = document.querySelector(`[name='${targetField}']`);
+      }
+
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (
+          targetEl instanceof HTMLInputElement ||
+          targetEl instanceof HTMLTextAreaElement
+        ) {
+          targetEl.focus({ preventScroll: true });
+        }
+      }
+    }, 80);
+  };
+
   const validateForm = (): boolean => {
     const allImages = [...existingImages, ...uploadedImages];
     const dataToValidate = {
@@ -511,6 +577,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
       const firstErrorMessage =
         result.error.issues[0]?.message || "Please fill in all required fields.";
       toast.error(firstErrorMessage);
+      scrollToFirstError(fieldErrors);
       return false;
     }
 
@@ -535,24 +602,51 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
       data.append("stock", String(Number(formData.stock)));
       data.append("soldCount", String(Number(formData.soldCount) || 0));
 
-      if (formData.publicationDate) {
-        data.append("publicationDate", formData.publicationDate);
+      if (formData.publicationDate && formData.publicationDate.trim()) {
+        data.append("publicationDate", formData.publicationDate.trim());
       }
-      if (formData.isbn10.trim()) {
+      if (formData.isbn10 && formData.isbn10.trim()) {
         data.append("isbn10", formData.isbn10.trim());
       }
-      if (formData.isbn13.trim()) {
+      if (formData.isbn13 && formData.isbn13.trim()) {
         data.append("isbn13", formData.isbn13.trim());
       }
-      if (formData.pages) {
-        data.append("pages", String(Number(formData.pages)));
+      
+      const pagesStr = String(formData.pages ?? "").trim();
+      if (pagesStr !== "") {
+        const pagesNum = Number(pagesStr);
+        if (!isNaN(pagesNum) && pagesNum > 0) {
+          data.append("pages", String(pagesNum));
+        }
       }
+
       if (formData.description) {
         data.append("description", formData.description);
       }
-      data.append("widthCm", String(Number(formData.widthCm) || 0));
-      data.append("heightCm", String(Number(formData.heightCm) || 0));
-      data.append("depthCm", String(Number(formData.depthCm) || 0));
+
+      const widthStr = String(formData.widthCm ?? "").trim();
+      if (widthStr !== "") {
+        const widthNum = Number(widthStr);
+        if (!isNaN(widthNum) && widthNum >= 0) {
+          data.append("widthCm", String(widthNum));
+        }
+      }
+
+      const heightStr = String(formData.heightCm ?? "").trim();
+      if (heightStr !== "") {
+        const heightNum = Number(heightStr);
+        if (!isNaN(heightNum) && heightNum >= 0) {
+          data.append("heightCm", String(heightNum));
+        }
+      }
+
+      const depthStr = String(formData.depthCm ?? "").trim();
+      if (depthStr !== "") {
+        const depthNum = Number(depthStr);
+        if (!isNaN(depthNum) && depthNum >= 0) {
+          data.append("depthCm", String(depthNum));
+        }
+      }
 
       data.append("publisherId", String(Number(formData.publisherId)));
 
@@ -613,6 +707,25 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
       const resData = error?.response?.data;
       const fieldErrors: Record<string, string> = {};
 
+      const normalizeFieldName = (rawField: string): string => {
+        const f = rawField.toLowerCase().replace(/[-_]/g, "");
+        if (f === "isbn10") return "isbn10";
+        if (f === "isbn13") return "isbn13";
+        if (f === "widthcm" || f === "width") return "widthCm";
+        if (f === "heightcm" || f === "height") return "heightCm";
+        if (f === "depthcm" || f === "depth" || f === "spine") return "depthCm";
+        if (f === "publicationdate" || f === "pubdate") return "publicationDate";
+        if (f === "publisherid" || f === "publisher") return "publisherId";
+        if (f === "authorids" || f === "authors" || f === "author") return "authorIds";
+        if (f === "genreids" || f === "genres" || f === "genre") return "genreIds";
+        if (f === "languageids" || f === "languages" || f === "language") return "languageIds";
+        if (f === "discountpercent" || f === "discount") return "discountPercent";
+        if (f === "soldcount" || f === "sold") return "soldCount";
+        if (f === "description" || f === "desc") return "description";
+        if (f === "images" || f === "imagestypes" || f === "image") return "images";
+        return rawField;
+      };
+
       const extractCleanMessage = (errData: any): string => {
         if (!errData) return "Failed to save book.";
         if (typeof errData === "string") {
@@ -634,10 +747,10 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
             .join(", ");
         }
         if (typeof errData === "object") {
-          if (errData.message) {
+          if (errData.message && typeof errData.message === "string") {
             return extractCleanMessage(errData.message);
           }
-          if (errData.error) {
+          if (errData.error && typeof errData.error === "string") {
             return extractCleanMessage(errData.error);
           }
           if (errData.errors) {
@@ -651,71 +764,88 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
         return "Failed to save book.";
       };
 
-      if (resData?.errors) {
-        if (Array.isArray(resData.errors)) {
-          resData.errors.forEach((err: any) => {
-            const field = err.field || err.path || err.param;
-            if (field) {
-              const normalizedField =
-                field === "isbn_10" || field === "ISBN10" || field === "isbn-10"
-                  ? "isbn10"
-                  : field === "isbn_13" || field === "ISBN13" || field === "isbn-13"
-                  ? "isbn13"
-                  : field;
-              fieldErrors[normalizedField] = extractCleanMessage(
-                err.message || err.msg || err
-              );
-            }
-          });
-        } else if (typeof resData.errors === "object") {
-          Object.entries(resData.errors).forEach(([k, v]: [string, any]) => {
-            const normalizedField =
-              k === "isbn_10" || k === "ISBN10" || k === "isbn-10"
-                ? "isbn10"
-                : k === "isbn_13" || k === "ISBN13" || k === "isbn-13"
-                ? "isbn13"
-                : k;
-            fieldErrors[normalizedField] = extractCleanMessage(v);
-          });
+      // 1. Process structured backend validation errors (e.g., error.details, details, errors)
+      const detailsList =
+        resData?.error?.details ||
+        resData?.details ||
+        resData?.errors ||
+        (Array.isArray(resData?.error) ? resData.error : null);
+
+      if (Array.isArray(detailsList)) {
+        detailsList.forEach((item: any) => {
+          const field =
+            item.field ||
+            item.path ||
+            item.param ||
+            (Array.isArray(item.path) ? item.path[0] : null);
+          const msg =
+            item.message ||
+            item.msg ||
+            item.error ||
+            extractCleanMessage(item);
+          if (field && msg) {
+            fieldErrors[normalizeFieldName(String(field))] = String(msg);
+          }
+        });
+      } else if (typeof detailsList === "object" && detailsList !== null) {
+        Object.entries(detailsList).forEach(([k, v]: [string, any]) => {
+          fieldErrors[normalizeFieldName(k)] = extractCleanMessage(v);
+        });
+      }
+
+      // Determine the main error toast message
+      let mainErrorMsg = "";
+      if (resData?.error?.message && typeof resData.error.message === "string") {
+        mainErrorMsg = resData.error.message;
+      } else if (resData?.message && typeof resData.message === "string") {
+        mainErrorMsg = resData.message;
+      } else {
+        mainErrorMsg = extractCleanMessage(resData);
+      }
+
+      const firstFieldErrorMsg = Object.values(fieldErrors)[0];
+      const toastMessage = firstFieldErrorMsg || mainErrorMsg || "Failed to save book.";
+
+      // Smart pattern fallback if fieldErrors is still empty
+      if (Object.keys(fieldErrors).length === 0) {
+        const lowerMsg = toastMessage.toLowerCase();
+        if (
+          lowerMsg.includes("isbn10") ||
+          lowerMsg.includes("isbn-10") ||
+          lowerMsg.includes("isbn 10")
+        ) {
+          fieldErrors.isbn10 = toastMessage;
         }
-      }
-
-      const cleanErrorMsg = extractCleanMessage(resData);
-
-      // Smart pattern detection for ISBN, Title, Price, Stock in API message
-      const lowerMsg = cleanErrorMsg.toLowerCase();
-      if (
-        lowerMsg.includes("isbn10") ||
-        lowerMsg.includes("isbn-10") ||
-        lowerMsg.includes("isbn 10")
-      ) {
-        fieldErrors.isbn10 = cleanErrorMsg;
-      }
-      if (
-        lowerMsg.includes("isbn13") ||
-        lowerMsg.includes("isbn-13") ||
-        lowerMsg.includes("isbn 13")
-      ) {
-        fieldErrors.isbn13 = cleanErrorMsg;
-      }
-      if (lowerMsg.includes("title")) {
-        fieldErrors.title = cleanErrorMsg;
-      }
-      if (lowerMsg.includes("publisher")) {
-        fieldErrors.publisherId = cleanErrorMsg;
-      }
-      if (lowerMsg.includes("price")) {
-        fieldErrors.price = cleanErrorMsg;
-      }
-      if (lowerMsg.includes("stock")) {
-        fieldErrors.stock = cleanErrorMsg;
+        if (
+          lowerMsg.includes("isbn13") ||
+          lowerMsg.includes("isbn-13") ||
+          lowerMsg.includes("isbn 13")
+        ) {
+          fieldErrors.isbn13 = toastMessage;
+        }
+        if (lowerMsg.includes("title")) {
+          fieldErrors.title = toastMessage;
+        }
+        if (lowerMsg.includes("publisher")) {
+          fieldErrors.publisherId = toastMessage;
+        }
+        if (lowerMsg.includes("price")) {
+          fieldErrors.price = toastMessage;
+        }
+        if (lowerMsg.includes("stock")) {
+          fieldErrors.stock = toastMessage;
+        }
+        if (lowerMsg.includes("page")) {
+          fieldErrors.pages = toastMessage;
+        }
       }
 
       if (Object.keys(fieldErrors).length > 0) {
         setErrors((prev) => ({ ...prev, ...fieldErrors }));
+        scrollToFirstError(fieldErrors);
       }
 
-      toast.error(cleanErrorMsg);
+      toast.error(toastMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -1359,7 +1489,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               {/* Publication Date */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Publication Date <span className="text-red-500">*</span>
+                  Publication Date
                 </label>
                 <input
                   type="date"
@@ -1382,7 +1512,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               {/* Pages */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Total Pages <span className="text-red-500">*</span>
+                  Total Pages
                 </label>
                 <input
                   type="number"
@@ -1407,7 +1537,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               {/* ISBN 10 */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  ISBN-10 <span className="text-red-500">*</span>
+                  ISBN-10
                 </label>
                 <input
                   type="text"
@@ -1431,7 +1561,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               {/* ISBN 13 */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  ISBN-13 <span className="text-red-500">*</span>
+                  ISBN-13
                 </label>
                 <input
                   type="text"
@@ -1466,7 +1596,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               {/* Width */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Width (cm) <span className="text-red-500">*</span>
+                  Width (cm)
                 </label>
                 <input
                   type="number"
@@ -1492,7 +1622,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               {/* Height */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Height (cm) <span className="text-red-500">*</span>
+                  Height (cm)
                 </label>
                 <input
                   type="number"
@@ -1518,7 +1648,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               {/* Depth */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Depth / Spine (cm) <span className="text-red-500">*</span>
+                  Depth / Spine (cm)
                 </label>
                 <input
                   type="number"
@@ -1546,7 +1676,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
           <hr className="border-slate-200" />
 
           {/* 5. Images Gallery & Uploads */}
-          <div className="space-y-4">
+          <div id="images-section" className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-600 flex items-center gap-2">
                 <ImageIcon className="w-3.5 h-3.5" />
@@ -1705,7 +1835,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
           <hr className="border-slate-200" />
 
           {/* 6. Description (Rich Text Editor) */}
-          <div className="space-y-2">
+          <div id="description-section" className="space-y-2">
             <label className="block text-xs font-bold uppercase tracking-wider text-indigo-600">
               Book Description & Summary <span className="text-red-500">*</span>
             </label>

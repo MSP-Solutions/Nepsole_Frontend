@@ -158,11 +158,10 @@ export default function AuthDialog({
           ) : (
             <SignupForm
               onSuccess={() => {
-                handleOpenChange(false);
-                onSuccess?.();
+                setMode("login");
               }}
               onSwitchToLogin={() => setMode("login")}
-              redirectOnSuccess={redirectOnSuccess}
+              redirectOnSuccess={false}
               isDialog={true}
             />
           )}

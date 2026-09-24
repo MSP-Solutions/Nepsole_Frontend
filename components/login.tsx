@@ -270,6 +270,53 @@ export function LoginForm({
     }
   };
 
+  if (showVerificationDialog) {
+    return (
+      <div className="space-y-4 text-left animate-in fade-in duration-200">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 shadow-xs">
+          <Mail className="h-7 w-7" />
+        </div>
+        <div className="text-center space-y-1.5">
+          <h3 className="text-lg font-bold text-slate-900">
+            Email Verification Required
+          </h3>
+          <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
+            Your account for <strong className="text-slate-900">{unverifiedEmail}</strong> is not verified yet. Please check your email inbox or click below to resend the verification email.
+          </p>
+        </div>
+
+        <div className="space-y-2 pt-2 border-t border-slate-100">
+          <button
+            type="button"
+            disabled={isResending}
+            onClick={handleResendVerification}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition shadow-xs disabled:opacity-60 cursor-pointer"
+          >
+            {isResending ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Sending verification email...</span>
+              </>
+            ) : (
+              <>
+                <Mail className="w-4 h-4" />
+                <span>Resend Verification Email</span>
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowVerificationDialog(false)}
+            className="w-full px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer"
+          >
+            Back to Sign in
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-4 text-left">
@@ -341,7 +388,7 @@ export function LoginForm({
               {showPassword ? (
                 <EyeOff className="h-4 w-4" />
               ) : (
-                <Eye className="h-4 w-4" />
+                <Eye className="w-4 h-4" />
               )}
             </button>
           </div>
@@ -387,59 +434,6 @@ export function LoginForm({
           )}
         </p>
       </form>
-
-      {/* Verification Dialog */}
-      <Dialog
-        open={showVerificationDialog}
-        onOpenChange={setShowVerificationDialog}
-      >
-        <DialogContent className="sm:max-w-md bg-white border border-slate-200 rounded-2xl p-6 shadow-xl z-[70]">
-          <DialogHeader className="space-y-3 text-center sm:text-left">
-            <div className="mx-auto sm:mx-0 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-600 border border-amber-200">
-              <Mail className="h-6 w-6" />
-            </div>
-            <DialogTitle className="text-lg font-bold text-slate-900">
-              Email Verification Required
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-600 leading-relaxed">
-              Your account for{" "}
-              <strong className="text-slate-900">{unverifiedEmail}</strong> is
-              not verified yet. Please check your email inbox or click below to
-              resend the verification email.
-            </DialogDescription>
-          </DialogHeader>
-
-          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-4 border-t border-slate-100 mt-4">
-            <button
-              type="button"
-              disabled={isResending}
-              onClick={() => setShowVerificationDialog(false)}
-              className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition disabled:opacity-50 cursor-pointer"
-            >
-              Cancel
-            </button>
-
-            <button
-              type="button"
-              disabled={isResending}
-              onClick={handleResendVerification}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition shadow-xs disabled:opacity-60 cursor-pointer"
-            >
-              {isResending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Sending...</span>
-                </>
-              ) : (
-                <>
-                  <Mail className="h-4 w-4" />
-                  <span>Resend Verification Email</span>
-                </>
-              )}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Internal Forgot Password Dialog fallback */}
       <ForgotPasswordDialog

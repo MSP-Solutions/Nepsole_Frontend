@@ -46,6 +46,12 @@ export const ViewBookDialog: React.FC<ViewBookDialogProps> = ({
 }) => {
   const [selectedPreviewImage, setSelectedPreviewImage] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (!open) {
+      setSelectedPreviewImage(null);
+    }
+  }, [open]);
+
   if (!book) return null;
 
   const priceNum = Number(book.price) || 0;

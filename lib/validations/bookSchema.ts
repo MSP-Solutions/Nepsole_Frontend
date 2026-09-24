@@ -112,119 +112,76 @@ export const bookFormSchema = z.object({
 
   publicationDate: z
     .string()
-    .trim()
-    .min(1, { message: "Publication date is required." })
-    .refine(
-      (val) => {
-        const date = new Date(val);
-        return (
-          !isNaN(date.getTime()) &&
-          date.getFullYear() >= 1000 &&
-          date.getFullYear() <= 2100
-        );
-      },
-      { message: "Please enter a valid publication date." }
-    ),
+    .optional()
+    .nullable()
+    .or(z.literal("")),
 
   pages: z
     .union([z.string(), z.number()])
+    .optional()
+    .nullable()
+    .or(z.literal(""))
     .refine(
-      (val) =>
-        val !== "" &&
-        val !== null &&
-        val !== undefined &&
-        String(val).trim() !== "",
-      { message: "Total pages is required." }
-    )
-    .refine(
-      (val) =>
-        !isNaN(Number(val)) && Number(val) > 0 && Number.isInteger(Number(val)),
-      { message: "Total pages must be a positive whole number (e.g. 150)." }
-    )
-    .refine(
-      (val) => Number(val) <= 50000,
-      { message: "Pages cannot exceed 50,000." }
+      (val) => {
+        if (val === undefined || val === null || String(val).trim() === "") return true;
+        const num = Number(val);
+        return !isNaN(num) && num > 0 && Number.isInteger(num);
+      },
+      { message: "Pages must be a valid whole number greater than 0." }
     ),
 
   isbn10: z
     .string()
-    .trim()
-    .min(1, { message: "ISBN-10 is required." })
-    .refine(
-      (val) => {
-        const clean = val.replace(/[-\s]/g, "");
-        return clean.length === 10 && /^\d{9}[\dX]$/i.test(clean);
-      },
-      { message: "ISBN-10 must contain exactly 10 valid characters (e.g. 0735211299)." }
-    ),
+    .optional()
+    .nullable()
+    .or(z.literal("")),
 
   isbn13: z
     .string()
-    .trim()
-    .min(1, { message: "ISBN-13 is required." })
-    .refine(
-      (val) => {
-        const clean = val.replace(/[-\s]/g, "");
-        return clean.length === 13 && /^\d{13}$/.test(clean);
-      },
-      { message: "ISBN-13 must contain exactly 13 digits (e.g. 9780735211292)." }
-    ),
+    .optional()
+    .nullable()
+    .or(z.literal("")),
 
   widthCm: z
     .union([z.string(), z.number()])
+    .optional()
+    .nullable()
+    .or(z.literal(""))
     .refine(
-      (val) =>
-        val !== "" &&
-        val !== null &&
-        val !== undefined &&
-        String(val).trim() !== "",
-      { message: "Width is required." }
-    )
-    .refine(
-      (val) => !isNaN(Number(val)) && Number(val) >= 0,
-      { message: "Width must be a valid non-negative number." }
-    )
-    .refine(
-      (val) => Number(val) <= 1000,
-      { message: "Width must be less than 1,000 cm." }
+      (val) => {
+        if (val === undefined || val === null || String(val).trim() === "") return true;
+        const num = Number(val);
+        return !isNaN(num) && num >= 0;
+      },
+      { message: "Width must be a valid number (0 or higher)." }
     ),
 
   heightCm: z
     .union([z.string(), z.number()])
+    .optional()
+    .nullable()
+    .or(z.literal(""))
     .refine(
-      (val) =>
-        val !== "" &&
-        val !== null &&
-        val !== undefined &&
-        String(val).trim() !== "",
-      { message: "Height is required." }
-    )
-    .refine(
-      (val) => !isNaN(Number(val)) && Number(val) >= 0,
-      { message: "Height must be a valid non-negative number." }
-    )
-    .refine(
-      (val) => Number(val) <= 1000,
-      { message: "Height must be less than 1,000 cm." }
+      (val) => {
+        if (val === undefined || val === null || String(val).trim() === "") return true;
+        const num = Number(val);
+        return !isNaN(num) && num >= 0;
+      },
+      { message: "Height must be a valid number (0 or higher)." }
     ),
 
   depthCm: z
     .union([z.string(), z.number()])
+    .optional()
+    .nullable()
+    .or(z.literal(""))
     .refine(
-      (val) =>
-        val !== "" &&
-        val !== null &&
-        val !== undefined &&
-        String(val).trim() !== "",
-      { message: "Depth (spine) is required." }
-    )
-    .refine(
-      (val) => !isNaN(Number(val)) && Number(val) >= 0,
-      { message: "Depth must be a valid non-negative number." }
-    )
-    .refine(
-      (val) => Number(val) <= 1000,
-      { message: "Depth must be less than 1,000 cm." }
+      (val) => {
+        if (val === undefined || val === null || String(val).trim() === "") return true;
+        const num = Number(val);
+        return !isNaN(num) && num >= 0;
+      },
+      { message: "Depth must be a valid number (0 or higher)." }
     ),
 
   images: z

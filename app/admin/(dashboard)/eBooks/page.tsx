@@ -220,14 +220,22 @@ export default function EBooksAdminPage() {
     );
   });
 
+  const closeAllModals = () => {
+    setIsViewModalOpen(false);
+    setIsAddModalOpen(false);
+    setIsDeleteDialogOpen(false);
+  };
+
   // Handle View E-Book
   const handleViewClick = (book: BookItem) => {
+    closeAllModals();
     setViewingBook(book);
     setIsViewModalOpen(true);
   };
 
   // Handle Edit E-Book
   const handleEditClick = (book: BookItem) => {
+    closeAllModals();
     // Extract author IDs
     const extractedAuthorIds = (book.authors || book.authorBooks || []).map(
       (a) => a.author?.id || a.id,
@@ -274,6 +282,7 @@ export default function EBooksAdminPage() {
 
   // Handle Delete Confirmation
   const handleDeleteClick = (book: BookItem) => {
+    closeAllModals();
     setBookToDelete(book);
     setIsDeleteDialogOpen(true);
   };
@@ -284,7 +293,7 @@ export default function EBooksAdminPage() {
     try {
       await axiosAuthInstance.delete(`/v1/ebook/${bookToDelete.id}`);
       toast.success(`"${bookToDelete.title}" deleted successfully!`);
-      setIsDeleteDialogOpen(false);
+      closeAllModals();
       setBookToDelete(null);
       fetchEBooks();
     } catch (err: any) {
@@ -351,6 +360,7 @@ export default function EBooksAdminPage() {
           <button
             type="button"
             onClick={() => {
+              closeAllModals();
               setBookToEdit(null);
               setIsAddModalOpen(true);
             }}
@@ -649,10 +659,14 @@ export default function EBooksAdminPage() {
       {/* View Book Details Dialog */}
       <ViewEBooksDialog
         open={isViewModalOpen}
-        onOpenChange={setIsViewModalOpen}
+        onOpenChange={(open) => {
+          setIsViewModalOpen(open);
+          if (!open) setViewingBook(null);
+        }}
         book={viewingBook}
         onEdit={(book) => {
-          setIsViewModalOpen(false);
+          closeAllModals();
+          setViewingBook(null);
           handleEditClick(book);
         }}
       />
@@ -660,15 +674,26 @@ export default function EBooksAdminPage() {
       {/* Add / Edit E-Book Dialog */}
       <AddEBooksDailog
         open={isAddModalOpen}
-        onOpenChange={setIsAddModalOpen}
+        onOpenChange={(open) => {
+          setIsAddModalOpen(open);
+          if (!open) setBookToEdit(null);
+        }}
         bookToEdit={bookToEdit}
         onSuccess={() => {
+          closeAllModals();
+          setBookToEdit(null);
           fetchEBooks();
         }}
       />
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <Dialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open);
+          if (!open) setBookToDelete(null);
+        }}
+      >
         <DialogContent
           showCloseButton={false}
           className="w-[95vw] max-w-md p-0 bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden"

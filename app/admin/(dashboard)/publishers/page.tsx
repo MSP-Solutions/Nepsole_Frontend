@@ -119,22 +119,32 @@ export default function Page() {
     fetchPublishers(currentPage, pageSize);
   }, [currentPage, pageSize]);
 
+  const closeAllModals = () => {
+    setIsAddDialogOpen(false);
+    setIsViewDialogOpen(false);
+    setIsDeleteDialogOpen(false);
+  };
+
   const handleOpenAddModal = () => {
+    closeAllModals();
     setEditingPublisher(null);
     setIsAddDialogOpen(true);
   };
 
   const handleEdit = (publisher: PublisherItem) => {
+    closeAllModals();
     setEditingPublisher(publisher);
     setIsAddDialogOpen(true);
   };
 
   const handleView = (publisher: PublisherItem) => {
+    closeAllModals();
     setViewingPublisher(publisher);
     setIsViewDialogOpen(true);
   };
 
   const handleDeleteClick = (publisher: PublisherItem) => {
+    closeAllModals();
     setDeletingPublisher(publisher);
     setIsDeleteDialogOpen(true);
   };
@@ -146,7 +156,7 @@ export default function Page() {
     try {
       await axiosAuthInstance.delete(`/v1/publisher/${deletingPublisher.id}`);
       toast.success("Publisher deleted successfully.");
-      setIsDeleteDialogOpen(false);
+      closeAllModals();
       setDeletingPublisher(null);
       fetchPublishers();
     } catch (error: any) {
@@ -187,23 +197,40 @@ export default function Page() {
               {/* Add / Edit Dialog */}
               <AddPublishersDialog
                 open={isAddDialogOpen}
-                onOpenChange={setIsAddDialogOpen}
+                onOpenChange={(open) => {
+                  setIsAddDialogOpen(open);
+                  if (!open) setEditingPublisher(null);
+                }}
                 publisherToEdit={editingPublisher}
-                onSuccess={() => fetchPublishers()}
+                onSuccess={() => {
+                  closeAllModals();
+                  setEditingPublisher(null);
+                  fetchPublishers();
+                }}
               />
 
               {/* View Dialog */}
               <ViewPublisherDialog
                 open={isViewDialogOpen}
-                onOpenChange={setIsViewDialogOpen}
+                onOpenChange={(open) => {
+                  setIsViewDialogOpen(open);
+                  if (!open) setViewingPublisher(null);
+                }}
                 publisher={viewingPublisher}
-                onEdit={handleEdit}
+                onEdit={(publisher) => {
+                  closeAllModals();
+                  setViewingPublisher(null);
+                  handleEdit(publisher);
+                }}
               />
 
               {/* Delete Confirmation Dialog */}
               <DeletePublisherDialog
                 open={isDeleteDialogOpen}
-                onOpenChange={setIsDeleteDialogOpen}
+                onOpenChange={(open) => {
+                  setIsDeleteDialogOpen(open);
+                  if (!open) setDeletingPublisher(null);
+                }}
                 publisher={deletingPublisher}
                 onConfirm={handleConfirmDelete}
                 isDeleting={isDeleting}

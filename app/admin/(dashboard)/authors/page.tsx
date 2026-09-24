@@ -120,22 +120,32 @@ export default function AuthorsPage() {
     fetchAuthors(currentPage, pageSize);
   }, [currentPage, pageSize]);
 
+  const closeAllModals = () => {
+    setIsAddDialogOpen(false);
+    setIsViewDialogOpen(false);
+    setIsDeleteDialogOpen(false);
+  };
+
   const handleOpenAddModal = () => {
+    closeAllModals();
     setEditingAuthor(null);
     setIsAddDialogOpen(true);
   };
 
   const handleEdit = (author: AuthorItem) => {
+    closeAllModals();
     setEditingAuthor(author);
     setIsAddDialogOpen(true);
   };
 
   const handleView = (author: AuthorItem) => {
+    closeAllModals();
     setViewingAuthor(author);
     setIsViewDialogOpen(true);
   };
 
   const handleDeleteClick = (author: AuthorItem) => {
+    closeAllModals();
     setDeletingAuthor(author);
     setIsDeleteDialogOpen(true);
   };
@@ -147,7 +157,7 @@ export default function AuthorsPage() {
     try {
       await axiosAuthInstance.delete(`/v1/author/${deletingAuthor.id}`);
       toast.success("Author deleted successfully.");
-      setIsDeleteDialogOpen(false);
+      closeAllModals();
       setDeletingAuthor(null);
       fetchAuthors(currentPage, pageSize);
     } catch (error: any) {
@@ -217,23 +227,40 @@ export default function AuthorsPage() {
               {/* Add / Edit Dialog */}
               <AddAuthorDialog
                 open={isAddDialogOpen}
-                onOpenChange={setIsAddDialogOpen}
+                onOpenChange={(open) => {
+                  setIsAddDialogOpen(open);
+                  if (!open) setEditingAuthor(null);
+                }}
                 authorToEdit={editingAuthor}
-                onSuccess={() => fetchAuthors(currentPage, pageSize)}
+                onSuccess={() => {
+                  closeAllModals();
+                  setEditingAuthor(null);
+                  fetchAuthors(currentPage, pageSize);
+                }}
               />
 
               {/* View Dialog */}
               <ViewAuthorDialog
                 open={isViewDialogOpen}
-                onOpenChange={setIsViewDialogOpen}
+                onOpenChange={(open) => {
+                  setIsViewDialogOpen(open);
+                  if (!open) setViewingAuthor(null);
+                }}
                 author={viewingAuthor}
-                onEdit={handleEdit}
+                onEdit={(author) => {
+                  closeAllModals();
+                  setViewingAuthor(null);
+                  handleEdit(author);
+                }}
               />
 
               {/* Delete Confirmation Dialog */}
               <DeleteAuthorDialog
                 open={isDeleteDialogOpen}
-                onOpenChange={setIsDeleteDialogOpen}
+                onOpenChange={(open) => {
+                  setIsDeleteDialogOpen(open);
+                  if (!open) setDeletingAuthor(null);
+                }}
                 author={deletingAuthor}
                 onConfirm={handleConfirmDelete}
                 isDeleting={isDeleting}
