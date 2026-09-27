@@ -44,7 +44,7 @@ export const AddBannerDialog: React.FC<AddBannerDialogProps> = ({
   bannerToEdit,
 }) => {
   const [title, setTitle] = useState("");
-  const [sortOrder, setSortOrder] = useState<number>(0);
+  const [sortOrder, setSortOrder] = useState<number>(1);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -70,7 +70,7 @@ export const AddBannerDialog: React.FC<AddBannerDialogProps> = ({
 
   const resetForm = () => {
     setTitle("");
-    setSortOrder(0);
+    setSortOrder(1);
     setImagePreview(null);
     setSelectedFile(null);
     setIsDragOver(false);
@@ -83,7 +83,11 @@ export const AddBannerDialog: React.FC<AddBannerDialogProps> = ({
     if (open) {
       if (bannerToEdit) {
         setTitle(bannerToEdit.title || "");
-        setSortOrder(bannerToEdit.sortOrder || 0);
+        setSortOrder(
+          bannerToEdit.sortOrder && bannerToEdit.sortOrder > 0
+            ? Number(bannerToEdit.sortOrder)
+            : 1,
+        );
         const img = getBannerImage(bannerToEdit);
         setImagePreview(img || null);
         setSelectedFile(null);
@@ -152,9 +156,10 @@ export const AddBannerDialog: React.FC<AddBannerDialogProps> = ({
     setIsSubmitting(true);
 
     try {
+      const safeSortOrder = Math.max(1, Number(sortOrder) || 1);
       const formData = new FormData();
       formData.append("title", title.trim());
-      formData.append("sortOrder", sortOrder.toString());
+      formData.append("sortOrder", safeSortOrder.toString());
 
       if (selectedFile) {
         formData.append("image", selectedFile);
@@ -174,10 +179,14 @@ export const AddBannerDialog: React.FC<AddBannerDialogProps> = ({
         }
 
         // Also call the reorder endpoint if it has changed, or to be safe
-        if (sortOrder !== (bannerToEdit.sortOrder || 0)) {
+        const previousOrder =
+          bannerToEdit.sortOrder && bannerToEdit.sortOrder > 0
+            ? Number(bannerToEdit.sortOrder)
+            : 1;
+        if (safeSortOrder !== previousOrder) {
           try {
             await axiosAuthInstance.patch(`/v1/banner/${bannerToEdit.id}/reorder`, {
-              newOrder: sortOrder,
+              newOrder: safeSortOrder,
             });
           } catch (e) {
             console.error("Failed to update sortOrder:", e);
@@ -259,14 +268,18 @@ export const AddBannerDialog: React.FC<AddBannerDialogProps> = ({
             {/* Banner Sort Order */}
             <div>
               <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-700">
-                Sort Order
+                Sort Order <span className="text-rose-500">*</span>
               </label>
               <input
                 type="number"
-                min="0"
+                min="1"
                 value={sortOrder}
-                onChange={(e) => setSortOrder(parseInt(e.target.value) || 0)}
-                placeholder="0"
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  setSortOrder(isNaN(val) || val < 1 ? 1 : val);
+                }}
+                placeholder="1"
+                required
                 className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition focus:border-[#1749A0] focus:bg-white focus:ring-2 focus:ring-[#1749A0]/10"
               />
             </div>
