@@ -152,6 +152,7 @@ export default function BookDetailPage({
   const [isWishlistLoading, setIsWishlistLoading] = useState<boolean>(false);
   const [isImageDialogOpen, setIsImageDialogOpen] = useState<boolean>(false);
   const [isAddingToCart, setIsAddingToCart] = useState<boolean>(false);
+  const [isBuyingNow, setIsBuyingNow] = useState<boolean>(false);
   const [reviewsCount, setReviewsCount] = useState<number>(0);
   const [avgRating, setAvgRating] = useState<number>(0);
 
@@ -379,28 +380,33 @@ export default function BookDetailPage({
   // Add to Cart handler (/v1/cart)
   const handleAddToCart = async (showToast = true): Promise<boolean> => {
     if (!book) return false;
+
+    const user = await getUserCookie();
+    if (!user?.accessToken) {
+      toast.dismiss();
+      toast.error("Please login first to add books to your cart");
+      openAuthModal("login");
+      return false;
+    }
+
     setIsAddingToCart(true);
 
     try {
-      const user = await getUserCookie();
       const numId = Number(book.id) || Number(id);
 
-      if (user?.accessToken) {
-        // User is logged in: Call POST /v1/cart
-        try {
-          await axiosAuthInstance.post("/v1/cart", {
+      try {
+        await axiosAuthInstance.post("/v1/cart", {
+          bookId: !isNaN(numId) ? numId : id,
+          quantity: quantity,
+        });
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          await axiosAuthInstance.post("/api/v1/cart", {
             bookId: !isNaN(numId) ? numId : id,
             quantity: quantity,
           });
-        } catch (err: any) {
-          if (err?.response?.status === 404) {
-            await axiosAuthInstance.post("/api/v1/cart", {
-              bookId: !isNaN(numId) ? numId : id,
-              quantity: quantity,
-            });
-          } else {
-            throw err;
-          }
+        } else {
+          throw err;
         }
       }
 
@@ -471,9 +477,24 @@ export default function BookDetailPage({
   };
 
   const handleBuyNow = async () => {
-    const success = await handleAddToCart(false);
-    if (success) {
-      router.push("/cart");
+    if (!book) return;
+
+    const user = await getUserCookie();
+    if (!user?.accessToken) {
+      toast.dismiss();
+      toast.error("Please login first to proceed with your purchase");
+      openAuthModal("login");
+      return;
+    }
+
+    setIsBuyingNow(true);
+    try {
+      const success = await handleAddToCart(false);
+      if (success) {
+        router.push("/user/cart");
+      }
+    } finally {
+      setIsBuyingNow(false);
     }
   };
 
@@ -1015,7 +1036,7 @@ export default function BookDetailPage({
               <div className="space-y-2 pt-2">
                 <button
                   type="button"
-                  disabled={isOutOfStock || isAddingToCart}
+                  disabled={isOutOfStock || isAddingToCart || isBuyingNow}
                   onClick={() => handleAddToCart(true)}
                   className="w-full py-2.5 bg-amber-400 hover:bg-amber-500 font-bold text-slate-950 rounded-xl transition-all shadow-xs text-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -1033,11 +1054,18 @@ export default function BookDetailPage({
                 </button>
                 <button
                   type="button"
-                  disabled={isOutOfStock || isAddingToCart}
+                  disabled={isOutOfStock || isAddingToCart || isBuyingNow}
                   onClick={handleBuyNow}
-                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 font-bold text-white rounded-xl transition-all shadow-xs text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 font-bold text-white rounded-xl transition-all shadow-xs text-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Buy Now
+                  {isBuyingNow ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Proceeding to Cart...</span>
+                    </>
+                  ) : (
+                    <span>Buy Now</span>
+                  )}
                 </button>
               </div>
             </div>

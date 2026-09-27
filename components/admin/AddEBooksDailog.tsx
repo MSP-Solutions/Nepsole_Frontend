@@ -27,6 +27,7 @@ import {
   Plus,
   Save,
   Search,
+  Trash2,
   Upload,
   User,
   X,
@@ -34,6 +35,7 @@ import {
 import React, { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import TextEditorEdit from "../TextEditor";
+import { ebookFormSchema } from "@/lib/validations/ebookSchema";
 
 export interface OptionItem {
   id: number | string;
@@ -121,6 +123,7 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
   const [selectedLanguages, setSelectedLanguages] = useState<
     (number | string)[]
   >([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // PDF Document File State
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -152,7 +155,7 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
   const [languageOpen, setLanguageOpen] = useState(false);
   const [languageSearch, setLanguageSearch] = useState("");
 
-  // Refs for click outside
+  // Refs for click outside and error scrolling
   const publisherRef = useRef<HTMLDivElement>(null);
   const authorRef = useRef<HTMLDivElement>(null);
   const genreRef = useRef<HTMLDivElement>(null);
@@ -284,6 +287,7 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
 
         setExistingImages(loadedExisting);
         setUploadedImages([]);
+        setErrors({});
       } else {
         resetForm();
       }
@@ -300,6 +304,7 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
     setExistingImages([]);
     uploadedImages.forEach((img) => URL.revokeObjectURL(img.preview));
     setUploadedImages([]);
+    setErrors({});
   };
 
   const handleInputChange = (
@@ -310,26 +315,69 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
       ...prev,
       [name]: value,
     }));
+    if (errors[name]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    }
   };
 
-  // Image Upload handler for new images
+  // Image Upload handler for new images with validation
   const handleImageFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
+
+    const validFiles: File[] = [];
+    const maxSizeBytes = 10 * 1024 * 1024; // 10MB limit per image
+    const allowedTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+      "image/svg+xml",
+      "image/avif",
+    ];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!allowedTypes.includes(file.type) && !file.type.startsWith("image/")) {
+        toast.error(`"${file.name}" is not a supported image format.`);
+        continue;
+      }
+      if (file.size > maxSizeBytes) {
+        toast.error(`"${file.name}" exceeds the maximum allowed size of 10MB.`);
+        continue;
+      }
+      validFiles.push(file);
+    }
+
+    if (validFiles.length === 0) {
+      e.target.value = "";
+      return;
+    }
 
     // Check if there is already any image marked as COVER
     const hasAnyCover =
       existingImages.some((img) => img.type === "COVER") ||
       uploadedImages.some((img) => img.type === "COVER");
 
-    const newItems: BookImageItem[] = Array.from(files).map((file, idx) => ({
+    const newItems: BookImageItem[] = validFiles.map((file, idx) => ({
       file,
       preview: URL.createObjectURL(file),
-      // Only the first new image can become COVER if no COVER currently exists; all other images default to INSIDE
       type: !hasAnyCover && idx === 0 ? "COVER" : "INSIDE",
     }));
 
     setUploadedImages((prev) => [...prev, ...newItems]);
+    if (errors.images) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.images;
+        return next;
+      });
+    }
     e.target.value = "";
   };
 
@@ -340,7 +388,6 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
         URL.revokeObjectURL(target.preview);
       }
       const next = prev.filter((_, i) => i !== index);
-      // If the removed image was COVER and no other COVER exists in existing images, promote first remaining image
       if (
         target?.type === "COVER" &&
         !existingImages.some((img) => img.type === "COVER") &&
@@ -354,7 +401,6 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
 
   const handleUploadedImageTypeChange = (index: number, newType: string) => {
     if (newType === "COVER") {
-      // Demote all existing and other uploaded images to INSIDE so only ONE is COVER
       setExistingImages((prev) =>
         prev.map((item) =>
           item.type === "COVER" ? { ...item, type: "INSIDE" } : item,
@@ -384,7 +430,6 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
     setExistingImages((prev) => {
       const target = prev[index];
       const next = prev.filter((_, i) => i !== index);
-      // If the removed image was COVER, promote first existing or uploaded image to COVER
       if (target?.type === "COVER") {
         if (next.length > 0) {
           next[0].type = "COVER";
@@ -402,7 +447,6 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
 
   const handleExistingImageTypeChange = (index: number, newType: string) => {
     if (newType === "COVER") {
-      // Demote all uploaded and other existing images to INSIDE so only ONE is COVER
       setUploadedImages((prev) =>
         prev.map((item) =>
           item.type === "COVER" ? { ...item, type: "INSIDE" } : item,
@@ -428,20 +472,36 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
     }
   };
 
-  // PDF File Upload Handler
+  // PDF File Upload Handler with validation
   const handlePdfFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.type !== "application/pdf" && !file.name.endsWith(".pdf")) {
+      if (
+        file.type !== "application/pdf" &&
+        !file.name.toLowerCase().endsWith(".pdf")
+      ) {
         toast.error("Please upload a valid PDF document.");
         return;
       }
+      const maxPdfSize = 100 * 1024 * 1024; // 100MB limit
+      if (file.size > maxPdfSize) {
+        toast.error("PDF file exceeds the maximum allowed size of 100MB.");
+        return;
+      }
       setPdfFile(file);
+      if (errors.pdfUrl || errors.pdfFile) {
+        setErrors((prev) => {
+          const next = { ...prev };
+          delete next.pdfUrl;
+          delete next.pdfFile;
+          return next;
+        });
+      }
     }
     e.target.value = "";
   };
 
-  // Toggles for Multi-Selects
+  // Toggles for Multi-Selects with automatic error clearing
   const toggleSelection = (
     id: number | string,
     current: (number | string)[],
@@ -454,22 +514,150 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
     }
   };
 
+  const toggleAuthor = (id: number | string) => {
+    toggleSelection(id, selectedAuthors, setSelectedAuthors);
+    if (errors.authorIds || errors.authors) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.authorIds;
+        delete next.authors;
+        return next;
+      });
+    }
+  };
+
+  const toggleGenre = (id: number | string) => {
+    toggleSelection(id, selectedGenres, setSelectedGenres);
+    if (errors.genreIds || errors.genres) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.genreIds;
+        delete next.genres;
+        return next;
+      });
+    }
+  };
+
+  const toggleLanguage = (id: number | string) => {
+    toggleSelection(id, selectedLanguages, setSelectedLanguages);
+    if (errors.languageIds || errors.languages) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.languageIds;
+        delete next.languages;
+        return next;
+      });
+    }
+  };
+
+  const scrollToFirstError = (fieldErrors: Record<string, string>) => {
+    const errorKeys = Object.keys(fieldErrors);
+    if (errorKeys.length === 0) return;
+
+    // Field order matching form layout top-to-bottom
+    const fieldOrder = [
+      "plan",
+      "pdfUrl",
+      "pdfFile",
+      "title",
+      "publisherId",
+      "authorIds",
+      "authors",
+      "genreIds",
+      "genres",
+      "languageIds",
+      "languages",
+      "price",
+      "discountPercent",
+      "soldCount",
+      "publicationDate",
+      "pages",
+      "isbn10",
+      "isbn13",
+      "images",
+      "description",
+    ];
+
+    const targetField = fieldOrder.find((f) => fieldErrors[f]) || errorKeys[0];
+
+    setTimeout(() => {
+      let targetEl: HTMLElement | null = null;
+
+      if (targetField === "publisherId") {
+        targetEl = publisherRef.current;
+      } else if (targetField === "authorIds" || targetField === "authors") {
+        targetEl = authorRef.current;
+      } else if (targetField === "genreIds" || targetField === "genres") {
+        targetEl = genreRef.current;
+      } else if (targetField === "languageIds" || targetField === "languages") {
+        targetEl = languageRef.current;
+      } else if (targetField === "images") {
+        targetEl =
+          document.getElementById("images-section") ||
+          document.getElementById("ebook-images-section") ||
+          document.querySelector("input[name='images']");
+      } else if (targetField === "description") {
+        targetEl =
+          document.getElementById("description-section") ||
+          document.getElementById("ebook-description-section") ||
+          document.querySelector(".ql-editor");
+      } else if (targetField === "pdfUrl" || targetField === "pdfFile") {
+        targetEl = document.getElementById("pdf-section");
+      } else {
+        targetEl = document.querySelector(`[name='${targetField}']`);
+      }
+
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (
+          targetEl instanceof HTMLInputElement ||
+          targetEl instanceof HTMLTextAreaElement
+        ) {
+          targetEl.focus({ preventScroll: true });
+        }
+      }
+    }, 80);
+  };
+
+  const validateForm = (): boolean => {
+    const allImages = [...existingImages, ...uploadedImages];
+    const dataToValidate = {
+      ...formData,
+      authorIds: selectedAuthors,
+      genreIds: selectedGenres,
+      languageIds: selectedLanguages,
+      images: allImages,
+      description: formData.description,
+      pdfUrl: pdfFile || existingPdfUrl || null,
+    };
+
+    const result = ebookFormSchema.safeParse(dataToValidate);
+
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      result.error.issues.forEach((issue) => {
+        const fieldName = String(issue.path[0]);
+        if (!fieldErrors[fieldName]) {
+          fieldErrors[fieldName] = issue.message;
+        }
+      });
+      setErrors(fieldErrors);
+
+      const firstErrorMessage =
+        result.error.issues[0]?.message || "Please fill in all required fields.";
+      toast.error(firstErrorMessage);
+      scrollToFirstError(fieldErrors);
+      return false;
+    }
+
+    setErrors({});
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.title.trim()) {
-      toast.error("E-Book Title is required.");
-      return;
-    }
-    if (
-      formData.plan === "PAID" &&
-      (!formData.price || Number(formData.price) <= 0)
-    ) {
-      toast.error("Please provide a valid Price for a Paid E-Book.");
-      return;
-    }
-    if (!formData.publisherId) {
-      toast.error("Please select a Publisher.");
+    if (!validateForm()) {
       return;
     }
 
@@ -489,18 +677,24 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
       );
       data.append("soldCount", String(Number(formData.soldCount) || 0));
 
-      if (formData.publicationDate) {
-        data.append("publicationDate", formData.publicationDate);
+      if (formData.publicationDate && formData.publicationDate.trim()) {
+        data.append("publicationDate", formData.publicationDate.trim());
       }
-      if (formData.isbn10.trim()) {
+      if (formData.isbn10 && formData.isbn10.trim()) {
         data.append("isbn10", formData.isbn10.trim());
       }
-      if (formData.isbn13.trim()) {
+      if (formData.isbn13 && formData.isbn13.trim()) {
         data.append("isbn13", formData.isbn13.trim());
       }
-      if (formData.pages) {
-        data.append("pages", String(Number(formData.pages)));
+
+      const pagesStr = String(formData.pages ?? "").trim();
+      if (pagesStr !== "") {
+        const pagesNum = Number(pagesStr);
+        if (!isNaN(pagesNum) && pagesNum > 0) {
+          data.append("pages", String(pagesNum));
+        }
       }
+
       if (formData.description) {
         data.append("description", formData.description);
       }
@@ -557,13 +751,150 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
       onOpenChange(false);
     } catch (error: any) {
       console.error("Save eBook error:", error);
-      const errorMsg =
-        error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        "Failed to save e-book.";
-      toast.error(
-        typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg),
-      );
+      const resData = error?.response?.data;
+      const fieldErrors: Record<string, string> = {};
+
+      const normalizeFieldName = (rawField: string): string => {
+        const f = rawField.toLowerCase().replace(/[-_]/g, "");
+        if (f === "isbn10") return "isbn10";
+        if (f === "isbn13") return "isbn13";
+        if (f === "publicationdate" || f === "pubdate") return "publicationDate";
+        if (f === "publisherid" || f === "publisher") return "publisherId";
+        if (f === "authorids" || f === "authors" || f === "author") return "authorIds";
+        if (f === "genreids" || f === "genres" || f === "genre") return "genreIds";
+        if (f === "languageids" || f === "languages" || f === "language") return "languageIds";
+        if (f === "discountpercent" || f === "discount") return "discountPercent";
+        if (f === "soldcount" || f === "sold") return "soldCount";
+        if (f === "description" || f === "desc") return "description";
+        if (f === "images" || f === "imagestypes" || f === "image") return "images";
+        if (f === "pdfurl" || f === "pdf" || f === "pdffile") return "pdfUrl";
+        if (f === "plan") return "plan";
+        if (f === "price") return "price";
+        if (f === "pages" || f === "page") return "pages";
+        return rawField;
+      };
+
+      const extractCleanMessage = (errData: any): string => {
+        if (!errData) return "Failed to save e-book.";
+        if (typeof errData === "string") {
+          const trimmed = errData.trim();
+          if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+            try {
+              const parsed = JSON.parse(trimmed);
+              return extractCleanMessage(parsed);
+            } catch {
+              return trimmed;
+            }
+          }
+          return trimmed;
+        }
+        if (Array.isArray(errData)) {
+          return errData
+            .map((item) => extractCleanMessage(item))
+            .filter(Boolean)
+            .join(", ");
+        }
+        if (typeof errData === "object") {
+          if (errData.message && typeof errData.message === "string") {
+            return extractCleanMessage(errData.message);
+          }
+          if (errData.error && typeof errData.error === "string") {
+            return extractCleanMessage(errData.error);
+          }
+          if (errData.errors) {
+            return extractCleanMessage(errData.errors);
+          }
+          const values = Object.values(errData);
+          if (values.length > 0) {
+            return extractCleanMessage(values[0]);
+          }
+        }
+        return "Failed to save e-book.";
+      };
+
+      // 1. Process structured backend validation errors
+      const detailsList =
+        resData?.error?.details ||
+        resData?.details ||
+        resData?.errors ||
+        (Array.isArray(resData?.error) ? resData.error : null);
+
+      if (Array.isArray(detailsList)) {
+        detailsList.forEach((item: any) => {
+          const field =
+            item.field ||
+            item.path ||
+            item.param ||
+            (Array.isArray(item.path) ? item.path[0] : null);
+          const msg =
+            item.message ||
+            item.msg ||
+            item.error ||
+            extractCleanMessage(item);
+          if (field && msg) {
+            fieldErrors[normalizeFieldName(String(field))] = String(msg);
+          }
+        });
+      } else if (typeof detailsList === "object" && detailsList !== null) {
+        Object.entries(detailsList).forEach(([k, v]: [string, any]) => {
+          fieldErrors[normalizeFieldName(k)] = extractCleanMessage(v);
+        });
+      }
+
+      // Determine the main error toast message
+      let mainErrorMsg = "";
+      if (resData?.error?.message && typeof resData.error.message === "string") {
+        mainErrorMsg = resData.error.message;
+      } else if (resData?.message && typeof resData.message === "string") {
+        mainErrorMsg = resData.message;
+      } else {
+        mainErrorMsg = extractCleanMessage(resData);
+      }
+
+      const firstFieldErrorMsg = Object.values(fieldErrors)[0];
+      const toastMessage =
+        firstFieldErrorMsg || mainErrorMsg || "Failed to save e-book.";
+
+      // Smart pattern fallback if fieldErrors is still empty
+      if (Object.keys(fieldErrors).length === 0) {
+        const lowerMsg = toastMessage.toLowerCase();
+        if (
+          lowerMsg.includes("isbn10") ||
+          lowerMsg.includes("isbn-10") ||
+          lowerMsg.includes("isbn 10")
+        ) {
+          fieldErrors.isbn10 = toastMessage;
+        }
+        if (
+          lowerMsg.includes("isbn13") ||
+          lowerMsg.includes("isbn-13") ||
+          lowerMsg.includes("isbn 13")
+        ) {
+          fieldErrors.isbn13 = toastMessage;
+        }
+        if (lowerMsg.includes("title")) {
+          fieldErrors.title = toastMessage;
+        }
+        if (lowerMsg.includes("publisher")) {
+          fieldErrors.publisherId = toastMessage;
+        }
+        if (lowerMsg.includes("price")) {
+          fieldErrors.price = toastMessage;
+        }
+        if (lowerMsg.includes("page")) {
+          fieldErrors.pages = toastMessage;
+        }
+        if (lowerMsg.includes("pdf")) {
+          fieldErrors.pdfUrl = toastMessage;
+        }
+      }
+
+      if (Object.keys(fieldErrors).length > 0) {
+        setErrors((prev) => ({ ...prev, ...fieldErrors }));
+        scrollToFirstError(fieldErrors);
+      }
+
+      toast.error(toastMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -606,12 +937,12 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="w-[98vw] md:max-w-4xl max-h-[92vh] flex flex-col p-0 bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden"
+        className="w-[98vw] md:max-w-4xl max-h-[92vh] flex flex-col p-0 bg-white rounded-xl border border-slate-200 shadow-2xl overflow-hidden"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50/80">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50/70">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm">
+            <div className="w-10 h-10 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm">
               <BookOpen className="w-5 h-5" />
             </div>
             <div>
@@ -619,8 +950,7 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                 {bookToEdit ? "Edit E-Book" : "Add New E-Book"}
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500">
-                Upload PDF document, configure access plan, and enter e-book
-                details.
+                Enter comprehensive e-book details to catalog in the system.
               </DialogDescription>
             </div>
           </div>
@@ -656,13 +986,20 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() =>
+                    onClick={() => {
                       setFormData((prev) => ({
                         ...prev,
                         plan: "FREE",
                         price: "0",
-                      }))
-                    }
+                      }));
+                      if (errors.price) {
+                        setErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.price;
+                          return next;
+                        });
+                      }
+                    }}
                     className={`flex items-center justify-center gap-2 p-3 rounded-xl border text-xs font-bold transition cursor-pointer ${
                       formData.plan === "FREE"
                         ? "bg-emerald-50 border-emerald-500 text-emerald-800 ring-2 ring-emerald-500/20"
@@ -691,7 +1028,7 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
               </div>
 
               {/* PDF Document Upload Input */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5" id="pdf-section">
                 <label className="block text-xs font-semibold text-slate-700 flex items-center justify-between">
                   <span>PDF Document (pdfUrl)</span>
                   {existingPdfUrl && (
@@ -717,7 +1054,13 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                   />
 
                   {pdfFile ? (
-                    <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-indigo-300 bg-indigo-50/60 text-xs text-indigo-900">
+                    <div
+                      className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl border text-xs ${
+                        errors.pdfUrl || errors.pdfFile
+                          ? "border-rose-400 bg-rose-50/30 text-rose-900"
+                          : "border-indigo-300 bg-indigo-50/60 text-indigo-900"
+                      }`}
+                    >
                       <div className="flex items-center gap-2 min-w-0">
                         <FileText className="w-4 h-4 text-indigo-600 shrink-0" />
                         <span className="truncate font-semibold">
@@ -739,7 +1082,11 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                   ) : (
                     <label
                       htmlFor="ebook-pdf-input"
-                      className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-indigo-50/50 hover:border-indigo-400 text-xs font-semibold text-slate-600 transition cursor-pointer"
+                      className={`flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl border-2 border-dashed text-xs font-semibold transition cursor-pointer ${
+                        errors.pdfUrl || errors.pdfFile
+                          ? "border-rose-400 bg-rose-50/20 text-rose-600 hover:bg-rose-50/40"
+                          : "border-slate-300 bg-slate-50 hover:bg-indigo-50/50 hover:border-indigo-400 text-slate-600"
+                      }`}
                     >
                       <Upload className="w-4 h-4 text-indigo-600" />
                       <span>
@@ -750,6 +1097,11 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                     </label>
                   )}
                 </div>
+                {(errors.pdfUrl || errors.pdfFile) && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.pdfUrl || errors.pdfFile}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -772,12 +1124,20 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                 <input
                   type="text"
                   name="title"
-                  required
                   placeholder="e.g. Good Boyes"
                   value={formData.title}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                  className={`w-full rounded-lg border px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 shadow-sm transition ${
+                    errors.title
+                      ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 bg-white focus:border-indigo-500 focus:ring-indigo-500"
+                  }`}
                 />
+                {errors.title && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.title}
+                  </p>
+                )}
               </div>
 
               {/* Publisher Dropdown (/v1/publisher) */}
@@ -790,9 +1150,11 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                 <div
                   onClick={() => setPublisherOpen(!publisherOpen)}
                   className={`w-full flex items-center justify-between rounded-lg border px-3.5 py-2 text-sm cursor-pointer bg-white transition shadow-sm ${
-                    publisherOpen
-                      ? "border-indigo-500 ring-1 ring-indigo-500"
-                      : "border-slate-300 hover:border-slate-400"
+                    errors.publisherId
+                      ? "border-rose-400 ring-1 ring-rose-400 bg-rose-50/20"
+                      : publisherOpen
+                        ? "border-indigo-500 ring-1 ring-indigo-500"
+                        : "border-slate-300 hover:border-slate-400"
                   }`}
                 >
                   <span
@@ -809,6 +1171,12 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                   </span>
                   <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 ml-2" />
                 </div>
+
+                {errors.publisherId && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.publisherId}
+                  </p>
+                )}
 
                 {publisherOpen && (
                   <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 shadow-xl animate-in fade-in-50 zoom-in-95">
@@ -845,6 +1213,11 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                                   ...prev,
                                   publisherId: pub.id,
                                 }));
+                                setErrors((prev) => {
+                                  const next = { ...prev };
+                                  delete next.publisherId;
+                                  return next;
+                                });
                                 setPublisherOpen(false);
                                 setPublisherSearch("");
                               }}
@@ -873,15 +1246,17 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
               <div className="space-y-1.5 relative" ref={authorRef}>
                 <label className="block text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                   <User className="w-3.5 h-3.5 text-slate-400" />
-                  Author(s)
+                  Author(s) <span className="text-red-500">*</span>
                 </label>
 
                 <div
                   onClick={() => setAuthorOpen(!authorOpen)}
                   className={`w-full min-h-[38px] flex items-center justify-between rounded-lg border px-3 py-1.5 text-sm cursor-pointer bg-white transition shadow-sm ${
-                    authorOpen
-                      ? "border-indigo-500 ring-1 ring-indigo-500"
-                      : "border-slate-300 hover:border-slate-400"
+                    errors.authorIds || errors.authors
+                      ? "border-rose-400 ring-1 ring-rose-400 bg-rose-50/20"
+                      : authorOpen
+                        ? "border-indigo-500 ring-1 ring-indigo-500"
+                        : "border-slate-300 hover:border-slate-400"
                   }`}
                 >
                   <div className="flex flex-wrap gap-1 flex-1">
@@ -906,11 +1281,7 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                               role="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                toggleSelection(
-                                  authId,
-                                  selectedAuthors,
-                                  setSelectedAuthors,
-                                );
+                                toggleAuthor(authId);
                               }}
                               className="hover:text-indigo-900 cursor-pointer"
                             >
@@ -923,6 +1294,12 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                   </div>
                   <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 ml-2" />
                 </div>
+
+                {(errors.authorIds || errors.authors) && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.authorIds || errors.authors}
+                  </p>
+                )}
 
                 {authorOpen && (
                   <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 shadow-xl animate-in fade-in-50 zoom-in-95">
@@ -953,13 +1330,7 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                           return (
                             <div
                               key={auth.id}
-                              onClick={() =>
-                                toggleSelection(
-                                  auth.id,
-                                  selectedAuthors,
-                                  setSelectedAuthors,
-                                )
-                              }
+                              onClick={() => toggleAuthor(auth.id)}
                               className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs cursor-pointer transition ${
                                 isSelected
                                   ? "bg-indigo-50 text-indigo-700 font-semibold"
@@ -985,15 +1356,17 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
               <div className="space-y-1.5 relative" ref={genreRef}>
                 <label className="block text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                   <Bookmark className="w-3.5 h-3.5 text-slate-400" />
-                  Genres / Categories
+                  Genres / Categories <span className="text-red-500">*</span>
                 </label>
 
                 <div
                   onClick={() => setGenreOpen(!genreOpen)}
                   className={`w-full min-h-[38px] flex items-center justify-between rounded-lg border px-3 py-1.5 text-sm cursor-pointer bg-white transition shadow-sm ${
-                    genreOpen
-                      ? "border-indigo-500 ring-1 ring-indigo-500"
-                      : "border-slate-300 hover:border-slate-400"
+                    errors.genreIds || errors.genres
+                      ? "border-rose-400 ring-1 ring-rose-400 bg-rose-50/20"
+                      : genreOpen
+                        ? "border-indigo-500 ring-1 ring-indigo-500"
+                        : "border-slate-300 hover:border-slate-400"
                   }`}
                 >
                   <div className="flex flex-wrap gap-1 flex-1">
@@ -1018,11 +1391,7 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                               role="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                toggleSelection(
-                                  genId,
-                                  selectedGenres,
-                                  setSelectedGenres,
-                                );
+                                toggleGenre(genId);
                               }}
                               className="hover:text-emerald-900 cursor-pointer"
                             >
@@ -1035,6 +1404,12 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                   </div>
                   <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 ml-2" />
                 </div>
+
+                {(errors.genreIds || errors.genres) && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.genreIds || errors.genres}
+                  </p>
+                )}
 
                 {genreOpen && (
                   <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 shadow-xl animate-in fade-in-50 zoom-in-95">
@@ -1065,13 +1440,7 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                           return (
                             <div
                               key={gen.id}
-                              onClick={() =>
-                                toggleSelection(
-                                  gen.id,
-                                  selectedGenres,
-                                  setSelectedGenres,
-                                )
-                              }
+                              onClick={() => toggleGenre(gen.id)}
                               className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs cursor-pointer transition ${
                                 isSelected
                                   ? "bg-emerald-50 text-emerald-700 font-semibold"
@@ -1097,15 +1466,17 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
               <div className="space-y-1.5 relative" ref={languageRef}>
                 <label className="block text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                   <Languages className="w-3.5 h-3.5 text-slate-400" />
-                  Language(s)
+                  Language(s) <span className="text-red-500">*</span>
                 </label>
 
                 <div
                   onClick={() => setLanguageOpen(!languageOpen)}
                   className={`w-full min-h-[38px] flex items-center justify-between rounded-lg border px-3 py-1.5 text-sm cursor-pointer bg-white transition shadow-sm ${
-                    languageOpen
-                      ? "border-indigo-500 ring-1 ring-indigo-500"
-                      : "border-slate-300 hover:border-slate-400"
+                    errors.languageIds || errors.languages
+                      ? "border-rose-400 ring-1 ring-rose-400 bg-rose-50/20"
+                      : languageOpen
+                        ? "border-indigo-500 ring-1 ring-indigo-500"
+                        : "border-slate-300 hover:border-slate-400"
                   }`}
                 >
                   <div className="flex flex-wrap gap-1 flex-1">
@@ -1128,11 +1499,7 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                               role="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                toggleSelection(
-                                  langId,
-                                  selectedLanguages,
-                                  setSelectedLanguages,
-                                );
+                                toggleLanguage(langId);
                               }}
                               className="hover:text-sky-900 cursor-pointer"
                             >
@@ -1145,6 +1512,12 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                   </div>
                   <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 ml-2" />
                 </div>
+
+                {(errors.languageIds || errors.languages) && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.languageIds || errors.languages}
+                  </p>
+                )}
 
                 {languageOpen && (
                   <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 shadow-xl animate-in fade-in-50 zoom-in-95">
@@ -1177,13 +1550,7 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                           return (
                             <div
                               key={lang.id}
-                              onClick={() =>
-                                toggleSelection(
-                                  lang.id,
-                                  selectedLanguages,
-                                  setSelectedLanguages,
-                                )
-                              }
+                              onClick={() => toggleLanguage(lang.id)}
                               className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs cursor-pointer transition ${
                                 isSelected
                                   ? "bg-sky-50 text-sky-700 font-semibold"
@@ -1212,7 +1579,7 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
           {/* 3. Pricing & Sales */}
           <div className="space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-600">
-              Pricing & Sales
+              Pricing, Stock & Sales
             </h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -1231,18 +1598,27 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                   min="0"
                   disabled={formData.plan === "FREE"}
                   placeholder={
-                    formData.plan === "FREE" ? "0 (Free)" : "e.g. 1200"
+                    formData.plan === "FREE" ? "0 (Free)" : "e.g. 750"
                   }
                   value={formData.plan === "FREE" ? "0" : formData.price}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-400 shadow-sm"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 disabled:bg-slate-100 disabled:text-slate-400 shadow-sm transition ${
+                    errors.price
+                      ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 bg-white focus:border-indigo-500 focus:ring-indigo-500"
+                  }`}
                 />
+                {errors.price && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.price}
+                  </p>
+                )}
               </div>
 
               {/* Discount Percent */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Discount (%)
+                  Discount (%) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -1251,29 +1627,47 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                   min="0"
                   max="100"
                   disabled={formData.plan === "FREE"}
-                  placeholder="e.g. 10"
+                  placeholder="e.g. 0"
                   value={
                     formData.plan === "FREE" ? "0" : formData.discountPercent
                   }
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-400 shadow-sm"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 disabled:bg-slate-100 disabled:text-slate-400 shadow-sm transition ${
+                    errors.discountPercent
+                      ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 bg-white focus:border-indigo-500 focus:ring-indigo-500"
+                  }`}
                 />
+                {errors.discountPercent && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.discountPercent}
+                  </p>
+                )}
               </div>
 
               {/* Sold Count */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Sold Count
+                  Sold Count <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
                   name="soldCount"
                   min="0"
-                  placeholder="e.g. 10"
+                  placeholder="e.g. 0"
                   value={formData.soldCount}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 shadow-sm transition ${
+                    errors.soldCount
+                      ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 bg-white focus:border-indigo-500 focus:ring-indigo-500"
+                  }`}
                 />
+                {errors.soldCount && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.soldCount}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -1297,8 +1691,17 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                   name="publicationDate"
                   value={formData.publicationDate}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 shadow-sm transition ${
+                    errors.publicationDate
+                      ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 bg-white focus:border-indigo-500 focus:ring-indigo-500"
+                  }`}
                 />
+                {errors.publicationDate && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.publicationDate}
+                  </p>
+                )}
               </div>
 
               {/* Pages */}
@@ -1310,11 +1713,20 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                   type="number"
                   name="pages"
                   min="1"
-                  placeholder="e.g. 1200"
+                  placeholder="e.g. 350"
                   value={formData.pages}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 shadow-sm transition ${
+                    errors.pages
+                      ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 bg-white focus:border-indigo-500 focus:ring-indigo-500"
+                  }`}
                 />
+                {errors.pages && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.pages}
+                  </p>
+                )}
               </div>
 
               {/* ISBN 10 */}
@@ -1325,11 +1737,20 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                 <input
                   type="text"
                   name="isbn10"
-                  placeholder="e.g. 1234567892"
+                  placeholder="e.g. 0735211299"
                   value={formData.isbn10}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 shadow-sm transition ${
+                    errors.isbn10
+                      ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 bg-white focus:border-indigo-500 focus:ring-indigo-500"
+                  }`}
                 />
+                {errors.isbn10 && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.isbn10}
+                  </p>
+                )}
               </div>
 
               {/* ISBN 13 */}
@@ -1340,55 +1761,42 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
                 <input
                   type="text"
                   name="isbn13"
-                  placeholder="e.g. 1234567890121"
+                  placeholder="e.g. 978-0735211292"
                   value={formData.isbn13}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 shadow-sm transition ${
+                    errors.isbn13
+                      ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-rose-500"
+                      : "border-slate-300 bg-white focus:border-indigo-500 focus:ring-indigo-500"
+                  }`}
                 />
+                {errors.isbn13 && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.isbn13}
+                  </p>
+                )}
               </div>
             </div>
           </div>
-          <hr className="border-slate-200" />
-
-          {/* 6. Description (Rich Text Editor) */}
-          <div className="space-y-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-600">
-              E-Book Description
-            </h3>
-            <div className="min-h-[160px] rounded-xl border border-slate-200 overflow-hidden bg-white">
-              <TextEditorEdit
-                value={formData.description}
-                onChange={(content) =>
-                  setFormData((prev) => ({ ...prev, description: content }))
-                }
-              />
-            </div>
-          </div>
 
           <hr className="border-slate-200" />
 
-          {/* 7. Image Uploads & Image Types */}
-          <div className="space-y-4">
+          {/* 5. Images Gallery & Uploads */}
+          <div id="images-section" className="space-y-4">
             <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-600 flex items-center gap-1.5">
-                  <ImageIcon className="w-3.5 h-3.5" />
-                  E-Book Covers & Promo Images
-                </h3>
-                <p className="text-[11px] text-slate-400">
-                  Upload cover and promo artwork. Assign accurate image types.
-                </p>
-              </div>
-
+              <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-600 flex items-center gap-2">
+                <ImageIcon className="w-3.5 h-3.5" />
+                Book Images & Covers <span className="text-red-500">*</span>
+              </h3>
               <label
-                htmlFor="ebook-images-upload"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold transition cursor-pointer border border-indigo-200"
+                htmlFor="ebook-multi-images"
+                className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition border border-indigo-200 shadow-sm"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Add Image(s)</span>
+                Upload Images
               </label>
               <input
-                id="ebook-images-upload"
+                id="ebook-multi-images"
                 type="file"
                 multiple
                 accept="image/*"
@@ -1399,134 +1807,180 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
 
             {!hasAnyImages ? (
               <label
-                htmlFor="ebook-images-upload"
-                className="flex flex-col items-center justify-center p-8 rounded-xl border-2 border-dashed border-slate-300 hover:border-indigo-400 bg-slate-50/50 hover:bg-indigo-50/20 transition cursor-pointer text-center"
+                htmlFor="ebook-multi-images"
+                className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl transition cursor-pointer text-center ${
+                  errors.images
+                    ? "border-rose-400 bg-rose-50/20"
+                    : "border-slate-300 hover:border-indigo-400 bg-slate-50/60 hover:bg-indigo-50/30"
+                }`}
               >
-                <Upload className="w-8 h-8 text-slate-400 mb-2" />
-                <p className="text-xs font-semibold text-slate-700">
-                  Click or drag images here
+                <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2 shadow-sm">
+                  <Upload className="w-5 h-5" />
+                </div>
+                <p className="text-sm font-semibold text-slate-800">
+                  Click to browse and upload book images
                 </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Supports PNG, JPG, WEBP formats
+                <p className="text-xs text-slate-400 mt-1">
+                  Upload cover, back cover, and preview pages (PNG, JPG, WEBP)
                 </p>
               </label>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-                {/* Existing Images */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3.5">
+                {/* 1. Existing Saved Images */}
                 {existingImages.map((img, idx) => (
                   <div
                     key={`existing-${idx}`}
-                    className={`relative group rounded-xl border p-2 space-y-2 transition shadow-2xs ${
-                      img.type === "COVER"
-                        ? "border-emerald-500 bg-emerald-50/40 ring-1 ring-emerald-500/30"
-                        : "border-slate-200 bg-slate-50"
-                    }`}
+                    className="relative group rounded-xl border border-slate-200 bg-white p-2 shadow-sm flex flex-col justify-between overflow-hidden ring-1 ring-slate-100"
                   >
-                    <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-slate-200">
+                    <div className="relative aspect-[3/4] w-full rounded-lg overflow-hidden bg-slate-100 mb-2">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={img.url}
-                        alt="E-Book existing preview"
+                        alt={`Existing #${idx + 1}`}
                         className="w-full h-full object-cover"
                       />
-                      {img.type === "COVER" && (
-                        <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[9px] font-bold shadow-md">
-                          COVER ⭐
-                        </span>
-                      )}
+                      <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-bold uppercase tracking-wider shadow-xs">
+                        Saved
+                      </span>
                       <button
                         type="button"
                         onClick={() => handleRemoveExistingImage(idx)}
-                        className="absolute top-1.5 right-1.5 p-1 rounded-full bg-rose-600 text-white opacity-0 group-hover:opacity-100 transition shadow-sm cursor-pointer"
-                        title="Remove Image"
+                        className="absolute top-1.5 right-1.5 p-1 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-md transition opacity-90 hover:opacity-100 cursor-pointer"
+                        title="Remove image"
                       >
-                        <X className="w-3 h-3" />
+                        <Trash2 className="w-3 h-3" />
                       </button>
                     </div>
 
-                    <select
-                      value={img.type}
-                      onChange={(e) =>
-                        handleExistingImageTypeChange(idx, e.target.value)
-                      }
-                      className={`w-full rounded-md border px-2 py-1 text-[11px] font-semibold outline-none transition cursor-pointer ${
-                        img.type === "COVER"
-                          ? "border-emerald-400 bg-white text-emerald-800"
-                          : "border-slate-200 bg-white text-slate-700"
-                      }`}
-                    >
-                      {IMAGE_TYPE_OPTIONS.map((t) => (
-                        <option key={t} value={t}>
-                          {t === "COVER" ? "⭐ COVER (Main)" : t}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+                        Image Type
+                      </label>
+                      <select
+                        value={img.type}
+                        onChange={(e) =>
+                          handleExistingImageTypeChange(idx, e.target.value)
+                        }
+                        className="w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700 font-medium outline-none focus:border-indigo-500 cursor-pointer"
+                      >
+                        {IMAGE_TYPE_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 ))}
 
-                {/* Newly Uploaded Images */}
+                {/* 2. Newly Uploaded Images */}
                 {uploadedImages.map((img, idx) => (
                   <div
-                    key={`uploaded-${idx}`}
-                    className={`relative group rounded-xl border p-2 space-y-2 transition shadow-2xs ${
-                      img.type === "COVER"
-                        ? "border-emerald-500 bg-emerald-50/40 ring-1 ring-emerald-500/30"
-                        : "border-indigo-200 bg-indigo-50/40"
-                    }`}
+                    key={`new-${idx}`}
+                    className="relative group rounded-xl border border-indigo-200 bg-indigo-50/20 p-2 shadow-sm flex flex-col justify-between overflow-hidden"
                   >
-                    <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-slate-200">
+                    <div className="relative aspect-[3/4] w-full rounded-lg overflow-hidden bg-slate-100 mb-2">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={img.preview}
-                        alt="E-Book new upload"
+                        alt={`New Upload #${idx + 1}`}
                         className="w-full h-full object-cover"
                       />
-                      {img.type === "COVER" && (
-                        <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[9px] font-bold shadow-md">
-                          COVER ⭐
-                        </span>
-                      )}
+                      <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-indigo-600 text-white text-[9px] font-bold uppercase tracking-wider shadow-xs">
+                        New
+                      </span>
                       <button
                         type="button"
                         onClick={() => handleRemoveUploadedImage(idx)}
-                        className="absolute top-1.5 right-1.5 p-1 rounded-full bg-rose-600 text-white opacity-0 group-hover:opacity-100 transition shadow-sm cursor-pointer"
-                        title="Remove Image"
+                        className="absolute top-1.5 right-1.5 p-1 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-md transition opacity-90 hover:opacity-100 cursor-pointer"
+                        title="Remove image"
                       >
-                        <X className="w-3 h-3" />
+                        <Trash2 className="w-3 h-3" />
                       </button>
                     </div>
 
-                    <select
-                      value={img.type}
-                      onChange={(e) =>
-                        handleUploadedImageTypeChange(idx, e.target.value)
-                      }
-                      className={`w-full rounded-md border px-2 py-1 text-[11px] font-semibold outline-none transition cursor-pointer ${
-                        img.type === "COVER"
-                          ? "border-emerald-400 bg-white text-emerald-800"
-                          : "border-slate-200 bg-white text-slate-700"
-                      }`}
-                    >
-                      {IMAGE_TYPE_OPTIONS.map((t) => (
-                        <option key={t} value={t}>
-                          {t === "COVER" ? "⭐ COVER (Main)" : t}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wider block">
+                        Image Type
+                      </label>
+                      <select
+                        value={img.type}
+                        onChange={(e) =>
+                          handleUploadedImageTypeChange(idx, e.target.value)
+                        }
+                        className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 font-medium outline-none focus:border-indigo-500 cursor-pointer"
+                      >
+                        {IMAGE_TYPE_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 ))}
+
+                {/* Add More button */}
+                <label
+                  htmlFor="ebook-multi-images"
+                  className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-xl bg-slate-50/50 hover:bg-indigo-50/30 cursor-pointer transition aspect-[3/4] text-slate-400 hover:text-indigo-600 p-2"
+                >
+                  <Plus className="w-6 h-6 mb-1" />
+                  <span className="text-xs font-semibold">Add More</span>
+                </label>
               </div>
+            )}
+
+            {errors.images && (
+              <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                {errors.images}
+              </p>
+            )}
+          </div>
+
+          <hr className="border-slate-200" />
+
+          {/* 6. Description (Rich Text Editor) */}
+          <div id="description-section" className="space-y-2">
+            <label className="block text-xs font-bold uppercase tracking-wider text-indigo-600">
+              E-Book Description & Summary <span className="text-red-500">*</span>
+            </label>
+            <div
+              className={`rounded-lg transition ${
+                errors.description ? "ring-2 ring-rose-400 p-0.5" : ""
+              }`}
+            >
+              <TextEditorEdit
+                key={bookToEdit?.id ? `edit-ebook-${bookToEdit.id}` : "new-ebook"}
+                initialHtml={formData.description}
+                value={formData.description}
+                onChange={(val) => {
+                  setFormData((prev) => ({ ...prev, description: val }));
+                  if (errors.description) {
+                    setErrors((prev) => {
+                      const next = { ...prev };
+                      delete next.description;
+                      return next;
+                    });
+                  }
+                }}
+              />
+            </div>
+            {errors.description && (
+              <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                {errors.description}
+              </p>
             )}
           </div>
         </form>
 
         {/* Modal Footer */}
-        <div className="flex items-center justify-end gap-2.5 px-6 py-3.5 border-t border-slate-200 bg-slate-50/80">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50/80">
           <button
             type="button"
             disabled={isSubmitting}
             onClick={handleClose}
-            className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 transition disabled:opacity-50 cursor-pointer"
+            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition shadow-sm disabled:opacity-50 cursor-pointer"
           >
             Cancel
           </button>
@@ -1534,17 +1988,17 @@ export const AddEBooksDailog: React.FC<AddEBooksDailogProps> = ({
             type="submit"
             form="add-ebook-form"
             disabled={isSubmitting}
-            className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition disabled:opacity-50 cursor-pointer shadow-md shadow-indigo-600/20"
+            className="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-md transition disabled:opacity-50 cursor-pointer"
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Saving E-Book...</span>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Saving E-Book...
               </>
             ) : (
               <>
-                <Save className="w-3.5 h-3.5" />
-                <span>{bookToEdit ? "Update E-Book" : "Save E-Book"}</span>
+                <Save className="w-4 h-4" />
+                {bookToEdit ? "Update E-Book" : "Save E-Book"}
               </>
             )}
           </button>
