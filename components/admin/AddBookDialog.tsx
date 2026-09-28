@@ -1153,7 +1153,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
               <div className="space-y-1.5 relative" ref={genreRef}>
                 <label className="block text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                   <Bookmark className="w-3.5 h-3.5 text-slate-400" />
-                  Genres / Categories <span className="text-red-500">*</span>
+                  Categories <span className="text-red-500">*</span>
                 </label>
 
                 <div
