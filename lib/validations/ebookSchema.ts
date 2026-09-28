@@ -30,7 +30,7 @@ export const ebookFormSchema = z
     genreIds: z
       .array(z.union([z.string(), z.number()]))
       .refine((val) => Array.isArray(val) && val.length > 0, {
-        message: "Please select at least one genre/category.",
+        message: "Please select at least one category.",
       }),
 
     languageIds: z

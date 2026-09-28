@@ -118,11 +118,11 @@ export default function EBookSidebarFilter({
 
       <hr className="border-slate-100" />
 
-      {/* Genres / Categories Filter */}
+      {/* Categories Filter */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-            <Bookmark className="w-3 h-3 text-indigo-500" /> Genres
+            <Bookmark className="w-3 h-3 text-indigo-500" /> Categories
           </h3>
           {genres.length > 5 && (
             <span className="text-[10px] text-slate-400">
@@ -135,7 +135,7 @@ export default function EBookSidebarFilter({
           <div className="relative">
             <input
               type="text"
-              placeholder="Search genres..."
+              placeholder="Search categories..."
               value={genreSearch}
               onChange={(e) => setGenreSearch(e.target.value)}
               className="w-full pl-2 pr-6 py-1 text-[11px] rounded-md border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-indigo-400"
@@ -162,7 +162,7 @@ export default function EBookSidebarFilter({
                 : "text-slate-600 hover:bg-slate-50"
             }`}
           >
-            <span>All Genres</span>
+            <span>All Categories</span>
             <span
               className={`text-[10px] ${
                 selectedGenre === "all" ? "text-indigo-100" : "text-slate-400"

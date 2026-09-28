@@ -525,7 +525,7 @@ export default function EBookDetailPage({
                           className="w-3.5 h-3.5 object-contain"
                         />
                       )}
-                      <span>{g.name || g.englishName || "Genre"}</span>
+                      <span>{g.name || g.englishName || "Category"}</span>
                     </span>
                   ))}
 

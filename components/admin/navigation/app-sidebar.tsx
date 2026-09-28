@@ -65,7 +65,7 @@ const navigation: NavItem[] = [
     icon: Building2,
   },
   {
-    title: "Genre",
+    title: "Categories",
     url: "/admin/genre",
     icon: BookOpen,
   },

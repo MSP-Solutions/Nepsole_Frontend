@@ -165,7 +165,7 @@ export const ViewEBooksDialog: React.FC<ViewEBooksDialogProps> = ({
   const genresList: BookGenre[] = (book.genres || book.genreBooks || []).map(
     (g: any) => ({
       id: g.id || g.genre?.id,
-      name: g.name || g.englishName || g.genre?.name || "Genre",
+      name: g.name || g.englishName || g.genre?.name || "Category",
       icon: g.icon || g.genre?.icon || null,
     }),
   );
@@ -441,10 +441,10 @@ export const ViewEBooksDialog: React.FC<ViewEBooksDialogProps> = ({
                   </div>
                 )}
 
-                {/* Genres */}
+                {/* Categories */}
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-semibold text-slate-400 uppercase w-20 shrink-0">
-                    Genres:
+                    Categories:
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {genresList.length > 0 ? (

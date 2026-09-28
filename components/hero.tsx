@@ -197,7 +197,7 @@ export default function Hero() {
           <div className="border-b border-gray-200 bg-gray-50 px-3 py-2 flex items-center justify-between">
             <h2 className="text-xs font-bold uppercase tracking-wider text-gray-800 flex items-center gap-1.5">
               <Bookmark className="w-3.5 h-3.5 text-[#1749A0]" />
-              <span>Shop by Genre</span>
+              <span>Shop by Category</span>
             </h2>
           </div>
 
@@ -269,7 +269,7 @@ export default function Hero() {
                   className="flex w-full items-center gap-1.5 px-2.5 py-2 text-xs font-semibold text-[#1749A0] transition hover:bg-blue-50"
                 >
                   <BookOpen size={12} />
-                  <span>View All Genres</span>
+                  <span>View All Categories</span>
                   <ChevronRight size={11} className="ml-auto" />
                 </Link>
               </>

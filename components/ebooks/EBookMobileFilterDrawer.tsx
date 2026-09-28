@@ -104,10 +104,10 @@ export default function EBookMobileFilterDrawer({
 
           <hr className="border-slate-100" />
 
-          {/* Genres */}
+          {/* Categories */}
           <div>
             <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-800 mb-2">
-              Genres & Categories
+              Categories
             </h4>
             <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
               <button
@@ -119,7 +119,7 @@ export default function EBookMobileFilterDrawer({
                     : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                <span>All Genres</span>
+                <span>All Categories</span>
                 <span>{totalEBooks}</span>
               </button>
               {genres.map((gen) => {

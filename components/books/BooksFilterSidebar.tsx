@@ -59,10 +59,10 @@ export function BooksFilterSidebar({
         )}
       </div>
 
-      {/* Genres */}
+      {/* Categories */}
       <div className="space-y-1.5">
         <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-          <Bookmark className="w-3 h-3 text-amber-500" /> Genres
+          <Bookmark className="w-3 h-3 text-amber-500" /> Categories
         </h3>
         <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
           <button
@@ -74,7 +74,7 @@ export function BooksFilterSidebar({
                 : "text-slate-600 hover:bg-slate-50"
             }`}
           >
-            <span>All Genres</span>
+            <span>All Categories</span>
             <span
               className={`text-[10px] ${selectedGenre === "all" ? "text-amber-100" : "text-slate-400"}`}
             >
@@ -211,10 +211,10 @@ export function BooksMobileFilterDrawer({
         </div>
 
         <div className="flex-1 py-3 space-y-4">
-          {/* Genres */}
+          {/* Categories */}
           <div>
             <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-800 mb-2">
-              Genres &amp; Categories
+              Categories
             </h4>
             <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
               <button
@@ -226,7 +226,7 @@ export function BooksMobileFilterDrawer({
                     : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                <span>All Genres</span>
+                <span>All Categories</span>
                 <span>{totalBooks}</span>
               </button>
               {genres.map((gen) => {

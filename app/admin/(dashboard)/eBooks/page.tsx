@@ -404,7 +404,7 @@ export default function EBooksAdminPage() {
                 <th className="py-3.5 px-4">Plan</th>
                 <th className="py-3.5 px-4">Author(s)</th>
                 <th className="py-3.5 px-4">Publisher</th>
-                <th className="py-3.5 px-4">Genre(s)</th>
+                <th className="py-3.5 px-4">Category(ies)</th>
                 <th className="py-3.5 px-4">Price</th>
                 <th className="py-3.5 px-4">PDF Document</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>

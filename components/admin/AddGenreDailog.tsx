@@ -156,10 +156,10 @@ const AddGenreDialog: React.FC<AddGenreDialogProps> = ({
           `/v1/genre/${genreToEdit.id}`,
           formData,
         );
-        toast.success("Genre updated successfully!");
+        toast.success("Category updated successfully!");
       } else {
         response = await axiosMultipartInstance.post("/v1/genre", formData);
-        toast.success("Genre added successfully!");
+        toast.success("Category added successfully!");
       }
 
       const resGenre = response.data?.data ||
@@ -173,10 +173,10 @@ const AddGenreDialog: React.FC<AddGenreDialogProps> = ({
       onSuccess?.(resGenre);
       handleClose();
     } catch (error: any) {
-      console.error("Failed to save genre:", error);
+      console.error("Failed to save category:", error);
       const errorMessage =
         error?.response?.data?.message ||
-        "Failed to save genre. Please try again.";
+        "Failed to save category. Please try again.";
       toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -193,13 +193,13 @@ const AddGenreDialog: React.FC<AddGenreDialogProps> = ({
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div>
             <DialogTitle className="text-lg font-bold text-gray-900">
-              {genreToEdit ? "Edit Genre" : "Add Genre"}
+              {genreToEdit ? "Edit Category" : "Add Category"}
             </DialogTitle>
 
             <DialogDescription className="mt-1 text-xs text-gray-500">
               {genreToEdit
-                ? "Update genre name and image."
-                : "Add a genre name and upload its image."}
+                ? "Update category name and image."
+                : "Add a category name and upload its image."}
             </DialogDescription>
           </div>
 
@@ -215,10 +215,10 @@ const AddGenreDialog: React.FC<AddGenreDialogProps> = ({
         {/* Form */}
         <form onSubmit={handleSubmit}>
           <div className="space-y-5 p-5">
-            {/* Genre Name */}
+            {/* Category Name */}
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">
-                Genre Name <span className="text-rose-500">*</span>
+                Category Name <span className="text-rose-500">*</span>
               </label>
 
               <input
@@ -231,10 +231,10 @@ const AddGenreDialog: React.FC<AddGenreDialogProps> = ({
               />
             </div>
 
-            {/* Genre Image */}
+            {/* Category Image */}
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">
-                Genre Image
+                Category Image
               </label>
 
               {!imagePreview ? (
@@ -277,7 +277,7 @@ const AddGenreDialog: React.FC<AddGenreDialogProps> = ({
                 <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
                   <img
                     src={imagePreview}
-                    alt="Genre preview"
+                    alt="Category preview"
                     className="h-48 w-full object-cover"
                   />
 
@@ -298,7 +298,7 @@ const AddGenreDialog: React.FC<AddGenreDialogProps> = ({
 
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4 pt-10">
                     <p className="text-xs font-medium text-white">
-                      Genre Image
+                      Category Image
                     </p>
                   </div>
                 </div>
@@ -331,8 +331,8 @@ const AddGenreDialog: React.FC<AddGenreDialogProps> = ({
                   ? "Updating..."
                   : "Creating..."
                 : genreToEdit
-                  ? "Update Genre"
-                  : "Create Genre"}
+                  ? "Update Category"
+                  : "Create Category"}
             </button>
           </div>
         </form>
