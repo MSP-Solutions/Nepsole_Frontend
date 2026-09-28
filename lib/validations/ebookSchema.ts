@@ -18,7 +18,7 @@ export const ebookFormSchema = z
           val !== null &&
           val !== undefined &&
           String(val).trim() !== "",
-        { message: "Please select a publisher." }
+        { message: "Please select a publisher." },
       ),
 
     authorIds: z
@@ -49,11 +49,13 @@ export const ebookFormSchema = z
           val !== null &&
           val !== undefined &&
           String(val).trim() !== "",
-        { message: "Discount percentage is required (enter 0 if no discount)." }
+        {
+          message: "Discount percentage is required (enter 0 if no discount).",
+        },
       )
       .refine(
         (val) => !isNaN(Number(val)) && Number(val) >= 0 && Number(val) <= 100,
-        { message: "Discount percentage must be between 0 and 100." }
+        { message: "Discount percentage must be between 0 and 100." },
       ),
 
     soldCount: z
@@ -64,21 +66,17 @@ export const ebookFormSchema = z
           val !== null &&
           val !== undefined &&
           String(val).trim() !== "",
-        { message: "Sold count is required (enter 0 if new e-book)." }
+        { message: "Sold count is required (enter 0 if new e-book)." },
       )
       .refine(
         (val) =>
           !isNaN(Number(val)) &&
           Number(val) >= 0 &&
           Number.isInteger(Number(val)),
-        { message: "Sold count must be a whole number (0 or higher)." }
+        { message: "Sold count must be a whole number (0 or higher)." },
       ),
 
-    publicationDate: z
-      .string()
-      .optional()
-      .nullable()
-      .or(z.literal("")),
+    publicationDate: z.string().optional().nullable().or(z.literal("")),
 
     pages: z
       .union([z.string(), z.number()])
@@ -92,20 +90,12 @@ export const ebookFormSchema = z
           const num = Number(val);
           return !isNaN(num) && num > 0 && Number.isInteger(num);
         },
-        { message: "Pages must be a valid whole number greater than 0." }
+        { message: "Pages must be a valid whole number greater than 0." },
       ),
 
-    isbn10: z
-      .string()
-      .optional()
-      .nullable()
-      .or(z.literal("")),
+    isbn10: z.string().optional().nullable().or(z.literal("")),
 
-    isbn13: z
-      .string()
-      .optional()
-      .nullable()
-      .or(z.literal("")),
+    isbn13: z.string().optional().nullable().or(z.literal("")),
 
     images: z
       .array(z.any())
@@ -123,12 +113,11 @@ export const ebookFormSchema = z
           const textOnly = val.replace(/<[^>]*>/g, "").trim();
           return textOnly.length > 0;
         },
-        { message: "E-Book description is required." }
+        { message: "E-Book description is required." },
       )
-      .refine(
-        (val) => val.length <= 50000,
-        { message: "Description cannot exceed 50,000 characters." }
-      ),
+      .refine((val) => val.length <= 50000, {
+        message: "Description cannot exceed 50,000 characters.",
+      }),
   })
   .superRefine((data, ctx) => {
     if (data.plan === "PAID") {

@@ -178,11 +178,11 @@ export default function Page() {
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-              Genres
+              Category
             </h1>
 
             <p className="mt-1 text-sm text-gray-500">
-              Manage your book genres and categories.
+              Manage your book category.
             </p>
           </div>
 
@@ -313,7 +313,7 @@ export default function Page() {
                     <strong className="font-semibold text-gray-900">
                       {pagination.total}
                     </strong>{" "}
-                    genres
+                    Categories
                   </span>
 
                   <div className="flex items-center gap-2">
