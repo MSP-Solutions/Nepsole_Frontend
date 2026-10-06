@@ -40,6 +40,7 @@ export default function EBooksPage() {
 
   // Filter & Search States
   const [selectedGenre, setSelectedGenre] = useState<string>("all");
+  const [selectedSubGenre, setSelectedSubGenre] = useState<string>("all");
   const [selectedPublisher, setSelectedPublisher] = useState<string>("all");
   const [selectedPlan, setSelectedPlan] = useState<string>("all"); // 'all' | 'FREE' | 'PAID'
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -97,6 +98,7 @@ export default function EBooksPage() {
       limit = 10,
       search = searchQuery,
       genre = selectedGenre,
+      subGenre = selectedSubGenre,
       publisher = selectedPublisher,
       sort = sortBy,
     ) => {
@@ -109,6 +111,9 @@ export default function EBooksPage() {
         }
         if (genre && genre !== "all") {
           url += `&genre=${encodeURIComponent(genre)}`;
+        }
+        if (subGenre && subGenre !== "all") {
+          url += `&subGenre=${encodeURIComponent(subGenre)}`;
         }
         if (publisher && publisher !== "all") {
           url += `&publisher=${encodeURIComponent(publisher)}`;
@@ -191,7 +196,7 @@ export default function EBooksPage() {
         setIsLoading(false);
       }
     },
-    [searchQuery, selectedGenre, selectedPublisher, sortBy],
+    [searchQuery, selectedGenre, selectedSubGenre, selectedPublisher, sortBy],
   );
 
   // Debounced search & filter effect
@@ -203,6 +208,7 @@ export default function EBooksPage() {
         pageSize,
         searchQuery,
         selectedGenre,
+        selectedSubGenre,
         selectedPublisher,
         sortBy,
       );
@@ -214,6 +220,7 @@ export default function EBooksPage() {
     pageSize,
     searchQuery,
     selectedGenre,
+    selectedSubGenre,
     selectedPublisher,
     sortBy,
   ]);
@@ -247,6 +254,7 @@ export default function EBooksPage() {
         pageSize,
         searchQuery,
         selectedGenre,
+        selectedSubGenre,
         selectedPublisher,
         sortBy,
       );
@@ -363,6 +371,31 @@ export default function EBooksPage() {
           if (!hasGenre) return false;
         }
 
+        if (selectedSubGenre && selectedSubGenre !== "all") {
+          const normSub = selectedSubGenre.toLowerCase().trim();
+          const hasSub = (
+            book.subGenres ||
+            book.subgenres ||
+            book.subGenreBooks ||
+            []
+          ).some((sg: any) => {
+            const sgId = String(
+              sg.id || sg.subGenreId || sg.subgenre?.id || "",
+            ).toLowerCase().trim();
+            const sgName = (
+              sg.name ||
+              sg.englishName ||
+              sg.subGenre?.name ||
+              sg.subgenre?.name ||
+              ""
+            )
+              .toLowerCase()
+              .trim();
+            return sgName === normSub || (sgId && sgId === normSub);
+          });
+          if (!hasSub) return false;
+        }
+
         if (selectedPublisher !== "all") {
           const normPub = selectedPublisher.toLowerCase().trim();
           const pName = (
@@ -445,6 +478,7 @@ export default function EBooksPage() {
   }, [
     eBooks,
     selectedGenre,
+    selectedSubGenre,
     selectedPublisher,
     selectedPlan,
     searchQuery,
@@ -465,16 +499,24 @@ export default function EBooksPage() {
 
   const activeFiltersCount =
     (selectedGenre !== "all" ? 1 : 0) +
+    (selectedSubGenre !== "all" ? 1 : 0) +
     (selectedPublisher !== "all" ? 1 : 0) +
     (selectedPlan !== "all" ? 1 : 0) +
     (searchQuery.trim() ? 1 : 0);
 
   const handleResetFilters = () => {
     setSelectedGenre("all");
+    setSelectedSubGenre("all");
     setSelectedPublisher("all");
     setSelectedPlan("all");
     setSearchQuery("");
     setSortBy("featured");
+    setCurrentPage(1);
+  };
+
+  const handleGenreChange = (genre: string) => {
+    setSelectedGenre(genre);
+    setSelectedSubGenre("all");
     setCurrentPage(1);
   };
 
@@ -548,7 +590,12 @@ export default function EBooksPage() {
         {/* Active Filters Badges */}
         <EBookActiveFilters
           selectedGenre={selectedGenre}
-          onClearGenre={() => setSelectedGenre("all")}
+          onClearGenre={() => {
+            setSelectedGenre("all");
+            setSelectedSubGenre("all");
+          }}
+          selectedSubGenre={selectedSubGenre}
+          onClearSubGenre={() => setSelectedSubGenre("all")}
           selectedPublisher={selectedPublisher}
           onClearPublisher={() => setSelectedPublisher("all")}
           selectedPlan={selectedPlan}
@@ -566,7 +613,9 @@ export default function EBooksPage() {
             selectedPlan={selectedPlan}
             onSelectPlan={setSelectedPlan}
             selectedGenre={selectedGenre}
-            onSelectGenre={setSelectedGenre}
+            selectedSubGenre={selectedSubGenre}
+            onSelectGenre={handleGenreChange}
+            onSelectSubGenre={setSelectedSubGenre}
             genres={genres}
             selectedPublisher={selectedPublisher}
             onSelectPublisher={setSelectedPublisher}
@@ -701,7 +750,9 @@ export default function EBooksPage() {
         selectedPlan={selectedPlan}
         onSelectPlan={setSelectedPlan}
         selectedGenre={selectedGenre}
-        onSelectGenre={setSelectedGenre}
+        selectedSubGenre={selectedSubGenre}
+        onSelectGenre={handleGenreChange}
+        onSelectSubGenre={setSelectedSubGenre}
         genres={genres}
         selectedPublisher={selectedPublisher}
         onSelectPublisher={setSelectedPublisher}

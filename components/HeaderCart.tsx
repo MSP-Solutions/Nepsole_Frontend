@@ -2,18 +2,17 @@
 
 import { ShoppingCart } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-import toast from "react-hot-toast";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { axiosAuthInstance } from "@/utils/axiosInstances";
 import {
-  AUTH_CHANGE_EVENT,
   CART_CHANGE_EVENT,
   getUserCookie,
-  openAuthModal,
+  openCartDrawer,
   UserCookie,
 } from "@/utils/cookies";
+import { getLocalCartMap } from "@/utils/cartState";
 
 interface HeaderCartProps {
   className?: string;
@@ -28,18 +27,25 @@ const HeaderCart = ({
   iconSize = 19,
   user: initialUser,
 }: HeaderCartProps) => {
+  const router = useRouter();
   const [cartCount, setCartCount] = useState<number>(0);
   const [user, setUser] = useState<UserCookie | null>(initialUser || null);
-  const pathname = usePathname();
-  const router = useRouter();
+  const hasMountedRef = useRef(false);
 
-  const fetchCartCount = useCallback(async () => {
+  // Sync count from local storage without any API call
+  const updateCountFromStorage = useCallback(() => {
+    const map = getLocalCartMap();
+    const count = Object.values(map).filter((q) => q > 0).length;
+    setCartCount(count);
+  }, []);
+
+  const fetchServerCartCount = useCallback(async () => {
     try {
       const cookieUser = await getUserCookie();
       setUser(cookieUser);
 
       if (!cookieUser?.accessToken) {
-        setCartCount(0);
+        updateCountFromStorage();
         return;
       }
 
@@ -50,47 +56,53 @@ const HeaderCart = ({
         data?.data?.distinctItems ??
         data?.distinctItems ??
         data?.data?.count ??
-        data?.count ??
-        0;
+        data?.count;
 
-      setCartCount(Number(count) || 0);
+      if (count !== undefined && count !== null) {
+        setCartCount(Number(count) || 0);
+      } else {
+        updateCountFromStorage();
+      }
     } catch {
-      setCartCount(0);
+      updateCountFromStorage();
     }
-  }, []);
+  }, [updateCountFromStorage]);
 
   useEffect(() => {
-    fetchCartCount();
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      fetchServerCartCount();
+    }
 
-    const handleCartUpdate = () => {
-      fetchCartCount();
+    const handleCartChange = () => {
+      // Instantly update badge count from local storage (NO API call!)
+      updateCountFromStorage();
     };
 
-    window.addEventListener(AUTH_CHANGE_EVENT, handleCartUpdate);
-    window.addEventListener(CART_CHANGE_EVENT, handleCartUpdate);
-    window.addEventListener("focus", handleCartUpdate);
+    window.addEventListener(CART_CHANGE_EVENT, handleCartChange);
 
     return () => {
-      window.removeEventListener(AUTH_CHANGE_EVENT, handleCartUpdate);
-      window.removeEventListener(CART_CHANGE_EVENT, handleCartUpdate);
-      window.removeEventListener("focus", handleCartUpdate);
+      window.removeEventListener(CART_CHANGE_EVENT, handleCartChange);
     };
-  }, [fetchCartCount, pathname]);
+  }, [fetchServerCartCount, updateCountFromStorage]);
 
   const handleCartClick = async (e: React.MouseEvent) => {
-    const cookieUser = user || (await getUserCookie());
-    if (!cookieUser?.accessToken) {
-      e.preventDefault();
-      openAuthModal("login");
+    e.preventDefault();
+    const cookieUser = await getUserCookie();
+    if (cookieUser?.accessToken) {
+      router.push("/user/cart");
+    } else {
+      openCartDrawer();
     }
   };
 
   return (
-    <Link
-      href={user ? "/user/cart" : "#"}
+    <button
+      type="button"
       onClick={handleCartClick}
-      className={`relative flex items-center gap-1.5 rounded-xl p-2 sm:px-2.5 sm:py-2 text-gray-700 transition-colors hover:bg-indigo-50/80 hover:text-[#1749A0] ${className}`}
+      className={`relative flex items-center gap-1.5 rounded-xl p-2 sm:px-2.5 sm:py-2 text-gray-700 transition-colors hover:bg-indigo-50/80 hover:text-[#1749A0] cursor-pointer ${className}`}
       title="Shopping Cart"
+      aria-label="Open Shopping Cart"
     >
       <div className="relative flex items-center justify-center">
         <ShoppingCart size={iconSize} strokeWidth={1.7} />
@@ -105,7 +117,7 @@ const HeaderCart = ({
       {showLabel && (
         <span className="hidden text-xs font-semibold md:inline">Cart</span>
       )}
-    </Link>
+    </button>
   );
 };
 

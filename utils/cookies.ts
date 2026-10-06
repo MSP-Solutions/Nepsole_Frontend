@@ -5,12 +5,19 @@ export const AUTH_CHANGE_EVENT = "nepsole-auth-change";
 export const CART_CHANGE_EVENT = "nepsole-cart-change";
 export const WISHLIST_CHANGE_EVENT = "nepsole-wishlist-change";
 export const OPEN_AUTH_MODAL_EVENT = "nepsole-open-auth";
+export const OPEN_CART_DRAWER_EVENT = "nepsole-open-cart-drawer";
 
 export const openAuthModal = (mode: "login" | "signup" = "login") => {
   if (typeof window !== "undefined") {
     window.dispatchEvent(
       new CustomEvent(OPEN_AUTH_MODAL_EVENT, { detail: { mode } }),
     );
+  }
+};
+
+export const openCartDrawer = () => {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(OPEN_CART_DRAWER_EVENT));
   }
 };
 
@@ -79,7 +86,8 @@ export const getUserInitials = (name: string): string => {
 
 export const setUserCookie = async (
   data: Partial<UserCookie> & Record<string, any>,
-  expires = 7
+  expires = 7,
+  emitEvent = true
 ) => {
   const existing = await getUserCookie();
   const token = data?.accessToken || data?.jwtToken || data?.token || existing?.accessToken;
@@ -116,7 +124,7 @@ export const setUserCookie = async (
     sameSite: "lax",
   });
 
-  if (typeof window !== "undefined") {
+  if (emitEvent && typeof window !== "undefined") {
     window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
   }
 };
@@ -173,6 +181,9 @@ export const clearCookies = async () => {
   }
 
   if (typeof window !== "undefined") {
+    localStorage.removeItem("nepsole_cart");
+    localStorage.removeItem("nepsole_cart_count");
+    window.dispatchEvent(new Event(CART_CHANGE_EVENT));
     window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
   }
 };

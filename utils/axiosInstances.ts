@@ -64,12 +64,16 @@ export const refreshAuthToken = async (): Promise<string | null> => {
 
       const user = await getUserCookie();
       if (user) {
-        await setUserCookie({
-          ...user,
-          ...(typeof rawData === "object" ? rawData : {}),
-          accessToken: newAccessToken,
-          refreshToken: newRefreshToken,
-        });
+        await setUserCookie(
+          {
+            ...user,
+            ...(typeof rawData === "object" ? rawData : {}),
+            accessToken: newAccessToken,
+            refreshToken: newRefreshToken,
+          },
+          7,
+          false
+        );
       }
 
       // Record the refresh time so we don't refresh again too soon

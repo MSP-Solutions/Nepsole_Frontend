@@ -6,6 +6,8 @@ import React from "react";
 interface EBookActiveFiltersProps {
   selectedGenre: string;
   onClearGenre: () => void;
+  selectedSubGenre?: string;
+  onClearSubGenre?: () => void;
   selectedPublisher: string;
   onClearPublisher: () => void;
   selectedPlan: string;
@@ -19,6 +21,8 @@ interface EBookActiveFiltersProps {
 export default function EBookActiveFilters({
   selectedGenre,
   onClearGenre,
+  selectedSubGenre,
+  onClearSubGenre,
   selectedPublisher,
   onClearPublisher,
   selectedPlan,
@@ -42,6 +46,17 @@ export default function EBookActiveFilters({
           <X
             className="w-3 h-3 cursor-pointer hover:text-indigo-950"
             onClick={onClearGenre}
+          />
+        </span>
+      )}
+
+      {selectedSubGenre && selectedSubGenre !== "all" && (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100/90 border border-indigo-300 text-indigo-900 text-[11px] font-medium">
+          <span className="text-[10px] text-indigo-700">Sub:</span>
+          <span>{selectedSubGenre}</span>
+          <X
+            className="w-3 h-3 cursor-pointer hover:text-indigo-950"
+            onClick={onClearSubGenre}
           />
         </span>
       )}

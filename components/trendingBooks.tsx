@@ -21,6 +21,7 @@ import React, { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 
 import { BookItem } from "@/types";
+import AddToCartButton from "@/components/AddToCartButton";
 
 const TrendingBooks = () => {
   const [books, setBooks] = useState<BookItem[]>([]);
@@ -411,21 +412,10 @@ const TrendingBooks = () => {
 
           {/* Bottom Actions */}
           <div className="mt-3">
-            <button
-              type="button"
-              onClick={(e) => handleAddToCart(e, book)}
-              disabled={isAdding}
-              className="w-full h-8 rounded-xl bg-slate-900 hover:bg-[#1749A0] active:scale-[0.98] text-white text-[11px] font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
-            >
-              {isAdding ? (
-                <Loader2 size={12} className="animate-spin" />
-              ) : (
-                <>
-                  <ShoppingCart size={12} />
-                  <span>Add to Cart</span>
-                </>
-              )}
-            </button>
+            <AddToCartButton
+              book={book}
+              isOutOfStock={Number(book.stock) <= 0}
+            />
           </div>
         </div>
       </Link>

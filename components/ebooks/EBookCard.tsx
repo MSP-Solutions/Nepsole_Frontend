@@ -24,6 +24,10 @@ export interface EBookItem {
   authorBooks?: BookAuthor[];
   genres?: BookGenre[];
   genreBooks?: BookGenre[];
+  subGenres?: any[];
+  subgenres?: any[];
+  subGenreBooks?: any[];
+  subGenreIds?: any[];
   images?: (BookImage | string)[];
   bookImages?: BookImage[];
   coverImage?: string;

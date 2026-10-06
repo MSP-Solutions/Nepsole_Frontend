@@ -1,5 +1,6 @@
 "use client";
 
+import AddToCartButton from "@/components/AddToCartButton";
 import Footer from "@/components/footer";
 import Header from "@/components/header";
 import TopHeader from "@/components/topHeader";
@@ -15,6 +16,7 @@ import {
   CART_CHANGE_EVENT,
   getUserCookie,
   openAuthModal,
+  openCartDrawer,
   WISHLIST_CHANGE_EVENT,
 } from "@/utils/cookies";
 import { parseQuillContent } from "@/utils/quillDecoder";
@@ -147,6 +149,7 @@ export default function BookDetailPage({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
   const [quantity, setQuantity] = useState<number>(1);
+  const [inCartQuantity, setInCartQuantity] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<string>("Description");
   const [isWishlisted, setIsWishlisted] = useState<boolean>(false);
   const [isWishlistLoading, setIsWishlistLoading] = useState<boolean>(false);
@@ -381,34 +384,10 @@ export default function BookDetailPage({
   const handleAddToCart = async (showToast = true): Promise<boolean> => {
     if (!book) return false;
 
-    const user = await getUserCookie();
-    if (!user?.accessToken) {
-      toast.dismiss();
-      toast.error("Please login first to add books to your cart");
-      openAuthModal("login");
-      return false;
-    }
-
     setIsAddingToCart(true);
 
     try {
-      const numId = Number(book.id) || Number(id);
-
-      try {
-        await axiosAuthInstance.post("/v1/cart", {
-          bookId: !isNaN(numId) ? numId : id,
-          quantity: quantity,
-        });
-      } catch (err: any) {
-        if (err?.response?.status === 404) {
-          await axiosAuthInstance.post("/api/v1/cart", {
-            bookId: !isNaN(numId) ? numId : id,
-            quantity: quantity,
-          });
-        } else {
-          throw err;
-        }
-      }
+      const user = await getUserCookie();
 
       // Sync local cart for fallback/guest support
       try {
@@ -459,6 +438,26 @@ export default function BookDetailPage({
         window.dispatchEvent(new Event(CART_CHANGE_EVENT));
       }
 
+      // If user is authenticated, also sync with server cart
+      if (user?.accessToken) {
+        const numId = Number(book.id) || Number(id);
+        try {
+          await axiosAuthInstance.post("/v1/cart", {
+            bookId: !isNaN(numId) ? numId : id,
+            quantity: quantity,
+          });
+        } catch (err: any) {
+          if (err?.response?.status === 404) {
+            await axiosAuthInstance.post("/api/v1/cart", {
+              bookId: !isNaN(numId) ? numId : id,
+              quantity: quantity,
+            });
+          } else {
+            throw err;
+          }
+        }
+      }
+
       if (showToast) {
         toast.dismiss();
         toast.success(`Added ${quantity} copy(ies) to cart!`);
@@ -480,10 +479,14 @@ export default function BookDetailPage({
     if (!book) return;
 
     const user = await getUserCookie();
-    if (!user?.accessToken) {
-      toast.dismiss();
-      toast.error("Please login first to proceed with your purchase");
-      openAuthModal("login");
+    const isUserLoggedIn = Boolean(user?.accessToken);
+
+    if (inCartQuantity > 0) {
+      if (isUserLoggedIn) {
+        router.push("/user/cart");
+      } else {
+        openCartDrawer();
+      }
       return;
     }
 
@@ -491,7 +494,11 @@ export default function BookDetailPage({
     try {
       const success = await handleAddToCart(false);
       if (success) {
-        router.push("/user/cart");
+        if (isUserLoggedIn) {
+          router.push("/user/cart");
+        } else {
+          openCartDrawer();
+        }
       }
     } finally {
       setIsBuyingNow(false);
@@ -1002,8 +1009,8 @@ export default function BookDetailPage({
                 )}
               </div>
 
-              {/* Quantity Stepper */}
-              {!isOutOfStock && (
+              {/* Quantity Stepper (before adding to cart) */}
+              {!isOutOfStock && inCartQuantity === 0 && (
                 <div className="pt-2 flex items-center gap-3">
                   <span className="text-xs text-slate-500 font-medium">
                     Quantity:
@@ -1034,27 +1041,16 @@ export default function BookDetailPage({
 
               {/* Buttons */}
               <div className="space-y-2 pt-2">
+                <AddToCartButton
+                  book={book}
+                  variant="detail"
+                  isOutOfStock={isOutOfStock}
+                  initialAddQuantity={quantity}
+                  onQuantityChange={setInCartQuantity}
+                />
                 <button
                   type="button"
-                  disabled={isOutOfStock || isAddingToCart || isBuyingNow}
-                  onClick={() => handleAddToCart(true)}
-                  className="w-full py-2.5 bg-amber-400 hover:bg-amber-500 font-bold text-slate-950 rounded-xl transition-all shadow-xs text-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isAddingToCart ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Adding to Cart...</span>
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingCart className="w-4 h-4" />
-                      <span>Add to Cart</span>
-                    </>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  disabled={isOutOfStock || isAddingToCart || isBuyingNow}
+                  disabled={isOutOfStock || isBuyingNow}
                   onClick={handleBuyNow}
                   className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 font-bold text-white rounded-xl transition-all shadow-xs text-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >

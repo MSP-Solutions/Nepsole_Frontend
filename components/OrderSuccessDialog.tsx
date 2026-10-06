@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { getUserCookie } from "@/utils/cookies";
 
 export interface OrderSuccessData {
   id: number | string;
@@ -90,9 +91,14 @@ export default function OrderSuccessDialog({
     onOpenChange(false);
   };
 
-  const handleViewOrders = () => {
+  const handleViewOrders = async () => {
     onOpenChange(false);
-    router.push("/user/orders");
+    const user = await getUserCookie();
+    if (!user?.accessToken) {
+      router.push("/books");
+    } else {
+      router.push("/user/orders");
+    }
   };
 
   const status = order.status || "PENDING";

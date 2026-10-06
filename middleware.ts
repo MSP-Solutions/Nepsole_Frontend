@@ -73,7 +73,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/user/dashboard", request.url));
   }
 
-  // 3. User route protection (e.g., /user/dashboard, /user/orders, /user/settings)
+  // 3. User route protection (e.g., /user/dashboard, /user/orders, /user/settings, /user/cart)
   if (pathname.startsWith("/user")) {
     if (!isAuthenticated) {
       const loginUrl = new URL("/login", request.url);

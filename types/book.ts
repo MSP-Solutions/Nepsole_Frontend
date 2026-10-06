@@ -90,6 +90,9 @@ export interface BookItem {
   genres?: BookGenre[];
   genreBooks?: BookGenre[];
   genreIds?: (number | string)[];
+  subGenres?: any[];
+  subGenreBooks?: any[];
+  subGenreIds?: (number | string)[];
   languages?: BookLanguage[] | any[];
   languageBooks?: BookLanguage[] | any[];
   languageIds?: (number | string)[];

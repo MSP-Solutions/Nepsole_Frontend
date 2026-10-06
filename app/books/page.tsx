@@ -8,6 +8,7 @@ import Footer from "@/components/footer";
 import Header from "@/components/header";
 import TopHeader from "@/components/topHeader";
 import { BookItem, PaginationMeta } from "@/types";
+import AddToCartButton from "@/components/AddToCartButton";
 import { axiosAuthInstance, axiosInstance } from "@/utils/axiosInstances";
 import {
   CART_CHANGE_EVENT,
@@ -44,6 +45,11 @@ export interface OptionItem {
 function BooksPageContent() {
   const searchParams = useSearchParams();
   const genreParam = searchParams.get("genre") || searchParams.get("genreId") || "";
+  const subGenreParam =
+    searchParams.get("subgenre") ||
+    searchParams.get("subGenre") ||
+    searchParams.get("subGenreId") ||
+    "";
   const publisherParam = searchParams.get("publisher") || searchParams.get("publisherId") || "";
   const queryParam = searchParams.get("search") || searchParams.get("q") || "";
 
@@ -56,6 +62,9 @@ function BooksPageContent() {
 
   // Filter & Search States
   const [selectedGenre, setSelectedGenre] = useState<string>(genreParam || "all");
+  const [selectedSubGenre, setSelectedSubGenre] = useState<string>(
+    subGenreParam || "all",
+  );
   const [selectedPublisher, setSelectedPublisher] = useState<string>(publisherParam || "all");
   const [searchQuery, setSearchQuery] = useState<string>(queryParam || "");
   const [sortBy, setSortBy] = useState<string>("featured");
@@ -93,6 +102,12 @@ function BooksPageContent() {
       }
     }
   }, [genreParam, genres]);
+
+  useEffect(() => {
+    if (subGenreParam) {
+      setSelectedSubGenre(subGenreParam);
+    }
+  }, [subGenreParam]);
 
   useEffect(() => {
     if (publisherParam) {
@@ -153,6 +168,7 @@ function BooksPageContent() {
       limit = 10,
       search = searchQuery,
       genre = selectedGenre,
+      subGenre = selectedSubGenre,
       publisher = selectedPublisher,
       sort = sortBy,
     ) => {
@@ -165,6 +181,9 @@ function BooksPageContent() {
         }
         if (genre && genre !== "all") {
           url += `&genre=${encodeURIComponent(genre)}`;
+        }
+        if (subGenre && subGenre !== "all") {
+          url += `&subGenre=${encodeURIComponent(subGenre)}`;
         }
         if (publisher && publisher !== "all") {
           url += `&publisher=${encodeURIComponent(publisher)}`;
@@ -235,7 +254,7 @@ function BooksPageContent() {
         setIsLoading(false);
       }
     },
-    [searchQuery, selectedGenre, selectedPublisher, sortBy],
+    [searchQuery, selectedGenre, selectedSubGenre, selectedPublisher, sortBy],
   );
 
   // Debounced search & filter effect
@@ -247,6 +266,7 @@ function BooksPageContent() {
         pageSize,
         searchQuery,
         selectedGenre,
+        selectedSubGenre,
         selectedPublisher,
         sortBy,
       );
@@ -258,6 +278,7 @@ function BooksPageContent() {
     pageSize,
     searchQuery,
     selectedGenre,
+    selectedSubGenre,
     selectedPublisher,
     sortBy,
   ]);
@@ -279,6 +300,7 @@ function BooksPageContent() {
         pageSize,
         searchQuery,
         selectedGenre,
+        selectedSubGenre,
         selectedPublisher,
         sortBy,
       );
@@ -515,6 +537,34 @@ function BooksPageContent() {
           if (!hasGenre) return false;
         }
 
+        if (selectedSubGenre && selectedSubGenre !== "all") {
+          const normSelectedSub = selectedSubGenre.toLowerCase().trim();
+          const hasSub = (
+            book.subGenres ||
+            book.subgenres ||
+            book.subGenreBooks ||
+            []
+          ).some((sg: any) => {
+            const sgId = String(
+              sg.id || sg.subGenreId || sg.subgenre?.id || "",
+            ).toLowerCase().trim();
+            const sgName = (
+              sg.name ||
+              sg.englishName ||
+              sg.subGenre?.name ||
+              sg.subgenre?.name ||
+              ""
+            )
+              .toLowerCase()
+              .trim();
+            return (
+              sgName === normSelectedSub ||
+              (sgId && sgId === normSelectedSub)
+            );
+          });
+          if (!hasSub) return false;
+        }
+
         if (selectedPublisher !== "all") {
           const normSelectedPub = selectedPublisher.toLowerCase().trim();
           const pName = (
@@ -591,7 +641,7 @@ function BooksPageContent() {
         }
         return 0;
       });
-  }, [books, selectedGenre, selectedPublisher, searchQuery, sortBy]);
+  }, [books, selectedGenre, selectedSubGenre, selectedPublisher, searchQuery, sortBy]);
 
   const isClientSidePaging = books.length > pageSize;
   const effectiveTotal = isClientSidePaging
@@ -607,14 +657,22 @@ function BooksPageContent() {
 
   const activeFiltersCount =
     (selectedGenre !== "all" ? 1 : 0) +
+    (selectedSubGenre !== "all" ? 1 : 0) +
     (selectedPublisher !== "all" ? 1 : 0) +
     (searchQuery.trim() ? 1 : 0);
 
   const handleResetFilters = () => {
     setSelectedGenre("all");
+    setSelectedSubGenre("all");
     setSelectedPublisher("all");
     setSearchQuery("");
     setSortBy("featured");
+    setCurrentPage(1);
+  };
+
+  const handleGenreChange = (genre: string) => {
+    setSelectedGenre(genre);
+    setSelectedSubGenre("all");
     setCurrentPage(1);
   };
 
@@ -696,7 +754,21 @@ function BooksPageContent() {
                 <span>{selectedGenre}</span>
                 <X
                   className="w-3 h-3 cursor-pointer hover:text-amber-950"
-                  onClick={() => setSelectedGenre("all")}
+                  onClick={() => {
+                    setSelectedGenre("all");
+                    setSelectedSubGenre("all");
+                  }}
+                />
+              </span>
+            )}
+
+            {selectedSubGenre !== "all" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100/90 border border-amber-300 text-amber-900 text-[11px] font-medium">
+                <span className="text-[10px] text-amber-700">Sub:</span>
+                <span>{selectedSubGenre}</span>
+                <X
+                  className="w-3 h-3 cursor-pointer hover:text-amber-950"
+                  onClick={() => setSelectedSubGenre("all")}
                 />
               </span>
             )}
@@ -739,10 +811,12 @@ function BooksPageContent() {
             publishers={publishers}
             isLoadingFilters={isLoadingFilters}
             selectedGenre={selectedGenre}
+            selectedSubGenre={selectedSubGenre}
             selectedPublisher={selectedPublisher}
             totalBooks={books.length}
             activeFiltersCount={activeFiltersCount}
-            onGenreChange={setSelectedGenre}
+            onGenreChange={handleGenreChange}
+            onSubGenreChange={setSelectedSubGenre}
             onPublisherChange={setSelectedPublisher}
             onReset={handleResetFilters}
           />
@@ -990,24 +1064,11 @@ function BooksPageContent() {
                           </div>
                         </div>
                         <div className="mt-3 flex gap-1.5">
-                          <button
-                            type="button"
-                            onClick={(e) => handleAddToCart(e, book)}
-                            disabled={addingCartId === book.id || isOutOfStock}
-                            className="flex-1 h-8 rounded-xl bg-slate-900 hover:bg-[#1749A0] active:scale-[0.98] text-white text-[11px] font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {addingCartId === book.id ? (
-                              <Loader2 size={12} className="animate-spin" />
-                            ) : (
-                              <>
-                                <ShoppingCart size={12} />
-                                <span className="hidden sm:inline">
-                                  Add to Cart
-                                </span>
-                                <span className="sm:hidden">Cart</span>
-                              </>
-                            )}
-                          </button>
+                          <AddToCartButton
+                            book={book}
+                            isOutOfStock={isOutOfStock}
+                            className="flex-1"
+                          />
                         </div>
                       </div>
                     </Link>
@@ -1133,10 +1194,12 @@ function BooksPageContent() {
         publishers={publishers}
         isLoadingFilters={isLoadingFilters}
         selectedGenre={selectedGenre}
+        selectedSubGenre={selectedSubGenre}
         selectedPublisher={selectedPublisher}
         totalBooks={books.length}
         activeFiltersCount={activeFiltersCount}
-        onGenreChange={setSelectedGenre}
+        onGenreChange={handleGenreChange}
+        onSubGenreChange={setSelectedSubGenre}
         onPublisherChange={setSelectedPublisher}
         onReset={handleResetFilters}
       />

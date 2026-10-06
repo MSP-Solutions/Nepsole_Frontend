@@ -244,6 +244,32 @@ export default function AdminOrderDetailsPage() {
   const StatusIcon = currentStatusConfig.icon;
   const paymentStatus = (order.payment?.status || "PENDING").toUpperCase();
 
+  const isGuestOrder =
+    order.orderType === "GUEST" ||
+    Boolean(order.guestCustomer) ||
+    Boolean(order.guestCustomerId);
+
+  const customerName = isGuestOrder
+    ? order.guestCustomer?.name || "Guest Customer"
+    : order.user?.name || "Registered Customer";
+
+  const customerEmail = isGuestOrder
+    ? order.guestCustomer?.email
+    : order.user?.email;
+
+  const customerPhone = isGuestOrder
+    ? order.guestCustomer?.phone
+    : order.user?.phoneNumber || order.deliveryAddress?.phoneNumber;
+
+  const deliveryAddress = order.deliveryAddress || (order.guestCustomer ? {
+    streetAddress: order.guestCustomer.streetAddress,
+    landmark: order.guestCustomer.landmark,
+    city: order.guestCustomer.city,
+    district: order.guestCustomer.district,
+    province: order.guestCustomer.province,
+    phoneNumber: order.guestCustomer.phone,
+  } : null);
+
   const formattedDate = order.createdAt
     ? new Date(order.createdAt).toLocaleDateString("en-US", {
         month: "long",
@@ -312,6 +338,18 @@ export default function AdminOrderDetailsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* Order Type Badge */}
+          <div
+            className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold ${
+              isGuestOrder
+                ? "bg-amber-500/20 border-amber-300/40 text-amber-200"
+                : "bg-white/10 border-white/20 text-blue-100"
+            }`}
+          >
+            <User className="h-3.5 w-3.5" />
+            <span>{isGuestOrder ? "Guest Order" : "Member Order"}</span>
+          </div>
+
           <div
             className={`flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold ${currentStatusConfig.bg} ${currentStatusConfig.text}`}
           >
@@ -425,40 +463,61 @@ export default function AdminOrderDetailsPage() {
           <div className="grid gap-5 sm:grid-cols-2">
             {/* Customer Profile Card */}
             <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs space-y-2.5">
-              <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-                  <User className="h-4 w-4" />
+              <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                      isGuestOrder
+                        ? "bg-amber-50 text-amber-700"
+                        : "bg-indigo-50 text-indigo-600"
+                    }`}
+                  >
+                    <User className="h-4 w-4" />
+                  </div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                    Customer Profile
+                  </h3>
                 </div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                  Customer Profile
-                </h3>
+
+                <span
+                  className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md ${
+                    isGuestOrder
+                      ? "bg-amber-100 text-amber-800 border border-amber-200"
+                      : "bg-blue-50 text-blue-700 border border-blue-100"
+                  }`}
+                >
+                  {isGuestOrder ? "Guest" : "Member"}
+                </span>
               </div>
 
               <div className="space-y-1.5 text-xs text-slate-600 pt-1">
                 <p className="font-bold text-slate-900 text-sm">
-                  {order.user?.name || "Registered Customer"}
+                  {customerName}
                 </p>
-                {order.user?.email && (
+
+                {customerEmail && (
                   <p className="text-slate-500 flex items-center gap-1.5">
-                    <Mail className="h-3.5 w-3.5 text-slate-400" />
-                    <span>{order.user.email}</span>
+                    <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <span className="break-all">{customerEmail}</span>
                   </p>
                 )}
-                {(order.user?.phoneNumber ||
-                  order.deliveryAddress?.phoneNumber) && (
-                  <p className="text-slate-700 font-medium flex items-center gap-1.5 pt-1">
-                    <Phone className="h-3.5 w-3.5 text-slate-400" />
-                    <span>
-                      {order.user?.phoneNumber ||
-                        order.deliveryAddress?.phoneNumber}
-                    </span>
+
+                {customerPhone && (
+                  <p className="text-slate-700 font-medium flex items-center gap-1.5 pt-0.5">
+                    <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <span>{customerPhone}</span>
                   </p>
                 )}
-                {order.user?.id && (
+
+                {isGuestOrder ? (
+                  <p className="text-[11px] text-slate-400 pt-1">
+                    Order placed as Guest (No registered user account)
+                  </p>
+                ) : order.user?.id ? (
                   <p className="text-[11px] text-slate-400 pt-1">
                     User Account ID: #{order.user.id}
                   </p>
-                )}
+                ) : null}
               </div>
             </section>
 
@@ -473,29 +532,31 @@ export default function AdminOrderDetailsPage() {
                 </h3>
               </div>
 
-              {order.deliveryAddress ? (
+              {deliveryAddress ? (
                 <div className="space-y-1.5 text-xs text-slate-600 pt-1">
-                  <p className="font-bold text-slate-900 text-sm leading-tight">
-                    {order.deliveryAddress.streetAddress}
-                  </p>
-                  {order.deliveryAddress.landmark && (
+                  {deliveryAddress.streetAddress && (
+                    <p className="font-bold text-slate-900 text-sm leading-tight">
+                      {deliveryAddress.streetAddress}
+                    </p>
+                  )}
+                  {deliveryAddress.landmark && (
                     <p className="text-[11px] text-slate-500">
-                      Near: {order.deliveryAddress.landmark}
+                      Near: {deliveryAddress.landmark}
                     </p>
                   )}
                   <p className="text-xs text-slate-500">
                     {[
-                      order.deliveryAddress.city,
-                      order.deliveryAddress.district,
-                      order.deliveryAddress.province,
+                      deliveryAddress.city,
+                      deliveryAddress.district,
+                      deliveryAddress.province,
                     ]
                       .filter(Boolean)
                       .join(", ")}
                   </p>
-                  {order.deliveryAddress.phoneNumber && (
+                  {deliveryAddress.phoneNumber && (
                     <p className="text-slate-700 font-medium flex items-center gap-1.5 pt-1.5 border-t border-slate-100">
-                      <Phone className="h-3.5 w-3.5 text-slate-400" />
-                      <span>{order.deliveryAddress.phoneNumber}</span>
+                      <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                      <span>{deliveryAddress.phoneNumber}</span>
                     </p>
                   )}
                 </div>

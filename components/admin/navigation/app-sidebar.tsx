@@ -70,6 +70,11 @@ const navigation: NavItem[] = [
     icon: BookOpen,
   },
   {
+    title: "Sub Genre",
+    url: "/admin/subGenre",
+    icon: BookOpen,
+  },
+  {
     title: "Language",
     url: "/admin/language",
     icon: Languages,

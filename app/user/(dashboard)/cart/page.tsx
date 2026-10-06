@@ -5,6 +5,7 @@ import Header from "@/components/header";
 import TopHeader from "@/components/topHeader";
 import { axiosAuthInstance } from "@/utils/axiosInstances";
 import { CART_CHANGE_EVENT, getUserCookie } from "@/utils/cookies";
+import { updateLocalStorageItem } from "@/utils/cartState";
 import {
   ArrowRight,
   BookOpen,
@@ -107,8 +108,68 @@ export default function CartPage() {
     try {
       const user = await getUserCookie();
       if (!user?.accessToken) {
-        setItems([]);
-        setSummary(null);
+        // Guest mode: Load from localStorage
+        const raw =
+          typeof window !== "undefined"
+            ? localStorage.getItem("nepsole_cart")
+            : null;
+        let localCart: any[] = [];
+        if (raw) {
+          try {
+            localCart = JSON.parse(raw);
+          } catch {}
+        }
+        if (!Array.isArray(localCart)) localCart = [];
+
+        const guestItems: BackendCartItem[] = localCart.map((it: any) => {
+          const qty = Number(it.quantity) || 1;
+          const uPrice = Number(it.price) || 0;
+          const oPrice = Number(it.originalPrice) || uPrice;
+          const dPercent = Number(it.discountPercent) || 0;
+          const iTotal = uPrice * qty;
+          const oTotal = oPrice * qty;
+          const dTotal = Math.max(0, oTotal - iTotal);
+
+          return {
+            id: it.id || `local-${it.bookId}`,
+            bookId: it.bookId ?? it.id,
+            quantity: qty,
+            unitPrice: uPrice,
+            originalPrice: oPrice,
+            discountPercent: dPercent,
+            itemTotal: iTotal,
+            originalTotal: oTotal,
+            discountTotal: dTotal,
+            book: {
+              id: it.bookId ?? it.id,
+              title: it.title || "Book",
+              price: oPrice,
+              unitPrice: uPrice,
+              discountPercent: dPercent,
+              stock: Number(it.stock) || 500,
+              authors: it.author ? [{ id: 1, name: it.author }] : [],
+              genres: it.genre ? [{ id: 1, name: it.genre }] : [],
+              images: it.coverImage
+                ? [{ id: 1, url: it.coverImage, type: "COVER" }]
+                : [],
+            },
+          };
+        });
+
+        setItems(guestItems);
+
+        const sub = guestItems.reduce((sum, it) => sum + it.originalTotal, 0);
+        const disc = guestItems.reduce((sum, it) => sum + it.discountTotal, 0);
+        const gTot = guestItems.reduce((sum, it) => sum + it.itemTotal, 0);
+        const totQty = guestItems.reduce((sum, it) => sum + it.quantity, 0);
+
+        setSummary({
+          distinctItems: guestItems.length,
+          totalQuantity: totQty,
+          subtotal: sub,
+          totalDiscount: disc,
+          grandTotal: gTot,
+        });
         return;
       }
 
@@ -122,6 +183,11 @@ export default function CartPage() {
           : [];
 
       setItems(rawItems);
+      if (rawItems.length === 0 && typeof window !== "undefined") {
+        localStorage.removeItem("nepsole_cart");
+        localStorage.removeItem("nepsole_cart_count");
+        window.dispatchEvent(new Event(CART_CHANGE_EVENT));
+      }
 
       if (data?.summary) {
         setSummary({
@@ -177,6 +243,15 @@ export default function CartPage() {
 
   useEffect(() => {
     fetchCart();
+
+    const handleCartChangeEvent = () => {
+      fetchCart();
+    };
+
+    window.addEventListener(CART_CHANGE_EVENT, handleCartChangeEvent);
+    return () => {
+      window.removeEventListener(CART_CHANGE_EVENT, handleCartChangeEvent);
+    };
   }, []);
 
   // Cover image helper from book.images
@@ -227,8 +302,59 @@ export default function CartPage() {
     };
   }, []);
 
+  const calculateSummary = (cartItems: BackendCartItem[]): CartSummary => {
+    const sub = cartItems.reduce(
+      (sum, it) =>
+        sum +
+        (Number(it.originalTotal) ||
+          Number(it.originalPrice) * it.quantity ||
+          0),
+      0,
+    );
+    const disc = cartItems.reduce(
+      (sum, it) => sum + (Number(it.discountTotal) || 0),
+      0,
+    );
+    const gTot = cartItems.reduce(
+      (sum, it) =>
+        sum +
+        (Number(it.itemTotal) || Number(it.unitPrice) * it.quantity || 0),
+      0,
+    );
+    const totQty = cartItems.reduce(
+      (sum, it) => sum + (Number(it.quantity) || 1),
+      0,
+    );
+    return {
+      distinctItems: cartItems.length,
+      totalQuantity: totQty,
+      subtotal: sub,
+      totalDiscount: disc,
+      grandTotal: gTot,
+    };
+  };
+
+  const updateGuestCartStorage = (updatedItems: BackendCartItem[]) => {
+    if (typeof window === "undefined") return;
+    const localCart = updatedItems.map((it) => ({
+      id: it.id,
+      bookId: it.bookId,
+      title: it.book?.title,
+      author: it.book?.authors?.[0]?.name,
+      price: it.unitPrice,
+      originalPrice: it.originalPrice,
+      discountPercent: it.discountPercent,
+      quantity: it.quantity,
+      coverImage: it.book?.images?.[0]?.url,
+      format: "Paperback",
+      stock: it.book?.stock || 500,
+    }));
+    localStorage.setItem("nepsole_cart", JSON.stringify(localCart));
+    window.dispatchEvent(new Event(CART_CHANGE_EVENT));
+  };
+
   // Update quantity handler using /v1/cart/quantity with debounce and final quantity
-  const handleUpdateQuantity = (item: BackendCartItem, delta: number) => {
+  const handleUpdateQuantity = async (item: BackendCartItem, delta: number) => {
     // Get latest quantity in state to allow rapid clicks to accumulate to final quantity
     const currentItem = items.find((it) => it.id === item.id) || item;
     const currentQty = Number(currentItem.quantity) || 1;
@@ -236,7 +362,34 @@ export default function CartPage() {
     const finalQty = currentQty + delta;
     if (finalQty < 1 || finalQty > maxStock) return;
 
-    // Optimistic update
+    const user = await getUserCookie();
+    if (!user?.accessToken) {
+      // Guest mode
+      const updated = items.map((it) => {
+        if (it.id === item.id) {
+          const unitPrice = Number(it.unitPrice) || 0;
+          const originalPrice = Number(it.originalPrice) || unitPrice;
+          const itemTotal = unitPrice * finalQty;
+          const originalTotal = originalPrice * finalQty;
+          const discountTotal = Math.max(0, originalTotal - itemTotal);
+
+          return {
+            ...it,
+            quantity: finalQty,
+            itemTotal,
+            originalTotal,
+            discountTotal,
+          };
+        }
+        return it;
+      });
+      setItems(updated);
+      setSummary(calculateSummary(updated));
+      updateGuestCartStorage(updated);
+      return;
+    }
+
+    // Optimistic update for logged-in user
     setItems((prev) =>
       prev.map((it) => {
         if (it.id === item.id) {
@@ -268,10 +421,21 @@ export default function CartPage() {
       setUpdatingId(item.id);
 
       try {
-        await axiosAuthInstance.patch("/v1/cart/quantity", {
-          bookId: Number(item.bookId) || item.bookId,
-          quantity: finalQty,
-        });
+        try {
+          await axiosAuthInstance.patch("/v1/cart/quantity", {
+            bookId: Number(item.bookId) || item.bookId,
+            quantity: finalQty,
+          });
+        } catch (err: any) {
+          if (err?.response?.status === 404) {
+            await axiosAuthInstance.patch("/api/v1/cart/quantity", {
+              bookId: Number(item.bookId) || item.bookId,
+              quantity: finalQty,
+            });
+          } else {
+            throw err;
+          }
+        }
 
         if (typeof window !== "undefined") {
           window.dispatchEvent(new Event(CART_CHANGE_EVENT));
@@ -301,10 +465,32 @@ export default function CartPage() {
     setRemovingId(item.id);
 
     try {
-      // Optimistic removal
-      setItems((prev) => prev.filter((it) => it.id !== item.id));
+      const user = await getUserCookie();
+      if (!user?.accessToken) {
+        // Guest mode
+        const updated = items.filter((it) => it.id !== item.id);
+        setItems(updated);
+        setSummary(calculateSummary(updated));
+        updateGuestCartStorage(updated);
+        toast.success(`Removed "${item.book?.title || "Book"}" from cart`);
+        return;
+      }
 
-      await axiosAuthInstance.delete(`/v1/cart/${bookId}`);
+      // Optimistic removal for logged in user
+      setItems((prev) => prev.filter((it) => it.id !== item.id));
+      if (item.book) {
+        updateLocalStorageItem(item.book, 0);
+      }
+
+      try {
+        await axiosAuthInstance.delete(`/v1/cart/${bookId}`);
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          await axiosAuthInstance.delete(`/api/v1/cart/${bookId}`);
+        } else {
+          throw err;
+        }
+      }
 
       toast.success(`Removed "${item.book?.title || "Book"}" from cart`);
 

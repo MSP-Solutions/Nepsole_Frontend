@@ -1,5 +1,6 @@
 "use client";
 
+import AddToCartButton from "@/components/AddToCartButton";
 import { axiosAuthInstance } from "@/utils/axiosInstances";
 import {
   CART_CHANGE_EVENT,
@@ -518,26 +519,28 @@ export default function WishlistPage() {
 
                   {/* Bottom Actions */}
                   <div className="mt-3">
-                    <button
-                      type="button"
-                      onClick={(e) => handleAddToCart(e, book)}
-                      disabled={isAdding}
-                      className="w-full h-8 rounded-xl bg-slate-900 hover:bg-[#1749A0] active:scale-[0.98] text-white text-[11px] font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
-                    >
-                      {isAdding ? (
-                        <Loader2 size={12} className="animate-spin" />
-                      ) : isEBook ? (
-                        <>
-                          <BookOpen size={12} />
-                          <span>Read E-Book</span>
-                        </>
-                      ) : (
-                        <>
-                          <ShoppingCart size={12} />
-                          <span>Add to Cart</span>
-                        </>
-                      )}
-                    </button>
+                    {isEBook ? (
+                      <button
+                        type="button"
+                        onClick={(e) => handleAddToCart(e, book)}
+                        disabled={isAdding}
+                        className="w-full h-8 rounded-xl bg-slate-900 hover:bg-[#1749A0] active:scale-[0.98] text-white text-[11px] font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
+                      >
+                        {isAdding ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <>
+                            <BookOpen size={12} />
+                            <span>Read E-Book</span>
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <AddToCartButton
+                        book={book}
+                        isOutOfStock={Number(book.stock) <= 0}
+                      />
+                    )}
                   </div>
                 </div>
               </Link>

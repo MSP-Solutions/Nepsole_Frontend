@@ -61,13 +61,30 @@ export interface OrderItem {
   book?: BookItem;
 }
 
+export interface GuestCustomer {
+  id?: number;
+  name: string;
+  email: string;
+  phone: string;
+  district?: string;
+  city?: string;
+  streetAddress?: string;
+  province?: string;
+  landmark?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Order {
   id: number;
-  userId: number;
+  orderType?: "GUEST" | "USER" | string;
+  userId?: number | null;
+  guestCustomerId?: number | null;
+  guestCustomer?: GuestCustomer | null;
   deliveryOptionId?: number;
   deliveryOption?: DeliveryOption;
-  deliveryAddressId?: number;
-  deliveryAddress?: DeliveryAddress;
+  deliveryAddressId?: number | null;
+  deliveryAddress?: DeliveryAddress | null;
   status: string;
   subtotal: number;
   discount: number;
@@ -75,7 +92,7 @@ export interface Order {
   total: number;
   createdAt: string;
   updatedAt: string;
-  user?: OrderUser;
+  user?: OrderUser | null;
   payment?: OrderPayment;
   items: OrderItem[];
 }

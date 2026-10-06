@@ -17,7 +17,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 
 import {
@@ -118,31 +118,40 @@ const Header = () => {
     }
   };
 
-  useEffect(() => {
-    loadUser();
-    fetchWishlistCount();
+  const hasMountedRef = useRef(false);
 
-    const handleAuthChange = () => {
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
       loadUser();
       fetchWishlistCount();
+    }
+
+    let debounceTimer: NodeJS.Timeout | null = null;
+    const handleAuthChange = () => {
+      loadUser();
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        fetchWishlistCount();
+      }, 500);
     };
 
     const handleWishlistChange = () => {
-      fetchWishlistCount();
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        fetchWishlistCount();
+      }, 300);
     };
 
     window.addEventListener(AUTH_CHANGE_EVENT, handleAuthChange);
-    window.addEventListener(CART_CHANGE_EVENT, handleWishlistChange);
     window.addEventListener(WISHLIST_CHANGE_EVENT, handleWishlistChange);
-    window.addEventListener("focus", handleWishlistChange);
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       window.removeEventListener(AUTH_CHANGE_EVENT, handleAuthChange);
-      window.removeEventListener(CART_CHANGE_EVENT, handleWishlistChange);
       window.removeEventListener(WISHLIST_CHANGE_EVENT, handleWishlistChange);
-      window.removeEventListener("focus", handleWishlistChange);
     };
-  }, [pathname]);
+  }, []);
 
   // Close mobile menu on route change
   useEffect(() => {

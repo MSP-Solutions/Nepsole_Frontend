@@ -294,15 +294,28 @@ export default function AdminOrdersPage() {
       // Search Query
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase().trim();
-        const customerName = order.user?.name?.toLowerCase() || "";
-        const customerEmail = order.user?.email?.toLowerCase() || "";
+        const customerName = (
+          order.guestCustomer?.name ||
+          order.user?.name ||
+          ""
+        ).toLowerCase();
+        const customerEmail = (
+          order.guestCustomer?.email ||
+          order.user?.email ||
+          ""
+        ).toLowerCase();
         const customerPhone =
-          order.user?.phoneNumber || order.deliveryAddress?.phoneNumber || "";
+          order.guestCustomer?.phone ||
+          order.user?.phoneNumber ||
+          order.deliveryAddress?.phoneNumber ||
+          "";
         const orderIdStr = String(order.id);
         const hasMatchingBook = order.items?.some((it) =>
           it.book?.title?.toLowerCase().includes(query),
         );
         const hasMatchingCity =
+          order.guestCustomer?.city?.toLowerCase().includes(query) ||
+          order.guestCustomer?.streetAddress?.toLowerCase().includes(query) ||
           order.deliveryAddress?.city?.toLowerCase().includes(query) ||
           order.deliveryAddress?.streetAddress?.toLowerCase().includes(query);
 
@@ -489,28 +502,50 @@ export default function AdminOrdersPage() {
 
                           {/* Customer Details */}
                           <td className="px-5 py-4 min-w-[200px]">
-                            <div className="font-semibold text-slate-900 flex items-center gap-1.5">
-                              <User className="w-3.5 h-3.5 text-slate-400" />
-                              <span>{order.user?.name || "Customer"}</span>
-                            </div>
-                            {order.user?.email && (
-                              <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
-                                <Mail className="w-3 h-3 text-slate-400 shrink-0" />
-                                <span className="truncate max-w-[160px]">
-                                  {order.user.email}
-                                </span>
-                              </div>
-                            )}
-                            {(order.user?.phoneNumber ||
-                              order.deliveryAddress?.phoneNumber) && (
-                              <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
-                                <Phone className="w-3 h-3 text-slate-400 shrink-0" />
-                                <span>
-                                  {order.user?.phoneNumber ||
-                                    order.deliveryAddress?.phoneNumber}
-                                </span>
-                              </div>
-                            )}
+                            {(() => {
+                              const isGuest =
+                                order.orderType === "GUEST" ||
+                                Boolean(order.guestCustomer) ||
+                                Boolean(order.guestCustomerId);
+                              const name = isGuest
+                                ? order.guestCustomer?.name || "Guest Customer"
+                                : order.user?.name || "Customer";
+                              const email = isGuest
+                                ? order.guestCustomer?.email
+                                : order.user?.email;
+                              const phone = isGuest
+                                ? order.guestCustomer?.phone
+                                : order.user?.phoneNumber ||
+                                  order.deliveryAddress?.phoneNumber;
+
+                              return (
+                                <>
+                                  <div className="font-semibold text-slate-900 flex items-center gap-1.5 flex-wrap">
+                                    <User className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>{name}</span>
+                                    {isGuest && (
+                                      <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                                        Guest
+                                      </span>
+                                    )}
+                                  </div>
+                                  {email && (
+                                    <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
+                                      <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                                      <span className="truncate max-w-[160px]">
+                                        {email}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {phone && (
+                                    <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
+                                      <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+                                      <span>{phone}</span>
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </td>
 
                           {/* Items Ordered */}

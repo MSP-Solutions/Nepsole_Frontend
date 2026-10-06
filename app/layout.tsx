@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 import { Toaster } from "react-hot-toast";
 import TokenRefresher from "@/components/providers/TokenRefresher";
+import CartDrawer from "@/components/CartDrawer";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="min-h-full flex flex-col">
         <TokenRefresher />
         <Toaster position="top-center" reverseOrder={false} />
+        <CartDrawer />
         {children}
       </body>
     </html>

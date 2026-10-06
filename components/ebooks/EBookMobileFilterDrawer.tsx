@@ -1,8 +1,11 @@
 "use client";
 
-import { Filter, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Filter, Layers, Loader2, X } from "lucide-react";
 import React from "react";
-import { OptionItem } from "./EBookSidebarFilter";
+import {
+  OptionItem,
+  useEBookGenreSubGenres,
+} from "./EBookSidebarFilter";
 
 interface EBookMobileFilterDrawerProps {
   isOpen: boolean;
@@ -10,7 +13,9 @@ interface EBookMobileFilterDrawerProps {
   selectedPlan: string;
   onSelectPlan: (plan: string) => void;
   selectedGenre: string;
+  selectedSubGenre?: string;
   onSelectGenre: (genre: string) => void;
+  onSelectSubGenre?: (subGenre: string) => void;
   genres: OptionItem[];
   selectedPublisher: string;
   onSelectPublisher: (pub: string) => void;
@@ -25,7 +30,9 @@ export default function EBookMobileFilterDrawer({
   selectedPlan,
   onSelectPlan,
   selectedGenre,
+  selectedSubGenre = "all",
   onSelectGenre,
+  onSelectSubGenre,
   genres,
   selectedPublisher,
   onSelectPublisher,
@@ -33,6 +40,9 @@ export default function EBookMobileFilterDrawer({
   totalEBooks,
   onResetFilters,
 }: EBookMobileFilterDrawerProps) {
+  const { subGenresByGenre, loadingGenres, expandedGenres, toggleExpand } =
+    useEBookGenreSubGenres(genres, selectedGenre);
+
   if (!isOpen) return null;
 
   return (
@@ -53,7 +63,7 @@ export default function EBookMobileFilterDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-700 rounded-lg"
+            className="p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -104,15 +114,25 @@ export default function EBookMobileFilterDrawer({
 
           <hr className="border-slate-100" />
 
-          {/* Genres */}
+          {/* Genres & Subgenres */}
           <div>
-            <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-800 mb-2">
-              Genres & Categories
-            </h4>
-            <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-800">
+                Genres &amp; Subgenres
+              </h4>
+              {selectedSubGenre && selectedSubGenre !== "all" && (
+                <span className="text-[10px] text-indigo-600 font-semibold flex items-center gap-0.5">
+                  <Layers className="w-2.5 h-2.5" /> 1 active
+                </span>
+              )}
+            </div>
+            <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
               <button
                 type="button"
-                onClick={() => onSelectGenre("all")}
+                onClick={() => {
+                  onSelectGenre("all");
+                  onSelectSubGenre?.("all");
+                }}
                 className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg flex items-center justify-between cursor-pointer ${
                   selectedGenre === "all"
                     ? "bg-indigo-600 text-white font-bold"
@@ -124,22 +144,147 @@ export default function EBookMobileFilterDrawer({
               </button>
               {genres.map((gen) => {
                 const genName = gen.name || gen.englishName || "";
-                const isSelected = selectedGenre === genName;
+                const isGenreSelected =
+                  selectedGenre.toLowerCase() === genName.toLowerCase() ||
+                  (gen.id && String(gen.id) === selectedGenre);
+
+                const isExpanded = gen.id ? Boolean(expandedGenres[gen.id]) : false;
+                const subGenres = gen.id ? subGenresByGenre[gen.id] || [] : [];
+                const isLoadingSubs = gen.id ? Boolean(loadingGenres[gen.id]) : false;
+                const hasActiveSub =
+                  isGenreSelected &&
+                  selectedSubGenre &&
+                  selectedSubGenre !== "all";
+
                 return (
-                  <button
-                    key={gen.id || genName}
-                    type="button"
-                    onClick={() => onSelectGenre(genName)}
-                    className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg flex items-center justify-between cursor-pointer ${
-                      isSelected
-                        ? "bg-indigo-600 text-white font-bold"
-                        : "text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    <span className="truncate">
-                      {gen.name || gen.englishName}
-                    </span>
-                  </button>
+                  <div key={gen.id || genName} className="space-y-0.5">
+                    <div
+                      className={`w-full rounded-lg transition-all flex items-center justify-between ${
+                        isGenreSelected
+                          ? hasActiveSub
+                            ? "bg-indigo-100/90 text-indigo-900 font-bold border border-indigo-300/80 shadow-2xs"
+                            : "bg-indigo-600 text-white font-semibold shadow-2xs"
+                          : "text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onSelectGenre(genName);
+                          if (gen.id && !expandedGenres[gen.id]) {
+                            toggleExpand(gen.id);
+                          }
+                        }}
+                        className="flex-1 text-left text-xs px-2.5 py-1.5 flex items-center gap-1.5 truncate cursor-pointer"
+                      >
+                        <span className="truncate">
+                          {gen.name || gen.englishName}
+                        </span>
+                        {isGenreSelected && !hasActiveSub && (
+                          <Check className="w-3 h-3 shrink-0 ml-auto mr-1" />
+                        )}
+                        {hasActiveSub && (
+                          <span className="ml-auto mr-1 text-[9px] px-1.5 py-0.5 rounded bg-indigo-200/80 text-indigo-800 font-semibold uppercase">
+                            sub
+                          </span>
+                        )}
+                      </button>
+
+                      {gen.id && (
+                        <button
+                          type="button"
+                          onClick={(e) => toggleExpand(gen.id, e)}
+                          className={`p-1.5 mr-1 rounded-md transition cursor-pointer ${
+                            isGenreSelected
+                              ? hasActiveSub
+                                ? "text-indigo-800 hover:bg-indigo-200/70"
+                                : "text-indigo-100 hover:bg-indigo-700 hover:text-white"
+                              : "text-slate-400 hover:text-slate-700 hover:bg-slate-200/60"
+                          }`}
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="w-3 h-3" />
+                          ) : (
+                            <ChevronRight className="w-3 h-3" />
+                          )}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Nested Subgenres */}
+                    {isExpanded && (
+                      <div className="ml-3 pl-2.5 border-l-2 border-indigo-200/90 my-1 space-y-0.5 animate-in fade-in-50 duration-150">
+                        {isLoadingSubs ? (
+                          <div className="py-1 px-2 text-[11px] text-slate-400 flex items-center gap-1.5">
+                            <Loader2 className="w-3 h-3 animate-spin text-indigo-600" />
+                            <span>Loading subgenres...</span>
+                          </div>
+                        ) : subGenres.length === 0 ? (
+                          <div className="py-1 px-2 text-[10px] text-slate-400 italic">
+                            No subgenres available
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!isGenreSelected) onSelectGenre(genName);
+                                onSelectSubGenre?.("all");
+                              }}
+                              className={`w-full text-left text-[11px] px-2 py-1 rounded-md transition-all flex items-center justify-between cursor-pointer ${
+                                isGenreSelected &&
+                                (!selectedSubGenre || selectedSubGenre === "all")
+                                  ? "bg-indigo-600 text-white font-semibold"
+                                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-100/70"
+                              }`}
+                            >
+                              <span>All {genName}</span>
+                              {isGenreSelected &&
+                                (!selectedSubGenre || selectedSubGenre === "all") && (
+                                  <Check className="w-2.5 h-2.5 shrink-0" />
+                                )}
+                            </button>
+
+                            {subGenres.map((sub) => {
+                              const subName = sub.name || sub.englishName || "";
+                              const isSubSelected =
+                                isGenreSelected &&
+                                (selectedSubGenre?.toLowerCase() ===
+                                  subName.toLowerCase() ||
+                                  (sub.id && String(sub.id) === selectedSubGenre));
+
+                              return (
+                                <button
+                                  key={sub.id || subName}
+                                  type="button"
+                                  onClick={() => {
+                                    if (!isGenreSelected) {
+                                      onSelectGenre(genName);
+                                    }
+                                    if (isSubSelected) {
+                                      onSelectSubGenre?.("all");
+                                    } else {
+                                      onSelectSubGenre?.(subName);
+                                    }
+                                  }}
+                                  className={`w-full text-left text-[11px] px-2 py-1 rounded-md transition-all flex items-center justify-between cursor-pointer ${
+                                    isSubSelected
+                                      ? "bg-indigo-600 text-white font-semibold"
+                                      : "text-slate-600 hover:bg-indigo-50/70 hover:text-indigo-800"
+                                  }`}
+                                >
+                                  <span className="truncate">{subName}</span>
+                                  {isSubSelected && (
+                                    <Check className="w-2.5 h-2.5 shrink-0" />
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>

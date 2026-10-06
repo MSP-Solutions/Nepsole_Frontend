@@ -170,6 +170,17 @@ export const ViewEBooksDialog: React.FC<ViewEBooksDialogProps> = ({
     }),
   );
 
+  // Extract Sub Genres
+  const subGenresList: { id?: string | number; name: string }[] = (
+    book.subGenres ||
+    book.subgenres ||
+    book.subGenreBooks ||
+    []
+  ).map((sg: any) => ({
+    id: sg.id || sg.subGenre?.id,
+    name: sg.name || sg.englishName || sg.subGenre?.name || "Sub Genre",
+  }));
+
   // Extract Languages with code
   const languagesList: BookLanguage[] = (
     book.languages ||
@@ -471,6 +482,31 @@ export const ViewEBooksDialog: React.FC<ViewEBooksDialogProps> = ({
                     )}
                   </div>
                 </div>
+
+                {/* Sub Genres */}
+                {subGenresList.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase w-20 shrink-0">
+                      Subgenres:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {subGenresList.map(
+                        (
+                          sg: { id?: string | number; name: string },
+                          idx: number,
+                        ) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium border border-blue-100 shadow-2xs"
+                          >
+                            <Layers className="w-3 h-3 text-blue-500" />
+                            <span>{sg.name}</span>
+                          </span>
+                        ),
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Languages */}
                 <div className="flex items-center gap-2">

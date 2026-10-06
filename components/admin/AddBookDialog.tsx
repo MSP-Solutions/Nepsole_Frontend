@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,7 @@ import {
   Trash2,
   Image as ImageIcon,
   Save,
+  Layers,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { axiosAuthInstance, axiosMultipartInstance } from "@/utils/axiosInstances";
@@ -65,6 +66,9 @@ export interface BookData {
   publisherId?: number | string;
   authorIds?: (number | string)[];
   genreIds?: (number | string)[];
+  subGenreIds?: (number | string)[];
+  subGenres?: any[];
+  subgenres?: any[];
   languageIds?: (number | string)[];
   images?: any[];
   bookImages?: any[];
@@ -111,6 +115,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
   const [formData, setFormData] = useState(initialFormState);
   const [selectedAuthors, setSelectedAuthors] = useState<(number | string)[]>([]);
   const [selectedGenres, setSelectedGenres] = useState<(number | string)[]>([]);
+  const [selectedSubGenres, setSelectedSubGenres] = useState<(number | string)[]>([]);
   const [selectedLanguages, setSelectedLanguages] = useState<(number | string)[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   
@@ -123,6 +128,12 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
   const [authors, setAuthors] = useState<OptionItem[]>([]);
   const [genres, setGenres] = useState<OptionItem[]>([]);
   const [languages, setLanguages] = useState<OptionItem[]>([]);
+
+  // Subgenres cache by genreId
+  const [subGenresByGenre, setSubGenresByGenre] = useState<
+    Record<string | number, OptionItem[]>
+  >({});
+  const [isLoadingSubGenres, setIsLoadingSubGenres] = useState(false);
 
   const [isLoadingOptions, setIsLoadingOptions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -137,6 +148,9 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
   const [genreOpen, setGenreOpen] = useState(false);
   const [genreSearch, setGenreSearch] = useState("");
 
+  const [subGenreOpen, setSubGenreOpen] = useState(false);
+  const [subGenreSearch, setSubGenreSearch] = useState("");
+
   const [languageOpen, setLanguageOpen] = useState(false);
   const [languageSearch, setLanguageSearch] = useState("");
 
@@ -144,6 +158,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
   const publisherRef = useRef<HTMLDivElement>(null);
   const authorRef = useRef<HTMLDivElement>(null);
   const genreRef = useRef<HTMLDivElement>(null);
+  const subGenreRef = useRef<HTMLDivElement>(null);
   const languageRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns on outside click
@@ -157,6 +172,9 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
       }
       if (genreRef.current && !genreRef.current.contains(e.target as Node)) {
         setGenreOpen(false);
+      }
+      if (subGenreRef.current && !subGenreRef.current.contains(e.target as Node)) {
+        setSubGenreOpen(false);
       }
       if (languageRef.current && !languageRef.current.contains(e.target as Node)) {
         setLanguageOpen(false);
@@ -237,6 +255,13 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
         });
         setSelectedAuthors(bookToEdit.authorIds || []);
         setSelectedGenres(bookToEdit.genreIds || []);
+        const initialSubGenreIds =
+          bookToEdit.subGenreIds ||
+          (bookToEdit.subgenres || bookToEdit.subGenres || []).map((sg: any) =>
+            typeof sg === "object" ? sg.id || sg.subGenreId : sg
+          ) ||
+          [];
+        setSelectedSubGenres(initialSubGenreIds);
         setSelectedLanguages(bookToEdit.languageIds || []);
 
         // Load existing images
@@ -269,6 +294,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
     setFormData(initialFormState);
     setSelectedAuthors([]);
     setSelectedGenres([]);
+    setSelectedSubGenres([]);
     setSelectedLanguages([]);
     setExistingImages([]);
     uploadedImages.forEach((img) => URL.revokeObjectURL(img.preview));
@@ -473,6 +499,19 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
     }
   };
 
+  const toggleSubGenre = (id: number | string) => {
+    toggleSelection(id, selectedSubGenres, setSelectedSubGenres);
+    if (errors.subGenreIds || errors.subgenres || errors.subgenre) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.subGenreIds;
+        delete next.subgenres;
+        delete next.subgenre;
+        return next;
+      });
+    }
+  };
+
   const toggleLanguage = (id: number | string) => {
     toggleSelection(id, selectedLanguages, setSelectedLanguages);
     if (errors.languageIds || errors.languages) {
@@ -484,6 +523,111 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
       });
     }
   };
+
+  // Fetch subgenres dynamically whenever selectedGenres changes
+  useEffect(() => {
+    if (!open) return;
+
+    if (selectedGenres.length === 0) {
+      setSelectedSubGenres([]);
+      return;
+    }
+
+    const fetchSubGenresForGenres = async () => {
+      setIsLoadingSubGenres(true);
+      try {
+        const genresToFetch = selectedGenres.filter(
+          (gid) => !subGenresByGenre[gid],
+        );
+
+        if (genresToFetch.length > 0) {
+          const fetchPromises = genresToFetch.map(async (gid) => {
+            let res;
+            try {
+              res = await axiosAuthInstance.get(`/v1/subgenre/by-genre/${gid}`);
+            } catch (err: any) {
+              if (err?.response?.status === 404) {
+                res = await axiosAuthInstance.get(
+                  `/api/v1/subgenre/by-genre/${gid}`,
+                );
+              } else {
+                throw err;
+              }
+            }
+            const data = res.data;
+            const list: OptionItem[] = Array.isArray(data)
+              ? data
+              : data?.data || data?.subgenres || data?.subGenres || [];
+            return { gid, list };
+          });
+
+          const results = await Promise.allSettled(fetchPromises);
+          setSubGenresByGenre((prev) => {
+            const next = { ...prev };
+            results.forEach((r) => {
+              if (r.status === "fulfilled") {
+                next[r.value.gid] = r.value.list;
+              }
+            });
+            return next;
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching subgenres by genre:", error);
+      } finally {
+        setIsLoadingSubGenres(false);
+      }
+    };
+
+    fetchSubGenresForGenres();
+  }, [selectedGenres, open, subGenresByGenre]);
+
+  // Aggregate available subgenres from all currently selected genres
+  const availableSubGenres = useMemo(() => {
+    const list: (OptionItem & { genreName?: string })[] = [];
+    const seenIds = new Set<string | number>();
+
+    selectedGenres.forEach((gid) => {
+      const genreObj = genres.find((g) => String(g.id) === String(gid));
+      const gName = genreObj?.name || genreObj?.englishName || "";
+      const subs = subGenresByGenre[gid] || [];
+      subs.forEach((sub) => {
+        if (!seenIds.has(sub.id)) {
+          seenIds.add(sub.id);
+          list.push({
+            ...sub,
+            genreName: gName,
+          });
+        }
+      });
+    });
+
+    return list;
+  }, [selectedGenres, subGenresByGenre, genres]);
+
+  const filteredSubGenres = useMemo(() => {
+    const q = subGenreSearch.toLowerCase().trim();
+    if (!q) return availableSubGenres;
+    return availableSubGenres.filter((sg) =>
+      (sg.name || sg.englishName || "").toLowerCase().includes(q),
+    );
+  }, [availableSubGenres, subGenreSearch]);
+
+  // If genres change, clean up any selected subgenres that no longer belong to selected genres
+  useEffect(() => {
+    if (selectedGenres.length === 0) {
+      if (selectedSubGenres.length > 0) setSelectedSubGenres([]);
+      return;
+    }
+    if (availableSubGenres.length > 0) {
+      const validSubIds = new Set(
+        availableSubGenres.map((sg) => String(sg.id)),
+      );
+      setSelectedSubGenres((prev) =>
+        prev.filter((id) => validSubIds.has(String(id))),
+      );
+    }
+  }, [selectedGenres, availableSubGenres]);
 
   const scrollToFirstError = (fieldErrors: Record<string, string>) => {
     const errorKeys = Object.keys(fieldErrors);
@@ -497,6 +641,8 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
       "authors",
       "genreIds",
       "genres",
+      "subGenreIds",
+      "subgenres",
       "languageIds",
       "languages",
       "price",
@@ -525,6 +671,8 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
         targetEl = authorRef.current;
       } else if (targetField === "genreIds" || targetField === "genres") {
         targetEl = genreRef.current;
+      } else if (targetField === "subGenreIds" || targetField === "subgenres") {
+        targetEl = subGenreRef.current;
       } else if (targetField === "languageIds" || targetField === "languages") {
         targetEl = languageRef.current;
       } else if (targetField === "images") {
@@ -557,6 +705,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
       ...formData,
       authorIds: selectedAuthors,
       genreIds: selectedGenres,
+      subGenreIds: selectedSubGenres,
       languageIds: selectedLanguages,
       images: allImages,
       description: formData.description,
@@ -662,6 +811,15 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
         JSON.stringify(selectedGenres.map((id) => Number(id)))
       );
 
+      // Append SubGenre IDs as JSON array
+      data.append(
+        "subGenreIds",
+        JSON.stringify(selectedSubGenres.map((id) => Number(id)))
+      );
+      if (selectedSubGenres.length > 0 && selectedSubGenres[0] !== undefined) {
+        data.append("subGenreId", String(Number(selectedSubGenres[0])));
+      }
+
       // Append Language IDs as JSON array
       data.append(
         "languageIds",
@@ -718,6 +876,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
         if (f === "publisherid" || f === "publisher") return "publisherId";
         if (f === "authorids" || f === "authors" || f === "author") return "authorIds";
         if (f === "genreids" || f === "genres" || f === "genre") return "genreIds";
+        if (f === "subgenreids" || f === "subgenres" || f === "subgenre") return "subGenreIds";
         if (f === "languageids" || f === "languages" || f === "language") return "languageIds";
         if (f === "discountpercent" || f === "discount") return "discountPercent";
         if (f === "soldcount" || f === "sold") return "soldCount";
@@ -1244,6 +1403,152 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
                               <span className="truncate">{gen.name || gen.englishName}</span>
                               {isSelected && (
                                 <Check className="w-3.5 h-3.5 text-emerald-600" />
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Sub Genres Dropdown (/api/v1/subgenre/by-genre/:genreId) */}
+              <div className="space-y-1.5 relative" ref={subGenreRef}>
+                <label className="block text-xs font-semibold text-slate-700 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-slate-400" />
+                    Sub Genres
+                  </span>
+                  {selectedGenres.length === 0 ? (
+                    <span className="text-[11px] text-amber-600 font-normal">
+                      Select genre first
+                    </span>
+                  ) : isLoadingSubGenres ? (
+                    <span className="text-[11px] text-slate-400 flex items-center gap-1 font-normal">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Loading subgenres...
+                    </span>
+                  ) : null}
+                </label>
+
+                <div
+                  onClick={() => {
+                    if (selectedGenres.length > 0) {
+                      setSubGenreOpen(!subGenreOpen);
+                    } else {
+                      toast.error(
+                        "Please select a genre first to view sub genres.",
+                      );
+                    }
+                  }}
+                  className={`w-full min-h-[38px] flex items-center justify-between rounded-lg border px-3 py-1.5 text-sm transition shadow-sm ${
+                    selectedGenres.length === 0
+                      ? "bg-slate-50 border-slate-200 cursor-not-allowed text-slate-400"
+                      : subGenreOpen
+                        ? "border-indigo-500 ring-1 ring-indigo-500 bg-white cursor-pointer"
+                        : "border-slate-300 hover:border-slate-400 bg-white cursor-pointer"
+                  }`}
+                >
+                  <div className="flex flex-wrap gap-1 flex-1">
+                    {selectedGenres.length === 0 ? (
+                      <span className="text-slate-400 text-sm">
+                        Select a genre first to choose sub genres...
+                      </span>
+                    ) : selectedSubGenres.length === 0 ? (
+                      <span className="text-slate-400 text-sm">
+                        {availableSubGenres.length === 0 && !isLoadingSubGenres
+                          ? "No sub genres available for selected genre(s)"
+                          : "Select sub genres..."}
+                      </span>
+                    ) : (
+                      selectedSubGenres.map((subId) => {
+                        const subObj = availableSubGenres.find(
+                          (s) => String(s.id) === String(subId),
+                        );
+                        return (
+                          <span
+                            key={subId}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-xs font-medium border border-blue-100"
+                          >
+                            {subObj
+                              ? subObj.name || subObj.englishName
+                              : `Sub Genre #${subId}`}
+                            <span
+                              role="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleSubGenre(subId);
+                              }}
+                              className="hover:text-blue-900 cursor-pointer"
+                            >
+                              <X className="w-3 h-3" />
+                            </span>
+                          </span>
+                        );
+                      })
+                    )}
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 ml-2" />
+                </div>
+
+                {errors.subGenreIds && (
+                  <p className="text-[11px] font-medium text-rose-500 mt-1 animate-in fade-in-50">
+                    {errors.subGenreIds}
+                  </p>
+                )}
+
+                {subGenreOpen && selectedGenres.length > 0 && (
+                  <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 shadow-xl animate-in fade-in-50 zoom-in-95">
+                    <div className="flex items-center gap-2 border-b border-slate-100 px-2 pb-2">
+                      <Search className="w-3.5 h-3.5 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search sub genre..."
+                        value={subGenreSearch}
+                        onChange={(e) => setSubGenreSearch(e.target.value)}
+                        className="w-full text-xs text-slate-800 placeholder:text-slate-400 outline-none bg-transparent"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="max-h-48 overflow-y-auto mt-1 space-y-0.5">
+                      {isLoadingSubGenres ? (
+                        <div className="py-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading
+                          sub genres...
+                        </div>
+                      ) : filteredSubGenres.length === 0 ? (
+                        <div className="py-3 text-center text-xs text-slate-400">
+                          {availableSubGenres.length === 0
+                            ? "No sub genres found for the selected genre(s)"
+                            : "No matching sub genres"}
+                        </div>
+                      ) : (
+                        filteredSubGenres.map((sub) => {
+                          const isSelected = selectedSubGenres.some(
+                            (id) => String(id) === String(sub.id),
+                          );
+                          return (
+                            <div
+                              key={sub.id}
+                              onClick={() => toggleSubGenre(sub.id)}
+                              className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs cursor-pointer transition ${
+                                isSelected
+                                  ? "bg-blue-50 text-blue-700 font-semibold"
+                                  : "text-slate-700 hover:bg-slate-50"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                <span className="truncate">
+                                  {sub.name || sub.englishName}
+                                </span>
+                                {sub.genreName && selectedGenres.length > 1 && (
+                                  <span className="text-[10px] text-slate-400 font-normal">
+                                    ({sub.genreName})
+                                  </span>
+                                )}
+                              </div>
+                              {isSelected && (
+                                <Check className="w-3.5 h-3.5 text-blue-600" />
                               )}
                             </div>
                           );

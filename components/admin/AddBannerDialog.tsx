@@ -7,7 +7,10 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { axiosMultipartInstance, axiosAuthInstance } from "@/utils/axiosInstances";
+import {
+  axiosMultipartInstance,
+  axiosAuthInstance,
+} from "@/utils/axiosInstances";
 import {
   Upload,
   Image as ImageIcon,
@@ -52,7 +55,7 @@ export const AddBannerDialog: React.FC<AddBannerDialogProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Helper to extract displayable image URL
+  // Helper to extract displayable image URLKW
   const getBannerImage = (b: any) => {
     const img = b?.imageUrl || b?.image || b?.url || b?.imagePath || "";
     if (!img) return "";
@@ -185,9 +188,12 @@ export const AddBannerDialog: React.FC<AddBannerDialogProps> = ({
             : 1;
         if (safeSortOrder !== previousOrder) {
           try {
-            await axiosAuthInstance.patch(`/v1/banner/${bannerToEdit.id}/reorder`, {
-              newOrder: safeSortOrder,
-            });
+            await axiosAuthInstance.patch(
+              `/v1/banner/${bannerToEdit.id}/reorder`,
+              {
+                newOrder: safeSortOrder,
+              },
+            );
           } catch (e) {
             console.error("Failed to update sortOrder:", e);
           }
@@ -375,9 +381,7 @@ export const AddBannerDialog: React.FC<AddBannerDialogProps> = ({
               ) : (
                 <>
                   <Save size={16} />
-                  <span>
-                    {bannerToEdit ? "Update Banner" : "Save Banner"}
-                  </span>
+                  <span>{bannerToEdit ? "Update Banner" : "Save Banner"}</span>
                 </>
               )}
             </button>

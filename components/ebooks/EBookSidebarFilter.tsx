@@ -1,7 +1,18 @@
 "use client";
 
-import { Bookmark, Building2, Check, Filter, Loader2, X } from "lucide-react";
-import React, { useState } from "react";
+import {
+  Bookmark,
+  Building2,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Filter,
+  Layers,
+  Loader2,
+  X,
+} from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { axiosInstance } from "@/utils/axiosInstances";
 
 export interface OptionItem {
   id: number | string;
@@ -11,11 +22,13 @@ export interface OptionItem {
   [key: string]: any;
 }
 
-interface EBookSidebarFilterProps {
+export interface EBookSidebarFilterProps {
   selectedPlan: string;
   onSelectPlan: (plan: string) => void;
   selectedGenre: string;
+  selectedSubGenre?: string;
   onSelectGenre: (genre: string) => void;
+  onSelectSubGenre?: (subGenre: string) => void;
   genres: OptionItem[];
   selectedPublisher: string;
   onSelectPublisher: (pub: string) => void;
@@ -26,11 +39,110 @@ interface EBookSidebarFilterProps {
   onResetFilters: () => void;
 }
 
+/**
+ * Fetch subgenres for an eBook genre from /v1/subgenre/by-genre/:genreId
+ * with automatic fallback to /api/v1/subgenre/by-genre/:genreId
+ */
+export const fetchSubGenresByGenre = async (
+  genreId: number | string,
+): Promise<OptionItem[]> => {
+  try {
+    let res;
+    try {
+      res = await axiosInstance.get(`/v1/subgenre/by-genre/${genreId}`);
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        res = await axiosInstance.get(`/api/v1/subgenre/by-genre/${genreId}`);
+      } else {
+        throw err;
+      }
+    }
+    const data = res.data?.data || res.data;
+    const list: OptionItem[] = Array.isArray(data)
+      ? data
+      : data?.subgenres || data?.subGenres || [];
+    return list;
+  } catch (error) {
+    console.error(`Failed to load subgenres for genre ${genreId}:`, error);
+    return [];
+  }
+};
+
+/**
+ * Hook to manage subgenres cache, loading states, and expanding/collapsing per genre
+ */
+export function useEBookGenreSubGenres(
+  genres: OptionItem[],
+  selectedGenre: string,
+) {
+  const [subGenresByGenre, setSubGenresByGenre] = useState<
+    Record<string | number, OptionItem[]>
+  >({});
+  const [loadingGenres, setLoadingGenres] = useState<
+    Record<string | number, boolean>
+  >({});
+  const [expandedGenres, setExpandedGenres] = useState<
+    Record<string | number, boolean>
+  >({});
+
+  // Auto-expand and fetch subgenres for currently selected genre
+  useEffect(() => {
+    if (!selectedGenre || selectedGenre === "all") return;
+
+    const matchedGen = genres.find(
+      (g) =>
+        (g.name && g.name.toLowerCase() === selectedGenre.toLowerCase()) ||
+        (g.englishName &&
+          g.englishName.toLowerCase() === selectedGenre.toLowerCase()) ||
+        (g.id && String(g.id) === selectedGenre),
+    );
+
+    if (matchedGen?.id) {
+      const gid = matchedGen.id;
+      setExpandedGenres((prev) => ({ ...prev, [gid]: true }));
+
+      if (!subGenresByGenre[gid] && !loadingGenres[gid]) {
+        setLoadingGenres((prev) => ({ ...prev, [gid]: true }));
+        fetchSubGenresByGenre(gid).then((list) => {
+          setSubGenresByGenre((prev) => ({ ...prev, [gid]: list }));
+          setLoadingGenres((prev) => ({ ...prev, [gid]: false }));
+        });
+      }
+    }
+  }, [selectedGenre, genres, subGenresByGenre, loadingGenres]);
+
+  const toggleExpand = (genreId: number | string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    const willExpand = !expandedGenres[genreId];
+    setExpandedGenres((prev) => ({ ...prev, [genreId]: willExpand }));
+
+    if (willExpand && !subGenresByGenre[genreId] && !loadingGenres[genreId]) {
+      setLoadingGenres((prev) => ({ ...prev, [genreId]: true }));
+      fetchSubGenresByGenre(genreId).then((list) => {
+        setSubGenresByGenre((prev) => ({ ...prev, [genreId]: list }));
+        setLoadingGenres((prev) => ({ ...prev, [genreId]: false }));
+      });
+    }
+  };
+
+  return {
+    subGenresByGenre,
+    loadingGenres,
+    expandedGenres,
+    toggleExpand,
+  };
+}
+
 export default function EBookSidebarFilter({
   selectedPlan,
   onSelectPlan,
   selectedGenre,
+  selectedSubGenre = "all",
   onSelectGenre,
+  onSelectSubGenre,
   genres,
   selectedPublisher,
   onSelectPublisher,
@@ -42,6 +154,9 @@ export default function EBookSidebarFilter({
 }: EBookSidebarFilterProps) {
   const [genreSearch, setGenreSearch] = useState<string>("");
   const [publisherSearch, setPublisherSearch] = useState<string>("");
+
+  const { subGenresByGenre, loadingGenres, expandedGenres, toggleExpand } =
+    useEBookGenreSubGenres(genres, selectedGenre);
 
   const filteredGenreOptions = genres.filter((g) => {
     if (!genreSearch.trim()) return true;
@@ -122,11 +237,11 @@ export default function EBookSidebarFilter({
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-            <Bookmark className="w-3 h-3 text-indigo-500" /> Genres
+            <Bookmark className="w-3 h-3 text-indigo-500" /> Genres &amp; Subgenres
           </h3>
-          {genres.length > 5 && (
-            <span className="text-[10px] text-slate-400">
-              {genres.length} total
+          {selectedSubGenre && selectedSubGenre !== "all" && (
+            <span className="text-[10px] text-indigo-600 font-semibold flex items-center gap-0.5">
+              <Layers className="w-2.5 h-2.5" /> 1 active
             </span>
           )}
         </div>
@@ -152,10 +267,13 @@ export default function EBookSidebarFilter({
           </div>
         )}
 
-        <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
+        <div className="max-h-64 sm:max-h-80 overflow-y-auto space-y-1 pr-1">
           <button
             type="button"
-            onClick={() => onSelectGenre("all")}
+            onClick={() => {
+              onSelectGenre("all");
+              onSelectSubGenre?.("all");
+            }}
             className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center justify-between cursor-pointer ${
               selectedGenre === "all"
                 ? "bg-indigo-600 text-white font-semibold shadow-2xs"
@@ -180,23 +298,151 @@ export default function EBookSidebarFilter({
           ) : (
             filteredGenreOptions.map((gen) => {
               const genName = gen.name || gen.englishName || "";
-              const isSelected = selectedGenre === genName;
+              const isGenreSelected =
+                selectedGenre.toLowerCase() === genName.toLowerCase() ||
+                (gen.id && String(gen.id) === selectedGenre);
+
+              const isExpanded = gen.id ? Boolean(expandedGenres[gen.id]) : false;
+              const subGenres = gen.id ? subGenresByGenre[gen.id] || [] : [];
+              const isLoadingSubs = gen.id ? Boolean(loadingGenres[gen.id]) : false;
+              const hasActiveSub =
+                isGenreSelected &&
+                selectedSubGenre &&
+                selectedSubGenre !== "all";
+
               return (
-                <button
-                  key={gen.id || genName}
-                  type="button"
-                  onClick={() => onSelectGenre(genName)}
-                  className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg transition-all flex items-center justify-between cursor-pointer ${
-                    isSelected
-                      ? "bg-indigo-600 text-white font-semibold shadow-2xs"
-                      : "text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  <span className="truncate">
-                    {gen.name || gen.englishName}
-                  </span>
-                  {isSelected && <Check className="w-3 h-3 shrink-0" />}
-                </button>
+                <div key={gen.id || genName} className="space-y-0.5">
+                  <div
+                    className={`w-full rounded-lg transition-all flex items-center justify-between group ${
+                      isGenreSelected
+                        ? hasActiveSub
+                          ? "bg-indigo-100/90 text-indigo-900 font-bold border border-indigo-300/80 shadow-2xs"
+                          : "bg-indigo-600 text-white font-semibold shadow-2xs"
+                        : "text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelectGenre(genName);
+                        if (gen.id && !expandedGenres[gen.id]) {
+                          toggleExpand(gen.id);
+                        }
+                      }}
+                      className="flex-1 text-left text-xs px-2.5 py-1.5 flex items-center gap-1.5 truncate cursor-pointer"
+                    >
+                      <span className="truncate">
+                        {gen.name || gen.englishName}
+                      </span>
+                      {isGenreSelected && !hasActiveSub && (
+                        <Check className="w-3 h-3 shrink-0 ml-auto mr-1" />
+                      )}
+                      {hasActiveSub && (
+                        <span className="ml-auto mr-1 text-[9px] px-1.5 py-0.5 rounded bg-indigo-200/80 text-indigo-800 font-semibold uppercase">
+                          sub-filter
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Expand / Collapse Chevron */}
+                    {gen.id && (
+                      <button
+                        type="button"
+                        title={isExpanded ? "Collapse subgenres" : "Expand subgenres"}
+                        onClick={(e) => toggleExpand(gen.id, e)}
+                        className={`p-1.5 mr-1 rounded-md transition cursor-pointer ${
+                          isGenreSelected
+                            ? hasActiveSub
+                              ? "text-indigo-800 hover:bg-indigo-200/70"
+                              : "text-indigo-100 hover:bg-indigo-700 hover:text-white"
+                            : "text-slate-400 hover:text-slate-700 hover:bg-slate-200/60"
+                        }`}
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="w-3 h-3" />
+                        ) : (
+                          <ChevronRight className="w-3 h-3" />
+                        )}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Nested Subgenres */}
+                  {isExpanded && (
+                    <div className="ml-3 pl-2.5 border-l-2 border-indigo-200/90 my-1 space-y-0.5 animate-in fade-in-50 duration-150">
+                      {isLoadingSubs ? (
+                        <div className="py-1 px-2 text-[11px] text-slate-400 flex items-center gap-1.5">
+                          <Loader2 className="w-3 h-3 animate-spin text-indigo-600" />
+                          <span>Loading subgenres...</span>
+                        </div>
+                      ) : subGenres.length === 0 ? (
+                        <div className="py-1 px-2 text-[10px] text-slate-400 italic">
+                          No subgenres available
+                        </div>
+                      ) : (
+                        <>
+                          {/* Option to clear subgenre and view all eBooks in this genre */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!isGenreSelected) onSelectGenre(genName);
+                              onSelectSubGenre?.("all");
+                            }}
+                            className={`w-full text-left text-[11px] px-2 py-1 rounded-md transition-all flex items-center justify-between cursor-pointer ${
+                              isGenreSelected &&
+                              (!selectedSubGenre || selectedSubGenre === "all")
+                                ? "bg-indigo-600 text-white font-semibold shadow-2xs"
+                                : "text-slate-500 hover:text-slate-800 hover:bg-slate-100/70"
+                            }`}
+                          >
+                            <span>All {genName}</span>
+                            {isGenreSelected &&
+                              (!selectedSubGenre || selectedSubGenre === "all") && (
+                                <Check className="w-2.5 h-2.5 shrink-0" />
+                              )}
+                          </button>
+
+                          {/* Subgenre items */}
+                          {subGenres.map((sub) => {
+                            const subName = sub.name || sub.englishName || "";
+                            const isSubSelected =
+                              isGenreSelected &&
+                              (selectedSubGenre?.toLowerCase() ===
+                                subName.toLowerCase() ||
+                                (sub.id && String(sub.id) === selectedSubGenre));
+
+                            return (
+                              <button
+                                key={sub.id || subName}
+                                type="button"
+                                onClick={() => {
+                                  if (!isGenreSelected) {
+                                    onSelectGenre(genName);
+                                  }
+                                  if (isSubSelected) {
+                                    onSelectSubGenre?.("all");
+                                  } else {
+                                    onSelectSubGenre?.(subName);
+                                  }
+                                }}
+                                className={`w-full text-left text-[11px] px-2 py-1 rounded-md transition-all flex items-center justify-between cursor-pointer ${
+                                  isSubSelected
+                                    ? "bg-indigo-600 text-white font-semibold shadow-2xs"
+                                    : "text-slate-600 hover:bg-indigo-50/70 hover:text-indigo-800"
+                                }`}
+                              >
+                                <span className="truncate">{subName}</span>
+                                {isSubSelected && (
+                                  <Check className="w-2.5 h-2.5 shrink-0" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               );
             })
           )}

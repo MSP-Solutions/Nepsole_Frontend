@@ -314,6 +314,13 @@ export default function BooksPage() {
       .filter(Boolean);
   };
 
+  const getSubGenresList = (book: BookItem): string[] => {
+    const list = book.subGenres || book.subgenres || book.subGenreBooks || [];
+    return list
+      .map((sg: any) => sg.name || sg.englishName || sg.subGenre?.name || "")
+      .filter(Boolean);
+  };
+
   const getStockBadge = (stockNum: number) => {
     if (stockNum <= 0) {
       return (
@@ -470,6 +477,7 @@ export default function BooksPage() {
                       ? priceNum - (priceNum * discountNum) / 100
                       : priceNum;
                   const genresList = getGenresList(book);
+                  const subGenresList = getSubGenresList(book);
 
                   return (
                     <tr
@@ -524,24 +532,34 @@ export default function BooksPage() {
                       </td>
 
                       {/* Genre(s) */}
-                      <td className="py-3.5 px-4 max-w-[180px]">
+                      <td className="py-3.5 px-4 max-w-[190px]">
                         <div className="flex flex-wrap gap-1">
-                          {genresList.length === 0 ? (
+                          {genresList.length === 0 && subGenresList.length === 0 ? (
                             <span className="text-gray-400">—</span>
                           ) : (
-                            genresList.slice(0, 2).map((g, idx) => (
-                              <span
-                                key={idx}
-                                className="inline-block px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-700"
-                              >
-                                {g}
-                              </span>
-                            ))
-                          )}
-                          {genresList.length > 2 && (
-                            <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-500">
-                              +{genresList.length - 2}
-                            </span>
+                            <>
+                              {genresList.slice(0, 2).map((g, idx) => (
+                                <span
+                                  key={`g-${idx}`}
+                                  className="inline-block px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-700"
+                                >
+                                  {g}
+                                </span>
+                              ))}
+                              {subGenresList.slice(0, 2).map((sg, idx) => (
+                                <span
+                                  key={`sg-${idx}`}
+                                  className="inline-block px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-100"
+                                >
+                                  {sg}
+                                </span>
+                              ))}
+                              {genresList.length + subGenresList.length > 4 && (
+                                <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-500">
+                                  +{genresList.length + subGenresList.length - 4}
+                                </span>
+                              )}
+                            </>
                           )}
                         </div>
                       </td>
