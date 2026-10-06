@@ -68,10 +68,7 @@ export const fetchSubGenresByGenre = async (
 /**
  * Hook to manage subgenres cache, loading states, and expanding/collapsing per genre
  */
-export function useGenreSubGenres(
-  genres: OptionItem[],
-  selectedGenre: string,
-) {
+export function useGenreSubGenres(genres: OptionItem[], selectedGenre: string) {
   const [subGenresByGenre, setSubGenresByGenre] = useState<
     Record<string | number, OptionItem[]>
   >({});
@@ -172,7 +169,8 @@ export function BooksFilterSidebar({
       <div className="space-y-1.5">
         <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
           <span className="flex items-center gap-1">
-            <Bookmark className="w-3 h-3 text-amber-500" /> Genres &amp; Subgenres
+            <Bookmark className="w-3 h-3 text-amber-500" /> Genres &amp;
+            Subgenres
           </span>
           {selectedSubGenre && selectedSubGenre !== "all" && (
             <span className="text-[10px] text-amber-600 font-semibold flex items-center gap-0.5">
@@ -194,7 +192,7 @@ export function BooksFilterSidebar({
                 : "text-slate-600 hover:bg-slate-50"
             }`}
           >
-            <span>All Genres</span>
+            <span>All Categories</span>
             <span
               className={`text-[10px] ${
                 selectedGenre === "all" ? "text-amber-100" : "text-slate-400"
@@ -216,9 +214,13 @@ export function BooksFilterSidebar({
                 selectedGenre.toLowerCase() === genName.toLowerCase() ||
                 (gen.id && String(gen.id) === selectedGenre);
 
-              const isExpanded = gen.id ? Boolean(expandedGenres[gen.id]) : false;
+              const isExpanded = gen.id
+                ? Boolean(expandedGenres[gen.id])
+                : false;
               const subGenres = gen.id ? subGenresByGenre[gen.id] || [] : [];
-              const isLoadingSubs = gen.id ? Boolean(loadingGenres[gen.id]) : false;
+              const isLoadingSubs = gen.id
+                ? Boolean(loadingGenres[gen.id])
+                : false;
               const hasActiveSub =
                 isGenreSelected &&
                 selectedSubGenre &&
@@ -245,7 +247,9 @@ export function BooksFilterSidebar({
                       }}
                       className="flex-1 text-left text-xs px-2.5 py-1.5 flex items-center gap-1.5 truncate cursor-pointer"
                     >
-                      <span className="truncate">{gen.name || gen.englishName}</span>
+                      <span className="truncate">
+                        {gen.name || gen.englishName}
+                      </span>
                       {isGenreSelected && !hasActiveSub && (
                         <Check className="w-3 h-3 shrink-0 ml-auto mr-1" />
                       )}
@@ -260,7 +264,9 @@ export function BooksFilterSidebar({
                     {gen.id && (
                       <button
                         type="button"
-                        title={isExpanded ? "Collapse subgenres" : "Expand subgenres"}
+                        title={
+                          isExpanded ? "Collapse subgenres" : "Expand subgenres"
+                        }
                         onClick={(e) => toggleExpand(gen.id, e)}
                         className={`p-1.5 mr-1 rounded-md transition cursor-pointer ${
                           isGenreSelected
@@ -309,7 +315,8 @@ export function BooksFilterSidebar({
                           >
                             <span>All {genName}</span>
                             {isGenreSelected &&
-                              (!selectedSubGenre || selectedSubGenre === "all") && (
+                              (!selectedSubGenre ||
+                                selectedSubGenre === "all") && (
                                 <Check className="w-2.5 h-2.5 shrink-0" />
                               )}
                           </button>
@@ -321,7 +328,8 @@ export function BooksFilterSidebar({
                               isGenreSelected &&
                               (selectedSubGenre?.toLowerCase() ===
                                 subName.toLowerCase() ||
-                                (sub.id && String(sub.id) === selectedSubGenre));
+                                (sub.id &&
+                                  String(sub.id) === selectedSubGenre));
 
                             return (
                               <button
@@ -401,7 +409,9 @@ export function BooksFilterSidebar({
                       : "text-slate-600 hover:bg-slate-50"
                   }`}
                 >
-                  <span className="truncate">{pub.name || pub.englishName}</span>
+                  <span className="truncate">
+                    {pub.name || pub.englishName}
+                  </span>
                   {isSelected && <Check className="w-3 h-3 shrink-0" />}
                 </button>
               );
@@ -489,7 +499,7 @@ export function BooksMobileFilterDrawer({
                     : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                <span>All Genres</span>
+                <span>All Categories</span>
                 <span>{totalBooks}</span>
               </button>
               {genres.map((gen) => {
@@ -498,9 +508,13 @@ export function BooksMobileFilterDrawer({
                   selectedGenre.toLowerCase() === genName.toLowerCase() ||
                   (gen.id && String(gen.id) === selectedGenre);
 
-                const isExpanded = gen.id ? Boolean(expandedGenres[gen.id]) : false;
+                const isExpanded = gen.id
+                  ? Boolean(expandedGenres[gen.id])
+                  : false;
                 const subGenres = gen.id ? subGenresByGenre[gen.id] || [] : [];
-                const isLoadingSubs = gen.id ? Boolean(loadingGenres[gen.id]) : false;
+                const isLoadingSubs = gen.id
+                  ? Boolean(loadingGenres[gen.id])
+                  : false;
                 const hasActiveSub =
                   isGenreSelected &&
                   selectedSubGenre &&
@@ -527,7 +541,9 @@ export function BooksMobileFilterDrawer({
                         }}
                         className="flex-1 text-left text-xs px-2.5 py-1.5 flex items-center gap-1.5 truncate cursor-pointer"
                       >
-                        <span className="truncate">{gen.name || gen.englishName}</span>
+                        <span className="truncate">
+                          {gen.name || gen.englishName}
+                        </span>
                         {isGenreSelected && !hasActiveSub && (
                           <Check className="w-3 h-3 shrink-0 ml-auto mr-1" />
                         )}
@@ -581,14 +597,16 @@ export function BooksMobileFilterDrawer({
                               }}
                               className={`w-full text-left text-[11px] px-2 py-1 rounded-md transition-all flex items-center justify-between cursor-pointer ${
                                 isGenreSelected &&
-                                (!selectedSubGenre || selectedSubGenre === "all")
+                                (!selectedSubGenre ||
+                                  selectedSubGenre === "all")
                                   ? "bg-amber-500 text-white font-semibold"
                                   : "text-slate-500 hover:text-slate-800 hover:bg-slate-100/70"
                               }`}
                             >
                               <span>All {genName}</span>
                               {isGenreSelected &&
-                                (!selectedSubGenre || selectedSubGenre === "all") && (
+                                (!selectedSubGenre ||
+                                  selectedSubGenre === "all") && (
                                   <Check className="w-2.5 h-2.5 shrink-0" />
                                 )}
                             </button>
@@ -599,7 +617,8 @@ export function BooksMobileFilterDrawer({
                                 isGenreSelected &&
                                 (selectedSubGenre?.toLowerCase() ===
                                   subName.toLowerCase() ||
-                                  (sub.id && String(sub.id) === selectedSubGenre));
+                                  (sub.id &&
+                                    String(sub.id) === selectedSubGenre));
 
                               return (
                                 <button
@@ -671,7 +690,9 @@ export function BooksMobileFilterDrawer({
                         : "text-slate-600 hover:bg-slate-50"
                     }`}
                   >
-                    <span className="truncate">{pub.name || pub.englishName}</span>
+                    <span className="truncate">
+                      {pub.name || pub.englishName}
+                    </span>
                     {isSelected && <Check className="w-3 h-3 shrink-0" />}
                   </button>
                 );

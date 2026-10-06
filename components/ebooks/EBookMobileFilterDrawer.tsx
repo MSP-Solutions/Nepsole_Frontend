@@ -1,11 +1,16 @@
 "use client";
 
-import { Check, ChevronDown, ChevronRight, Filter, Layers, Loader2, X } from "lucide-react";
-import React from "react";
 import {
-  OptionItem,
-  useEBookGenreSubGenres,
-} from "./EBookSidebarFilter";
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Filter,
+  Layers,
+  Loader2,
+  X,
+} from "lucide-react";
+import React from "react";
+import { OptionItem, useEBookGenreSubGenres } from "./EBookSidebarFilter";
 
 interface EBookMobileFilterDrawerProps {
   isOpen: boolean;
@@ -139,7 +144,7 @@ export default function EBookMobileFilterDrawer({
                     : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                <span>All Genres</span>
+                <span>All Categories</span>
                 <span>{totalEBooks}</span>
               </button>
               {genres.map((gen) => {
@@ -148,9 +153,13 @@ export default function EBookMobileFilterDrawer({
                   selectedGenre.toLowerCase() === genName.toLowerCase() ||
                   (gen.id && String(gen.id) === selectedGenre);
 
-                const isExpanded = gen.id ? Boolean(expandedGenres[gen.id]) : false;
+                const isExpanded = gen.id
+                  ? Boolean(expandedGenres[gen.id])
+                  : false;
                 const subGenres = gen.id ? subGenresByGenre[gen.id] || [] : [];
-                const isLoadingSubs = gen.id ? Boolean(loadingGenres[gen.id]) : false;
+                const isLoadingSubs = gen.id
+                  ? Boolean(loadingGenres[gen.id])
+                  : false;
                 const hasActiveSub =
                   isGenreSelected &&
                   selectedSubGenre &&
@@ -233,14 +242,16 @@ export default function EBookMobileFilterDrawer({
                               }}
                               className={`w-full text-left text-[11px] px-2 py-1 rounded-md transition-all flex items-center justify-between cursor-pointer ${
                                 isGenreSelected &&
-                                (!selectedSubGenre || selectedSubGenre === "all")
+                                (!selectedSubGenre ||
+                                  selectedSubGenre === "all")
                                   ? "bg-indigo-600 text-white font-semibold"
                                   : "text-slate-500 hover:text-slate-800 hover:bg-slate-100/70"
                               }`}
                             >
                               <span>All {genName}</span>
                               {isGenreSelected &&
-                                (!selectedSubGenre || selectedSubGenre === "all") && (
+                                (!selectedSubGenre ||
+                                  selectedSubGenre === "all") && (
                                   <Check className="w-2.5 h-2.5 shrink-0" />
                                 )}
                             </button>
@@ -251,7 +262,8 @@ export default function EBookMobileFilterDrawer({
                                 isGenreSelected &&
                                 (selectedSubGenre?.toLowerCase() ===
                                   subName.toLowerCase() ||
-                                  (sub.id && String(sub.id) === selectedSubGenre));
+                                  (sub.id &&
+                                    String(sub.id) === selectedSubGenre));
 
                               return (
                                 <button

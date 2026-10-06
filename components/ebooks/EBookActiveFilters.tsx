@@ -42,7 +42,7 @@ export default function EBookActiveFilters({
 
       {selectedGenre !== "all" && (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200/80 text-indigo-800 text-[11px] font-medium">
-          <span>Genre: {selectedGenre}</span>
+          <span>Category: {selectedGenre}</span>
           <X
             className="w-3 h-3 cursor-pointer hover:text-indigo-950"
             onClick={onClearGenre}

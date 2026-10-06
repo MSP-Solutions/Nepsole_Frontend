@@ -447,7 +447,7 @@ export default function BooksPage() {
                 <th className="py-3.5 px-4">Book</th>
                 <th className="py-3.5 px-4">Author(s)</th>
                 <th className="py-3.5 px-4">Publisher</th>
-                <th className="py-3.5 px-4">Genre(s)</th>
+                <th className="py-3.5 px-4">Category(ies)</th>
                 <th className="py-3.5 px-4">Price</th>
                 <th className="py-3.5 px-4">Stock</th>
                 <th className="py-3.5 px-4">Sold</th>

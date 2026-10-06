@@ -120,7 +120,7 @@ export default function Footer() {
           if (Array.isArray(list) && list.length > 0) {
             const mapped: FooterItem[] = list.slice(0, 8).map((genre: any) => {
               const name =
-                genre.name || genre.englishName || genre.nepaliName || "Genre";
+                genre.name || genre.englishName || genre.nepaliName || "Category";
               const queryValue = genre.id || name;
               return {
                 label: name,
@@ -287,9 +287,9 @@ export default function Footer() {
           {/* Customer Service */}
           <FooterColumn title="Customer Service" items={customerLinks} />
 
-          {/* Popular Genre from API */}
+          {/* Popular Categories from API */}
           <FooterColumn
-            title="Popular Genre"
+            title="Popular Categories"
             items={popularGenres}
             isLoading={isLoadingGenres && popularGenres.length === 0}
           />

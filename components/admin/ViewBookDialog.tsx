@@ -68,7 +68,7 @@ export const ViewBookDialog: React.FC<ViewBookDialogProps> = ({
   // Extract Genres
   const genresList = (book.genres || book.genreBooks || []).map((g: any) => ({
     id: g.id || g.genre?.id,
-    name: g.name || g.englishName || g.genre?.name || "Genre",
+    name: g.name || g.englishName || g.genre?.name || "Category",
   }));
 
   // Extract Sub Genres
@@ -286,10 +286,10 @@ export const ViewBookDialog: React.FC<ViewBookDialogProps> = ({
                   </div>
                 </div>
 
-                {/* Genres */}
+                {/* Categories */}
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-semibold text-slate-400 uppercase w-16 shrink-0">
-                    Genres:
+                    Categories:
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {genresList.length > 0 ? (
@@ -303,7 +303,7 @@ export const ViewBookDialog: React.FC<ViewBookDialogProps> = ({
                         </span>
                       ))
                     ) : (
-                      <span className="text-xs text-slate-400 italic">No genres assigned</span>
+                      <span className="text-xs text-slate-400 italic">No categories assigned</span>
                     )}
                   </div>
                 </div>

@@ -137,19 +137,19 @@ export default function Page() {
   };
 
   const handleDelete = async (id: string | number) => {
-    if (!confirm("Are you sure you want to delete this genre?")) return;
+    if (!confirm("Are you sure you want to delete this category?")) return;
 
     setDeletingId(id);
     try {
       await axiosAuthInstance.delete(`/v1/genre/${id}`);
-      toast.success("Genre deleted successfully.");
+      toast.success("Category deleted successfully.");
       fetchGenres(currentPage, pageSize, debouncedSearch);
     } catch (error: any) {
-      console.error("Delete genre error:", error);
+      console.error("Delete category error:", error);
       const message =
         error?.response?.data?.message ||
         error?.message ||
-        "Failed to delete genre.";
+        "Failed to delete category.";
       toast.error(message);
     } finally {
       setDeletingId(null);
@@ -178,11 +178,11 @@ export default function Page() {
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-              Genres
+              Categories
             </h1>
 
             <p className="mt-1 text-sm text-gray-500">
-              Manage your book genres and categories.
+              Manage your book categories.
             </p>
           </div>
 
@@ -193,7 +193,7 @@ export default function Page() {
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1749A0] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#123b83] cursor-pointer"
             >
               <Plus size={18} />
-              Add Genre
+              Add Category
             </button>
           </div>
         </div>
@@ -210,7 +210,7 @@ export default function Page() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search genres..."
+              placeholder="Search categories..."
               className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-10 text-sm outline-none transition focus:border-[#1749A0] focus:ring-2 focus:ring-[#1749A0]/10"
             />
 
@@ -267,7 +267,7 @@ export default function Page() {
                         type="button"
                         onClick={() => handleEdit(genre)}
                         className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-[#1749A0] cursor-pointer"
-                        title="Edit genre"
+                        title="Edit category"
                       >
                         <Edit2 size={16} />
                       </button>
@@ -277,7 +277,7 @@ export default function Page() {
                         onClick={() => genre.id && handleDelete(genre.id)}
                         disabled={deletingId === genre.id}
                         className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 cursor-pointer"
-                        title="Delete genre"
+                        title="Delete category"
                       >
                         {deletingId === genre.id ? (
                           <Loader2
@@ -313,7 +313,7 @@ export default function Page() {
                     <strong className="font-semibold text-gray-900">
                       {pagination.total}
                     </strong>{" "}
-                    genres
+                    Categories
                   </span>
 
                   <div className="flex items-center gap-2">
@@ -408,12 +408,12 @@ export default function Page() {
           <div className="rounded-xl border border-dashed border-gray-300 bg-white px-6 py-12 text-center">
             <BookOpen size={32} className="mx-auto mb-3 text-gray-300" />
 
-            <h3 className="font-semibold text-gray-800">No genres found</h3>
+            <h3 className="font-semibold text-gray-800">No categories found</h3>
 
             <p className="mt-1 text-sm text-gray-500">
               {debouncedSearch
-                ? `No genres matched "${debouncedSearch}". Try clearing the search.`
-                : "Try adding a new genre using the Add Genre button above."}
+                ? `No categories matched "${debouncedSearch}". Try clearing the search.`
+                : "Try adding a new category using the Add Category button above."}
             </p>
 
             {debouncedSearch && (

@@ -305,7 +305,7 @@ export default function AboutPage() {
                       Looking for your next read?
                     </h4>
                     <p className="mt-1.5 text-xs text-blue-100/90 leading-relaxed">
-                      Explore thousands of titles across multiple genres or
+                      Explore thousands of titles across multiple Category or
                       start reading instantly with our digital e-books.
                     </p>
 

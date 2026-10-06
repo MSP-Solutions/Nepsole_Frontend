@@ -6,6 +6,7 @@ import UserMenu from "./user-menu";
 
 const routeTitles: Record<string, string> = {
   "/admin/dashboard": "Dashboard",
+  "/admin/genre": "Categories",
   "/admin/books": "Books",
   "/admin/orders": "Orders",
   "/admin/authors": "Authors",

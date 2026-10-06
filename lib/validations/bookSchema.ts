@@ -15,7 +15,7 @@ export const bookFormSchema = z.object({
         val !== null &&
         val !== undefined &&
         String(val).trim() !== "",
-      { message: "Please select a publisher." }
+      { message: "Please select a publisher." },
     ),
 
   authorIds: z
@@ -27,7 +27,7 @@ export const bookFormSchema = z.object({
   genreIds: z
     .array(z.union([z.string(), z.number()]))
     .refine((val) => Array.isArray(val) && val.length > 0, {
-      message: "Please select at least one genre/category.",
+      message: "Please select at least one category.",
     }),
 
   subGenreIds: z
@@ -49,16 +49,14 @@ export const bookFormSchema = z.object({
         val !== null &&
         val !== undefined &&
         String(val).trim() !== "",
-      { message: "Price is required." }
+      { message: "Price is required." },
     )
-    .refine(
-      (val) => !isNaN(Number(val)) && Number(val) >= 0,
-      { message: "Please enter a valid price (Rs. 0 or higher)." }
-    )
-    .refine(
-      (val) => Number(val) <= 10000000,
-      { message: "Price cannot exceed Rs. 10,000,000." }
-    ),
+    .refine((val) => !isNaN(Number(val)) && Number(val) >= 0, {
+      message: "Please enter a valid price (Rs. 0 or higher).",
+    })
+    .refine((val) => Number(val) <= 10000000, {
+      message: "Price cannot exceed Rs. 10,000,000.",
+    }),
 
   discountPercent: z
     .union([z.string(), z.number()])
@@ -68,11 +66,11 @@ export const bookFormSchema = z.object({
         val !== null &&
         val !== undefined &&
         String(val).trim() !== "",
-      { message: "Discount percentage is required (enter 0 if no discount)." }
+      { message: "Discount percentage is required (enter 0 if no discount)." },
     )
     .refine(
       (val) => !isNaN(Number(val)) && Number(val) >= 0 && Number(val) <= 100,
-      { message: "Discount percentage must be between 0 and 100." }
+      { message: "Discount percentage must be between 0 and 100." },
     ),
 
   stock: z
@@ -83,19 +81,18 @@ export const bookFormSchema = z.object({
         val !== null &&
         val !== undefined &&
         String(val).trim() !== "",
-      { message: "Stock quantity is required." }
+      { message: "Stock quantity is required." },
     )
     .refine(
       (val) =>
         !isNaN(Number(val)) &&
         Number(val) >= 0 &&
         Number.isInteger(Number(val)),
-      { message: "Stock must be a whole number (0 or higher)." }
+      { message: "Stock must be a whole number (0 or higher)." },
     )
-    .refine(
-      (val) => Number(val) <= 1000000,
-      { message: "Stock units cannot exceed 1,000,000." }
-    ),
+    .refine((val) => Number(val) <= 1000000, {
+      message: "Stock units cannot exceed 1,000,000.",
+    }),
 
   soldCount: z
     .union([z.string(), z.number()])
@@ -105,21 +102,17 @@ export const bookFormSchema = z.object({
         val !== null &&
         val !== undefined &&
         String(val).trim() !== "",
-      { message: "Sold count is required (enter 0 if new book)." }
+      { message: "Sold count is required (enter 0 if new book)." },
     )
     .refine(
       (val) =>
         !isNaN(Number(val)) &&
         Number(val) >= 0 &&
         Number.isInteger(Number(val)),
-      { message: "Sold count must be a whole number (0 or higher)." }
+      { message: "Sold count must be a whole number (0 or higher)." },
     ),
 
-  publicationDate: z
-    .string()
-    .optional()
-    .nullable()
-    .or(z.literal("")),
+  publicationDate: z.string().optional().nullable().or(z.literal("")),
 
   pages: z
     .union([z.string(), z.number()])
@@ -128,24 +121,17 @@ export const bookFormSchema = z.object({
     .or(z.literal(""))
     .refine(
       (val) => {
-        if (val === undefined || val === null || String(val).trim() === "") return true;
+        if (val === undefined || val === null || String(val).trim() === "")
+          return true;
         const num = Number(val);
         return !isNaN(num) && num > 0 && Number.isInteger(num);
       },
-      { message: "Pages must be a valid whole number greater than 0." }
+      { message: "Pages must be a valid whole number greater than 0." },
     ),
 
-  isbn10: z
-    .string()
-    .optional()
-    .nullable()
-    .or(z.literal("")),
+  isbn10: z.string().optional().nullable().or(z.literal("")),
 
-  isbn13: z
-    .string()
-    .optional()
-    .nullable()
-    .or(z.literal("")),
+  isbn13: z.string().optional().nullable().or(z.literal("")),
 
   widthCm: z
     .union([z.string(), z.number()])
@@ -154,11 +140,12 @@ export const bookFormSchema = z.object({
     .or(z.literal(""))
     .refine(
       (val) => {
-        if (val === undefined || val === null || String(val).trim() === "") return true;
+        if (val === undefined || val === null || String(val).trim() === "")
+          return true;
         const num = Number(val);
         return !isNaN(num) && num >= 0;
       },
-      { message: "Width must be a valid number (0 or higher)." }
+      { message: "Width must be a valid number (0 or higher)." },
     ),
 
   heightCm: z
@@ -168,11 +155,12 @@ export const bookFormSchema = z.object({
     .or(z.literal(""))
     .refine(
       (val) => {
-        if (val === undefined || val === null || String(val).trim() === "") return true;
+        if (val === undefined || val === null || String(val).trim() === "")
+          return true;
         const num = Number(val);
         return !isNaN(num) && num >= 0;
       },
-      { message: "Height must be a valid number (0 or higher)." }
+      { message: "Height must be a valid number (0 or higher)." },
     ),
 
   depthCm: z
@@ -182,11 +170,12 @@ export const bookFormSchema = z.object({
     .or(z.literal(""))
     .refine(
       (val) => {
-        if (val === undefined || val === null || String(val).trim() === "") return true;
+        if (val === undefined || val === null || String(val).trim() === "")
+          return true;
         const num = Number(val);
         return !isNaN(num) && num >= 0;
       },
-      { message: "Depth must be a valid number (0 or higher)." }
+      { message: "Depth must be a valid number (0 or higher)." },
     ),
 
   images: z
@@ -203,14 +192,11 @@ export const bookFormSchema = z.object({
         const textOnly = val.replace(/<[^>]*>/g, "").trim();
         return textOnly.length > 0;
       },
-      { message: "Book description is required." }
+      { message: "Book description is required." },
     )
-    .refine(
-      (val) => val.length <= 50000,
-      { message: "Description cannot exceed 50,000 characters." }
-    ),
+    .refine((val) => val.length <= 50000, {
+      message: "Description cannot exceed 50,000 characters.",
+    }),
 });
 
 export type BookFormValues = z.infer<typeof bookFormSchema>;
-
-
