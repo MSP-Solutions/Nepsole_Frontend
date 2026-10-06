@@ -165,12 +165,12 @@ export function BooksFilterSidebar({
         )}
       </div>
 
-      {/* Genres & Subgenres */}
+      {/* Categories and sub-category */}
       <div className="space-y-1.5">
         <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
           <span className="flex items-center gap-1">
-            <Bookmark className="w-3 h-3 text-amber-500" /> Genres &amp;
-            Subgenres
+            <Bookmark className="w-3 h-3 text-amber-500" /> Categories and
+            sub-category
           </span>
           {selectedSubGenre && selectedSubGenre !== "all" && (
             <span className="text-[10px] text-amber-600 font-semibold flex items-center gap-0.5">
@@ -265,7 +265,9 @@ export function BooksFilterSidebar({
                       <button
                         type="button"
                         title={
-                          isExpanded ? "Collapse subgenres" : "Expand subgenres"
+                          isExpanded
+                            ? "Collapse sub-categories"
+                            : "Expand sub-categories"
                         }
                         onClick={(e) => toggleExpand(gen.id, e)}
                         className={`p-1.5 mr-1 rounded-md transition cursor-pointer ${
@@ -291,11 +293,11 @@ export function BooksFilterSidebar({
                       {isLoadingSubs ? (
                         <div className="py-1 px-2 text-[11px] text-slate-400 flex items-center gap-1.5">
                           <Loader2 className="w-3 h-3 animate-spin text-amber-500" />
-                          <span>Loading subgenres...</span>
+                          <span>Loading sub-categories...</span>
                         </div>
                       ) : subGenres.length === 0 ? (
                         <div className="py-1 px-2 text-[10px] text-slate-400 italic">
-                          No subgenres available
+                          No sub-categories available
                         </div>
                       ) : (
                         <>
@@ -474,11 +476,11 @@ export function BooksMobileFilterDrawer({
         </div>
 
         <div className="flex-1 py-3 space-y-4">
-          {/* Genres & Subgenres */}
+          {/* Categories and sub-category */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-800">
-                Genres &amp; Subgenres
+                Categories and sub-category
               </h4>
               {selectedSubGenre && selectedSubGenre !== "all" && (
                 <span className="text-[10px] text-amber-600 font-semibold flex items-center gap-0.5">
@@ -581,11 +583,11 @@ export function BooksMobileFilterDrawer({
                         {isLoadingSubs ? (
                           <div className="py-1 px-2 text-[11px] text-slate-400 flex items-center gap-1.5">
                             <Loader2 className="w-3 h-3 animate-spin text-amber-500" />
-                            <span>Loading subgenres...</span>
+                            <span>Loading sub-categories...</span>
                           </div>
                         ) : subGenres.length === 0 ? (
                           <div className="py-1 px-2 text-[10px] text-slate-400 italic">
-                            No subgenres available
+                            No sub-categories available
                           </div>
                         ) : (
                           <>

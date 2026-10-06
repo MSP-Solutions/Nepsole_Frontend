@@ -105,7 +105,10 @@ export const AddSubGenreDialog: React.FC<AddSubGenreDialogProps> = ({
             : raw?.data || raw?.genres || [];
           setGenresList(list);
         } catch (error) {
-          console.error("Failed to load genres for subgenre modal:", error);
+          console.error(
+            "Failed to load genres for sub-categories modal:",
+            error,
+          );
         } finally {
           setIsLoadingGenres(false);
         }
@@ -144,19 +147,17 @@ export const AddSubGenreDialog: React.FC<AddSubGenreDialogProps> = ({
 
     const trimmedName = name.trim();
     if (!trimmedName) {
-      toast.error("Please enter a sub genre name.");
+      toast.error("Please enter a sub-category name.");
       return;
     }
 
     if (!genreId && genreId !== 0) {
-      toast.error("Please select a parent genre.");
+      toast.error("Please select a parent category.");
       return;
     }
 
     const numericGenreId = Number(genreId);
-    const resolvedGenreId = !isNaN(numericGenreId)
-      ? numericGenreId
-      : genreId;
+    const resolvedGenreId = !isNaN(numericGenreId) ? numericGenreId : genreId;
 
     const payload = {
       name: trimmedName,
@@ -183,10 +184,7 @@ export const AddSubGenreDialog: React.FC<AddSubGenreDialogProps> = ({
               );
             } else if (patchErr?.response?.status === 405) {
               // Try PUT if PATCH is not allowed
-              response = await axiosAuthInstance.put(
-                updateUrlPrimary,
-                payload,
-              );
+              response = await axiosAuthInstance.put(updateUrlPrimary, payload);
             } else {
               throw patchErr;
             }
@@ -199,7 +197,7 @@ export const AddSubGenreDialog: React.FC<AddSubGenreDialogProps> = ({
           }
         }
 
-        toast.success("Sub genre updated successfully!");
+        toast.success("Sub-category updated successfully!");
       } else {
         // Create endpoint: /api/v1/subgenre (or /v1/subgenre with fallback)
         const createUrlPrimary = "/v1/subgenre";
@@ -209,20 +207,16 @@ export const AddSubGenreDialog: React.FC<AddSubGenreDialogProps> = ({
           response = await axiosAuthInstance.post(createUrlPrimary, payload);
         } catch (postErr: any) {
           if (postErr?.response?.status === 404) {
-            response = await axiosAuthInstance.post(
-              createUrlFallback,
-              payload,
-            );
+            response = await axiosAuthInstance.post(createUrlFallback, payload);
           } else {
             throw postErr;
           }
         }
 
-        toast.success("Sub genre added successfully!");
+        toast.success("Sub-category added successfully!");
       }
 
-      const resData =
-        response.data?.data ||
+      const resData = response.data?.data ||
         response.data?.subgenre ||
         response.data || {
           id: subGenreToEdit?.id || Date.now(),
@@ -233,11 +227,11 @@ export const AddSubGenreDialog: React.FC<AddSubGenreDialogProps> = ({
       onAddSubGenre?.(resData);
       handleClose();
     } catch (error: any) {
-      console.error("Save sub genre error:", error);
+      console.error("Save sub-category error:", error);
       const errorMessage =
         error?.response?.data?.message ||
         error?.message ||
-        "Failed to save sub genre. Please try again.";
+        "Failed to save sub-category. Please try again.";
       toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -258,12 +252,12 @@ export const AddSubGenreDialog: React.FC<AddSubGenreDialogProps> = ({
             </div>
             <div>
               <DialogTitle className="text-base font-bold text-gray-900">
-                {subGenreToEdit ? "Edit Sub Genre" : "Add Sub Genre"}
+                {subGenreToEdit ? "Edit Sub Category" : "Add Sub Category"}
               </DialogTitle>
               <DialogDescription className="mt-0.5 text-xs text-gray-500">
                 {subGenreToEdit
-                  ? "Update the sub genre details below."
-                  : "Create a new sub genre linked to a parent genre."}
+                  ? "Update the sub-category details below."
+                  : "Create a new sub-category linked to a parent category."}
               </DialogDescription>
             </div>
           </div>
@@ -283,7 +277,7 @@ export const AddSubGenreDialog: React.FC<AddSubGenreDialogProps> = ({
           {/* Sub Genre Name */}
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-              Sub Genre Name <span className="text-rose-500">*</span>
+              Sub Categories Name <span className="text-rose-500">*</span>
             </label>
             <input
               type="text"
@@ -300,11 +294,12 @@ export const AddSubGenreDialog: React.FC<AddSubGenreDialogProps> = ({
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-semibold text-gray-700">
-                Parent Genre <span className="text-rose-500">*</span>
+                Categories <span className="text-rose-500">*</span>
               </label>
               {isLoadingGenres && (
                 <span className="flex items-center gap-1 text-[11px] text-gray-400">
-                  <Loader2 className="h-3 w-3 animate-spin" /> Loading genres...
+                  <Loader2 className="h-3 w-3 animate-spin" /> Loading
+                  Categories...
                 </span>
               )}
             </div>
@@ -349,9 +344,6 @@ export const AddSubGenreDialog: React.FC<AddSubGenreDialogProps> = ({
                 ))}
               </SelectContent>
             </Select>
-            <p className="mt-1 text-[11px] text-gray-500">
-              The sub genre will be classified under this parent genre.
-            </p>
           </div>
 
           {/* Action Buttons */}

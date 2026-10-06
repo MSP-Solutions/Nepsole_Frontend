@@ -237,8 +237,8 @@ export default function EBookSidebarFilter({
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-            <Bookmark className="w-3 h-3 text-indigo-500" /> Genres &amp;
-            Subgenres
+            <Bookmark className="w-3 h-3 text-indigo-500" /> Categories and
+            sub-category
           </h3>
           {selectedSubGenre && selectedSubGenre !== "all" && (
             <span className="text-[10px] text-indigo-600 font-semibold flex items-center gap-0.5">
@@ -354,7 +354,9 @@ export default function EBookSidebarFilter({
                       <button
                         type="button"
                         title={
-                          isExpanded ? "Collapse subgenres" : "Expand subgenres"
+                          isExpanded
+                            ? "Collapse sub-categories"
+                            : "Expand sub-categories"
                         }
                         onClick={(e) => toggleExpand(gen.id, e)}
                         className={`p-1.5 mr-1 rounded-md transition cursor-pointer ${
@@ -380,11 +382,11 @@ export default function EBookSidebarFilter({
                       {isLoadingSubs ? (
                         <div className="py-1 px-2 text-[11px] text-slate-400 flex items-center gap-1.5">
                           <Loader2 className="w-3 h-3 animate-spin text-indigo-600" />
-                          <span>Loading subgenres...</span>
+                          <span>Loading sub-categories...</span>
                         </div>
                       ) : subGenres.length === 0 ? (
                         <div className="py-1 px-2 text-[10px] text-slate-400 italic">
-                          No subgenres available
+                          No sub-categories available
                         </div>
                       ) : (
                         <>

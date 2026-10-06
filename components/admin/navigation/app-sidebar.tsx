@@ -70,7 +70,7 @@ const navigation: NavItem[] = [
     icon: BookOpen,
   },
   {
-    title: "Sub Genre",
+    title: "Sub Categories",
     url: "/admin/subGenre",
     icon: BookOpen,
   },

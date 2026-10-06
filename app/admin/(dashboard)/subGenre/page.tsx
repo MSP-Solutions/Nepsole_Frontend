@@ -288,11 +288,11 @@ export default function SubGenrePage() {
                 <Layers className="h-5 w-5" />
               </div>
               <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-                Sub Genres
+                Sub Categories
               </h1>
             </div>
             <p className="mt-1 text-sm text-gray-500">
-              Manage your book sub genres and their categories.
+              Manage your book Sub Categories and their categories.
             </p>
           </div>
 
@@ -303,7 +303,7 @@ export default function SubGenrePage() {
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1749A0] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#123b83] cursor-pointer"
             >
               <Plus size={18} />
-              Add Sub Genre
+              Add Sub Categories
             </button>
           </div>
         </div>
@@ -359,7 +359,7 @@ export default function SubGenrePage() {
                     value="all"
                     className="cursor-pointer text-xs py-2"
                   >
-                    All Genres
+                    All Categories
                   </SelectItem>
                   {genres.map((g) => (
                     <SelectItem
@@ -382,7 +382,7 @@ export default function SubGenrePage() {
             <div className="flex flex-col items-center gap-3">
               <Loader2 className="h-8 w-8 animate-spin text-[#1749A0]" />
               <p className="text-xs font-medium text-gray-500">
-                Loading sub genres...
+                Loading sub Categories...
               </p>
             </div>
           </div>

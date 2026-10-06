@@ -119,11 +119,11 @@ export default function EBookMobileFilterDrawer({
 
           <hr className="border-slate-100" />
 
-          {/* Genres & Subgenres */}
+          {/* Categories and sub-category */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-800">
-                Genres &amp; Subgenres
+                Categories and sub-category
               </h4>
               {selectedSubGenre && selectedSubGenre !== "all" && (
                 <span className="text-[10px] text-indigo-600 font-semibold flex items-center gap-0.5">
@@ -226,11 +226,11 @@ export default function EBookMobileFilterDrawer({
                         {isLoadingSubs ? (
                           <div className="py-1 px-2 text-[11px] text-slate-400 flex items-center gap-1.5">
                             <Loader2 className="w-3 h-3 animate-spin text-indigo-600" />
-                            <span>Loading subgenres...</span>
+                            <span>Loading sub-categories...</span>
                           </div>
                         ) : subGenres.length === 0 ? (
                           <div className="py-1 px-2 text-[10px] text-slate-400 italic">
-                            No subgenres available
+                            No sub-categories available
                           </div>
                         ) : (
                           <>
