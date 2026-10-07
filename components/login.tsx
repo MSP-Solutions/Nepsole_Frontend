@@ -30,6 +30,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import Image from "next/image";
 
 export interface LoginFormProps {
   onSuccess?: () => void;
@@ -281,7 +282,10 @@ export function LoginForm({
             Email Verification Required
           </h3>
           <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
-            Your account for <strong className="text-slate-900">{unverifiedEmail}</strong> is not verified yet. Please check your email inbox or click below to resend the verification email.
+            Your account for{" "}
+            <strong className="text-slate-900">{unverifiedEmail}</strong> is not
+            verified yet. Please check your email inbox or click below to resend
+            the verification email.
           </p>
         </div>
 
@@ -457,8 +461,15 @@ export function LoginDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-2xl z-[60]">
         <DialogHeader className="space-y-1.5 text-center pb-2">
-          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-sm mb-1">
-            <BookOpen className="h-5 w-5" />
+          <div className="relative flex h-11 w-11 sm:h-14 sm:w-16 lg:h-16 lg:w-26 items-center justify-center overflow-hidden">
+            <Image
+              src="/logo.jpg"
+              alt="Nepsole Logo"
+              width={500}
+              height={500}
+              priority
+              className="h-full w-full object-contain"
+            />
           </div>
           <DialogTitle className="text-xl font-bold tracking-tight text-slate-900">
             Welcome back to Nepsole

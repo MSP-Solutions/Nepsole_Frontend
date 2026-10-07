@@ -9,7 +9,7 @@ export default function SidebarLogo() {
     >
       <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600/90 text-white font-bold shadow-md shrink-0">
         <Image
-          src="/logo.png"
+          src="/logos.png"
           alt="Nepsole"
           width={36}
           height={36}

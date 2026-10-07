@@ -188,12 +188,16 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
   const fetchDropdownData = async () => {
     setIsLoadingOptions(true);
     try {
-      const [pubRes, authRes, genRes, langRes] = await Promise.allSettled([
-        axiosAuthInstance.get("/v1/publisher"),
-        axiosAuthInstance.get("/v1/author"),
-        axiosAuthInstance.get("/v1/genre"),
-        axiosAuthInstance.get("/v1/language?limit=100"),
-      ]);
+      const [pubRes, authRes, genRes, langRes, subGenRes] =
+        await Promise.allSettled([
+          axiosAuthInstance.get("/v1/publisher"),
+          axiosAuthInstance.get("/v1/author"),
+          axiosAuthInstance.get("/v1/genre"),
+          axiosAuthInstance.get("/v1/language?limit=100"),
+          axiosAuthInstance
+            .get("/v1/subgenre?limit=500")
+            .catch(() => axiosAuthInstance.get("/api/v1/subgenre?limit=500")),
+        ]);
 
       if (pubRes.status === "fulfilled") {
         const d = pubRes.value.data;
@@ -214,6 +218,28 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
         const d = langRes.value.data;
         const list = Array.isArray(d) ? d : d?.data || d?.languages || [];
         setLanguages(list);
+      }
+      if (subGenRes.status === "fulfilled") {
+        const d = (subGenRes.value as any)?.data;
+        const raw = d?.data || d;
+        const list: OptionItem[] = Array.isArray(raw)
+          ? raw
+          : raw?.subgenres || raw?.subGenres || [];
+        if (list.length > 0) {
+          setSubGenresByGenre((prev) => {
+            const next = { ...prev };
+            list.forEach((sg: any) => {
+              const gId = sg.genreId || sg.genre?.id;
+              if (gId !== undefined && gId !== null) {
+                if (!next[gId]) next[gId] = [];
+                if (!next[gId].some((item) => String(item.id) === String(sg.id))) {
+                  next[gId].push(sg);
+                }
+              }
+            });
+            return next;
+          });
+        }
       }
     } catch (err) {
       console.error("Failed to load dropdown options:", err);
@@ -255,14 +281,78 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
         });
         setSelectedAuthors(bookToEdit.authorIds || []);
         setSelectedGenres(bookToEdit.genreIds || []);
-        const initialSubGenreIds =
-          bookToEdit.subGenreIds ||
-          (bookToEdit.subgenres || bookToEdit.subGenres || []).map((sg: any) =>
-            typeof sg === "object" ? sg.id || sg.subGenreId : sg
-          ) ||
-          [];
+
+        const rawSubList = [
+          ...(bookToEdit.subGenres || []),
+          ...(bookToEdit.subgenres || []),
+          ...(bookToEdit.subGenreBooks || []),
+          ...(bookToEdit.subgenreBooks || []),
+          ...(Array.isArray(bookToEdit.subGenreIds) ? bookToEdit.subGenreIds : []),
+          ...(Array.isArray(bookToEdit.subgenreIds) ? bookToEdit.subgenreIds : []),
+        ];
+
+        const initialSubGenreIds = Array.from(
+          new Set(
+            rawSubList
+              .map((sg: any) => {
+                if (typeof sg === "number" || typeof sg === "string") return sg;
+                return (
+                  sg.subGenre?.id ||
+                  sg.subgenre?.id ||
+                  sg.subGenreId ||
+                  sg.subgenreId ||
+                  sg.id
+                );
+              })
+              .filter(
+                (id): id is number | string =>
+                  id !== undefined && id !== null && id !== "",
+              ),
+          ),
+        );
         setSelectedSubGenres(initialSubGenreIds);
         setSelectedLanguages(bookToEdit.languageIds || []);
+
+        // Pre-populate subGenresByGenre with any detailed subgenre objects from bookToEdit
+        const bookSubObjects = [
+          ...(bookToEdit.subGenres || []),
+          ...(bookToEdit.subgenres || []),
+          ...(bookToEdit.subGenreBooks || []),
+          ...(bookToEdit.subgenreBooks || []),
+        ];
+        if (bookSubObjects.length > 0) {
+          setSubGenresByGenre((prev) => {
+            const next = { ...prev };
+            bookSubObjects.forEach((sg: any) => {
+              if (typeof sg === "object" && sg !== null) {
+                const id =
+                  sg.subGenre?.id ||
+                  sg.subgenre?.id ||
+                  sg.subGenreId ||
+                  sg.subgenreId ||
+                  sg.id;
+                const name =
+                  sg.name ||
+                  sg.englishName ||
+                  sg.subGenre?.name ||
+                  sg.subgenre?.name;
+                const gId =
+                  sg.genreId ||
+                  sg.genre?.id ||
+                  (bookToEdit.genreIds && bookToEdit.genreIds[0]);
+                if (id && name && gId !== undefined) {
+                  if (!next[gId]) next[gId] = [];
+                  if (
+                    !next[gId].some((item) => String(item.id) === String(id))
+                  ) {
+                    next[gId].push({ id, name, genreId: gId });
+                  }
+                }
+              }
+            });
+            return next;
+          });
+        }
 
         // Load existing images
         const rawImgs =
@@ -488,7 +578,33 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
   };
 
   const toggleGenre = (id: number | string) => {
-    toggleSelection(id, selectedGenres, setSelectedGenres);
+    const isRemoving = selectedGenres.some(
+      (gid) => String(gid) === String(id),
+    );
+    if (isRemoving) {
+      const remainingGenres = selectedGenres.filter(
+        (gid) => String(gid) !== String(id),
+      );
+      setSelectedGenres(remainingGenres);
+      if (remainingGenres.length === 0) {
+        setSelectedSubGenres([]);
+      } else {
+        const removedSubs =
+          subGenresByGenre[id] ||
+          subGenresByGenre[String(id)] ||
+          subGenresByGenre[Number(id)] ||
+          [];
+        const removedIds = new Set(removedSubs.map((s) => String(s.id)));
+        if (removedIds.size > 0) {
+          setSelectedSubGenres((prev) =>
+            prev.filter((subId) => !removedIds.has(String(subId))),
+          );
+        }
+      }
+    } else {
+      setSelectedGenres((prev) => [...prev, id]);
+    }
+
     if (errors.genreIds || errors.genres) {
       setErrors((prev) => {
         const next = { ...prev };
@@ -527,60 +643,59 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
   // Fetch subgenres dynamically whenever selectedGenres changes
   useEffect(() => {
     if (!open) return;
+    if (selectedGenres.length === 0) return;
 
-    if (selectedGenres.length === 0) {
-      setSelectedSubGenres([]);
-      return;
-    }
+    const genresToFetch = selectedGenres.filter(
+      (gid) =>
+        !subGenresByGenre[gid] &&
+        !subGenresByGenre[String(gid)] &&
+        !subGenresByGenre[Number(gid)],
+    );
 
-    const fetchSubGenresForGenres = async () => {
-      setIsLoadingSubGenres(true);
+    if (genresToFetch.length === 0) return;
+
+    let isMounted = true;
+    setIsLoadingSubGenres(true);
+
+    const fetchPromises = genresToFetch.map(async (gid) => {
+      let res;
       try {
-        const genresToFetch = selectedGenres.filter(
-          (gid) => !subGenresByGenre[gid],
-        );
-
-        if (genresToFetch.length > 0) {
-          const fetchPromises = genresToFetch.map(async (gid) => {
-            let res;
-            try {
-              res = await axiosAuthInstance.get(`/v1/subgenre/by-genre/${gid}`);
-            } catch (err: any) {
-              if (err?.response?.status === 404) {
-                res = await axiosAuthInstance.get(
-                  `/api/v1/subgenre/by-genre/${gid}`,
-                );
-              } else {
-                throw err;
-              }
-            }
-            const data = res.data;
-            const list: OptionItem[] = Array.isArray(data)
-              ? data
-              : data?.data || data?.subgenres || data?.subGenres || [];
-            return { gid, list };
-          });
-
-          const results = await Promise.allSettled(fetchPromises);
-          setSubGenresByGenre((prev) => {
-            const next = { ...prev };
-            results.forEach((r) => {
-              if (r.status === "fulfilled") {
-                next[r.value.gid] = r.value.list;
-              }
-            });
-            return next;
-          });
+        res = await axiosAuthInstance.get(`/v1/subgenre/by-genre/${gid}`);
+      } catch (err: any) {
+        try {
+          res = await axiosAuthInstance.get(`/api/v1/subgenre/by-genre/${gid}`);
+        } catch {
+          return { gid, list: [] };
         }
-      } catch (error) {
-        console.error("Error fetching subgenres by genre:", error);
-      } finally {
-        setIsLoadingSubGenres(false);
       }
-    };
+      const data = res?.data?.data || res?.data;
+      const list: OptionItem[] = Array.isArray(data)
+        ? data
+        : data?.subgenres || data?.subGenres || data?.data || [];
+      return { gid, list };
+    });
 
-    fetchSubGenresForGenres();
-  }, [selectedGenres, open, subGenresByGenre]);
+    Promise.allSettled(fetchPromises)
+      .then((results) => {
+        if (!isMounted) return;
+        setSubGenresByGenre((prev) => {
+          const next = { ...prev };
+          results.forEach((r) => {
+            if (r.status === "fulfilled") {
+              next[r.value.gid] = r.value.list;
+            }
+          });
+          return next;
+        });
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingSubGenres(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedGenres, open]);
 
   // Aggregate available subgenres from all currently selected genres
   const availableSubGenres = useMemo(() => {
@@ -590,10 +705,14 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
     selectedGenres.forEach((gid) => {
       const genreObj = genres.find((g) => String(g.id) === String(gid));
       const gName = genreObj?.name || genreObj?.englishName || "";
-      const subs = subGenresByGenre[gid] || [];
+      const subs =
+        subGenresByGenre[gid] ||
+        subGenresByGenre[String(gid)] ||
+        subGenresByGenre[Number(gid)] ||
+        [];
       subs.forEach((sub) => {
-        if (!seenIds.has(sub.id)) {
-          seenIds.add(sub.id);
+        if (!seenIds.has(String(sub.id))) {
+          seenIds.add(String(sub.id));
           list.push({
             ...sub,
             genreName: gName,
@@ -602,8 +721,41 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
       });
     });
 
+    // Also include any subgenres directly present in bookToEdit so names display instantly
+    if (bookToEdit) {
+      const bookSubList = [
+        ...(bookToEdit.subGenres || []),
+        ...(bookToEdit.subgenres || []),
+        ...(bookToEdit.subGenreBooks || []),
+        ...(bookToEdit.subgenreBooks || []),
+      ];
+      bookSubList.forEach((sg: any) => {
+        if (typeof sg === "object" && sg !== null) {
+          const id =
+            sg.subGenre?.id ||
+            sg.subgenre?.id ||
+            sg.subGenreId ||
+            sg.subgenreId ||
+            sg.id;
+          const name =
+            sg.name ||
+            sg.englishName ||
+            sg.subGenre?.name ||
+            sg.subgenre?.name;
+          if (id && name && !seenIds.has(String(id))) {
+            seenIds.add(String(id));
+            list.push({
+              id,
+              name,
+              genreName: "",
+            });
+          }
+        }
+      });
+    }
+
     return list;
-  }, [selectedGenres, subGenresByGenre, genres]);
+  }, [selectedGenres, genres, subGenresByGenre, bookToEdit]);
 
   const filteredSubGenres = useMemo(() => {
     const q = subGenreSearch.toLowerCase().trim();
@@ -612,22 +764,6 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({
       (sg.name || sg.englishName || "").toLowerCase().includes(q),
     );
   }, [availableSubGenres, subGenreSearch]);
-
-  // If genres change, clean up any selected subgenres that no longer belong to selected genres
-  useEffect(() => {
-    if (selectedGenres.length === 0) {
-      if (selectedSubGenres.length > 0) setSelectedSubGenres([]);
-      return;
-    }
-    if (availableSubGenres.length > 0) {
-      const validSubIds = new Set(
-        availableSubGenres.map((sg) => String(sg.id)),
-      );
-      setSelectedSubGenres((prev) =>
-        prev.filter((id) => validSubIds.has(String(id))),
-      );
-    }
-  }, [selectedGenres, availableSubGenres]);
 
   const scrollToFirstError = (fieldErrors: Record<string, string>) => {
     const errorKeys = Object.keys(fieldErrors);

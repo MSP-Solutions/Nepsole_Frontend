@@ -155,9 +155,24 @@ export default function BooksPage() {
         .toLowerCase()
         .includes(term),
     );
+    const subGenreMatch = (
+      book.subGenres ||
+      book.subgenres ||
+      book.subGenreBooks ||
+      []
+    ).some((sg: any) =>
+      (sg.name || sg.englishName || sg.subGenre?.name || "")
+        .toLowerCase()
+        .includes(term),
+    );
 
     return (
-      titleMatch || isbnMatch || publisherMatch || authorMatch || genreMatch
+      titleMatch ||
+      isbnMatch ||
+      publisherMatch ||
+      authorMatch ||
+      genreMatch ||
+      subGenreMatch
     );
   });
 
@@ -209,6 +224,37 @@ export default function BooksPage() {
     setIsViewModalOpen(true);
   };
 
+  // Helper to extract subgenre IDs from any book object
+  const extractSubGenreIds = (b: any): (number | string)[] => {
+    const raw = [
+      ...(b.subGenres || []),
+      ...(b.subgenres || []),
+      ...(b.subGenreBooks || []),
+      ...(b.subgenreBooks || []),
+      ...(Array.isArray(b.subGenreIds) ? b.subGenreIds : []),
+      ...(Array.isArray(b.subgenreIds) ? b.subgenreIds : []),
+    ];
+    return Array.from(
+      new Set(
+        raw
+          .map((sg: any) => {
+            if (typeof sg === "number" || typeof sg === "string") return sg;
+            return (
+              sg.subGenre?.id ||
+              sg.subgenre?.id ||
+              sg.subGenreId ||
+              sg.subgenreId ||
+              sg.id
+            );
+          })
+          .filter(
+            (id): id is number | string =>
+              id !== undefined && id !== null && id !== "",
+          ),
+      ),
+    );
+  };
+
   // Handle Edit Book
   const handleEditClick = (book: BookItem) => {
     closeAllModals();
@@ -220,6 +266,15 @@ export default function BooksPage() {
     const extractedGenreIds = (book.genres || book.genreBooks || []).map(
       (g) => g.genre?.id || g.id,
     );
+    // Extract subGenre IDs
+    const extractedSubGenreIds = extractSubGenreIds(book);
+    const rawSubGenres = [
+      ...(book.subGenres || []),
+      ...(book.subgenres || []),
+      ...(book.subGenreBooks || []),
+      ...(book.subgenreBooks || []),
+    ];
+
     // Extract language IDs
     const extractedLanguageIds = (
       book.languages ||
@@ -245,12 +300,48 @@ export default function BooksPage() {
       publisherId: book.publisherId || book.publisher?.id || "",
       authorIds: extractedAuthorIds,
       genreIds: extractedGenreIds,
+      subGenreIds: extractedSubGenreIds,
+      subGenres: rawSubGenres,
       languageIds: extractedLanguageIds,
       images: book.images || book.bookImages || [],
     };
 
     setBookToEdit(editData);
     setIsAddModalOpen(true);
+
+    // Fetch complete book details by ID in case the list API omitted deep subgenre relations
+    axiosAuthInstance
+      .get(`/v1/book/${book.id}`)
+      .then((res) => {
+        const full = res.data?.data || res.data;
+        if (full) {
+          const fullSubGenreIds = extractSubGenreIds(full);
+          const fullRawSubGenres = [
+            ...(full.subGenres || []),
+            ...(full.subgenres || []),
+            ...(full.subGenreBooks || []),
+            ...(full.subgenreBooks || []),
+          ];
+
+          setBookToEdit((prev) => {
+            if (!prev || String(prev.id) !== String(book.id)) return prev;
+            return {
+              ...prev,
+              subGenreIds:
+                fullSubGenreIds.length > 0
+                  ? fullSubGenreIds
+                  : prev.subGenreIds && prev.subGenreIds.length > 0
+                    ? prev.subGenreIds
+                    : fullSubGenreIds,
+              subGenres:
+                fullRawSubGenres.length > 0 ? fullRawSubGenres : prev.subGenres,
+            };
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not fetch detailed book relations for editing:", err);
+      });
   };
 
   // Handle Delete Confirmation

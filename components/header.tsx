@@ -218,7 +218,7 @@ const Header = () => {
         >
           <div className="relative flex h-11 w-11 sm:h-14 sm:w-16 lg:h-16 lg:w-26 items-center justify-center overflow-hidden">
             <Image
-              src="/logobg.jpg"
+              src="/logo.jpg"
               alt="Nepsole Logo"
               width={500}
               height={500}

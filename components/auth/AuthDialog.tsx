@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { OPEN_AUTH_MODAL_EVENT } from "@/utils/cookies";
 import { BookOpen } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 export interface AuthDialogProps {
@@ -126,7 +127,14 @@ export default function AuthDialog({
           {/* Header */}
           <DialogHeader className="space-y-1 text-center pb-2">
             <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-sm mb-1">
-              <BookOpen className="h-5 w-5" />
+              <Image
+                src="/logos.png"
+                alt="Nepsole Logo"
+                width={500}
+                height={500}
+                priority
+                className="h-full w-full object-contain"
+              />
             </div>
             <DialogTitle className="text-xl font-bold tracking-tight text-slate-900">
               {mode === "login"
