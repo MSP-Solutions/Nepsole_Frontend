@@ -22,6 +22,7 @@ import {
   StarsIcon,
   Truck,
   Users,
+  Package,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -88,6 +89,11 @@ const navigation: NavItem[] = [
     title: "Publishers",
     url: "/admin/publishers",
     icon: PenLineIcon,
+  },
+  {
+    title: "Stationary",
+    url: "/admin/stationery",
+    icon: Package,
   },
   {
     title: "Books",

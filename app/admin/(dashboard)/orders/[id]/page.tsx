@@ -25,6 +25,7 @@ import {
   Truck,
   User,
   XCircle,
+  Lock,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -37,6 +38,14 @@ import {
   OrderItem as AdminOrderItem,
   OrderStatus,
 } from "@/types";
+
+const STATUS_FLOW = [
+  "PENDING",
+  "CONFIRMED",
+  "PROCESSING",
+  "SHIPPED",
+  "DELIVERED",
+] as const;
 
 const statusStyles: Record<
   string,
@@ -160,12 +169,41 @@ export default function AdminOrderDetailsPage() {
 
   // Handle Save / Update Status via direct Shadcn Select change
   const handleStatusChange = async (newStatus: string) => {
-    if (!order || !newStatus || newStatus === order.status?.toUpperCase())
+    if (!order || !newStatus) return;
+    const currentStatus = (order.status || "PENDING").toUpperCase();
+    const targetStatus = newStatus.toUpperCase();
+
+    if (targetStatus === currentStatus) return;
+
+    // 1. Terminal status check: Cancelled orders cannot be changed
+    if (currentStatus === "CANCELLED" || currentStatus === "FAILED") {
+      toast.error("This order is cancelled and its status cannot be changed.");
       return;
+    }
+
+    // 2. Terminal status check: Delivered orders cannot be changed
+    if (currentStatus === "DELIVERED" || currentStatus === "COMPLETED") {
+      toast.error(
+        "This order has been delivered and its status cannot be changed.",
+      );
+      return;
+    }
+
+    // 3. Progression check: Disallow moving backwards in the fulfillment flow
+    const currentIdx = STATUS_FLOW.indexOf(currentStatus as any);
+    const targetIdx = STATUS_FLOW.indexOf(targetStatus as any);
+
+    if (currentIdx !== -1 && targetIdx !== -1 && targetIdx < currentIdx) {
+      toast.error(
+        `Cannot revert status backwards from ${currentStatus} to ${targetStatus}.`,
+      );
+      return;
+    }
+
     setIsUpdating(true);
 
     const payload = {
-      status: newStatus,
+      status: targetStatus,
       paymentStatus: "PAID",
     };
 
@@ -181,7 +219,7 @@ export default function AdminOrderDetailsPage() {
         prev
           ? {
               ...prev,
-              status: newStatus,
+              status: targetStatus,
               payment: prev.payment
                 ? { ...prev.payment, status: "PAID" }
                 : {
@@ -195,7 +233,7 @@ export default function AdminOrderDetailsPage() {
           : null,
       );
 
-      toast.success(`Order #${order.id} status updated to ${newStatus}`);
+      toast.success(`Order #${order.id} status updated to ${targetStatus}`);
     } catch (error: any) {
       console.error("Failed to update status:", error);
       toast.error(
@@ -240,9 +278,17 @@ export default function AdminOrderDetailsPage() {
     );
   }
 
-  const currentStatusConfig = getStatusConfig(order.status);
+  const currentStatus = (order.status || "PENDING").toUpperCase();
+  const currentStatusConfig = getStatusConfig(currentStatus);
   const StatusIcon = currentStatusConfig.icon;
   const paymentStatus = (order.payment?.status || "PENDING").toUpperCase();
+
+  const isDelivered =
+    currentStatus === "DELIVERED" || currentStatus === "COMPLETED";
+  const isCancelled =
+    currentStatus === "CANCELLED" || currentStatus === "FAILED";
+  const isStatusLocked = isDelivered || isCancelled;
+  const currentFlowIndex = STATUS_FLOW.indexOf(currentStatus as any);
 
   const isGuestOrder =
     order.orderType === "GUEST" ||
@@ -574,9 +620,17 @@ export default function AdminOrderDetailsPage() {
           {/* Order Status & Direct Shadcn Select Card */}
           <section className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-2xs space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                Manage Fulfillment Status
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                  Manage Fulfillment Status
+                </h3>
+                {isStatusLocked && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                    <Lock className="w-2.5 h-2.5" />
+                    Locked
+                  </span>
+                )}
+              </div>
               {isUpdating && (
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-[#1749A0]" />
               )}
@@ -590,23 +644,47 @@ export default function AdminOrderDetailsPage() {
 
                 {/* Shadcn Select Component */}
                 <Select
-                  value={order.status?.toUpperCase() || "PENDING"}
+                  value={currentStatus}
                   onValueChange={(val: any) => handleStatusChange(String(val))}
-                  disabled={isUpdating}
+                  disabled={isUpdating || isStatusLocked}
                 >
-                  <SelectTrigger className="w-full bg-slate-50 font-bold text-xs sm:text-sm h-11 border-slate-200 rounded-xl">
-                    <SelectValue placeholder="Select Status" />
+                  <SelectTrigger
+                    className={`w-full font-bold text-xs sm:text-sm h-11 border-slate-200 rounded-xl transition-all ${
+                      isStatusLocked
+                        ? "bg-slate-100 text-slate-500 cursor-not-allowed opacity-80"
+                        : "bg-slate-50 text-slate-800"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {isStatusLocked && (
+                        <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      )}
+                      <SelectValue placeholder="Select Status" />
+                    </div>
                   </SelectTrigger>
                   <SelectContent className="rounded-xl border-slate-200 shadow-xl">
-                    {ORDER_STATUS_ENUM.map((status) => (
-                      <SelectItem
-                        key={status}
-                        value={status}
-                        className="font-semibold text-xs sm:text-sm py-2"
-                      >
-                        {status}
-                      </SelectItem>
-                    ))}
+                    {ORDER_STATUS_ENUM.map((status) => {
+                      const isPast =
+                        currentFlowIndex !== -1 &&
+                        STATUS_FLOW.indexOf(status as any) !== -1 &&
+                        STATUS_FLOW.indexOf(status as any) < currentFlowIndex;
+
+                      return (
+                        <SelectItem
+                          key={status}
+                          value={status}
+                          disabled={isPast}
+                          className={`font-semibold text-xs sm:text-sm py-2 ${
+                            isPast
+                              ? "opacity-40 cursor-not-allowed text-slate-400"
+                              : ""
+                          }`}
+                        >
+                          {status}
+                          {isPast && " (Cannot revert)"}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -626,10 +704,26 @@ export default function AdminOrderDetailsPage() {
                 </span>
               </div>
 
-              <p className="text-[11px] text-slate-500 leading-relaxed bg-blue-50/60 p-2.5 rounded-xl border border-blue-100/80">
-                Selecting a status sends an update and automatically marks the
-                payment status as <strong>PAID</strong>.
-              </p>
+              {isDelivered ? (
+                <div className="flex items-start gap-2 p-3 bg-emerald-50/80 border border-emerald-200/80 rounded-xl text-xs text-emerald-800 leading-relaxed">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <span>
+                    This order is <strong>Delivered</strong>. Fulfillment is complete and status cannot be modified.
+                  </span>
+                </div>
+              ) : isCancelled ? (
+                <div className="flex items-start gap-2 p-3 bg-rose-50/80 border border-rose-200/80 rounded-xl text-xs text-rose-800 leading-relaxed">
+                  <XCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span>
+                    This order is <strong>Cancelled</strong>. The status is permanently locked and cannot be modified.
+                  </span>
+                </div>
+              ) : (
+                <p className="text-[11px] text-slate-500 leading-relaxed bg-blue-50/60 p-2.5 rounded-xl border border-blue-100/80">
+                  Selecting a status advances fulfillment and automatically marks
+                  payment status as <strong>PAID</strong>. Statuses cannot be reverted backwards.
+                </p>
+              )}
             </div>
           </section>
 

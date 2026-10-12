@@ -57,6 +57,7 @@ const navLinks = [
   { name: "Home", href: "/" },
   { name: "Books", href: "/books" },
   { name: "E-Books", href: "/eBooks" },
+  { name: "Stationery", href: "/stationery" },
   { name: "Authors", href: "/authors" },
   { name: "Publishers", href: "/publishers" },
   { name: "About Us", href: "/about" },
