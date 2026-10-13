@@ -250,14 +250,11 @@ const AuthorsPage = () => {
                       <div className="h-3 bg-slate-200 rounded w-4/5" />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 bg-slate-50 rounded-xl p-2.5 mt-5 border border-slate-100 h-14">
-                      <div className="bg-slate-200 rounded h-full" />
-                      <div className="bg-slate-200 rounded h-full" />
-                    </div>
+                    <div className="mt-4 h-10 bg-slate-50 border border-slate-100 rounded-xl" />
                   </div>
 
-                  <div className="mt-5 pt-3">
-                    <div className="h-9 bg-slate-200 rounded-lg w-full" />
+                  <div className="mt-5 pt-1">
+                    <div className="h-9 bg-slate-200 rounded-xl w-full" />
                   </div>
                 </div>
               ))}
@@ -303,39 +300,58 @@ const AuthorsPage = () => {
                   return (
                     <div
                       key={author.id}
-                      className="group flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md hover:border-indigo-300"
+                      className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-2xs transition-all duration-300 hover:-translate-y-1.5 hover:border-[#1749A0]/30 hover:shadow-lg"
                     >
+                      {/* Top Accent Gradient on Hover */}
+                      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#1749A0] via-indigo-600 to-amber-500 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+
                       <div>
                         {/* Header: Avatar + Details */}
-                        <div className="flex items-start gap-4">
-                          <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-[#0f172a] text-lg font-bold text-white shadow-inner">
+                        <div className="flex items-center gap-3.5">
+                          <Link
+                            href={`/authors/${author.id}`}
+                            className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-slate-100 ring-2 ring-slate-100 group-hover:border-[#1749A0]/30 group-hover:ring-[#1749A0]/15 transition-all duration-300 shadow-xs bg-gradient-to-br from-[#1749A0] via-indigo-900 to-slate-900 text-sm font-bold text-white"
+                          >
                             {img ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={img}
                                 alt={author.name}
-                                className="h-full w-full object-cover"
+                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLElement).style.display =
+                                    "none";
+                                }}
                               />
                             ) : (
-                              <span>{getInitials(author.name)}</span>
+                              <span className="tracking-tight">
+                                {getInitials(author.name)}
+                              </span>
                             )}
-                          </div>
+                          </Link>
 
                           <div className="min-w-0 flex-1">
-                            <h2 className="truncate text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                            <Link
+                              href={`/authors/${author.id}`}
+                              className="truncate block text-base font-bold text-slate-900 group-hover:text-[#1749A0] transition-colors"
+                            >
                               {author.name}
-                            </h2>
+                            </Link>
 
-                            {author.positions && (
-                              <p className="text-xs text-indigo-600 font-medium truncate mt-0.5">
+                            {author.positions ? (
+                              <p className="mt-0.5 truncate text-xs font-semibold text-[#1749A0]">
                                 {Array.isArray(author.positions)
                                   ? author.positions.join(", ")
                                   : author.positions}
                               </p>
+                            ) : (
+                              <p className="mt-0.5 truncate text-xs font-medium text-slate-400">
+                                Author & Writer
+                              </p>
                             )}
 
                             {author.nationality && (
-                              <div className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-500 font-medium">
+                              <div className="mt-1 flex items-center gap-1 text-[11px] font-medium text-slate-500">
                                 <MapPin className="h-3 w-3 shrink-0 text-rose-500" />
                                 <span className="truncate">
                                   {Array.isArray(author.nationality)
@@ -348,41 +364,32 @@ const AuthorsPage = () => {
                         </div>
 
                         {/* Bio Preview */}
-                        <p className="mt-4 text-xs italic leading-relaxed text-slate-600 line-clamp-2">
-                          &quot;{getBioPreview(author.bio)}&quot;
+                        <p className="mt-4 line-clamp-2 text-xs italic leading-relaxed text-slate-600">
+                          &ldquo;{getBioPreview(author.bio)}&rdquo;
                         </p>
 
-                        {/* Stats Grid */}
-                        <div className="mt-5 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2.5 text-center border border-slate-100">
-                          <div className="border-r border-slate-200/80 pr-2">
-                            <div className="text-base font-bold text-slate-900 flex items-center justify-center gap-1">
-                              <BookOpen className="h-3.5 w-3.5 text-indigo-500" />
-                              <span>{booksCount}</span>
+                        {/* Published Works Stats Bar */}
+                        <div className="mt-4 flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/90 px-3.5 py-2.5 text-xs">
+                          <div className="flex items-center gap-2 font-medium text-slate-600">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-50 text-[#1749A0]">
+                              <BookOpen className="h-3.5 w-3.5" />
                             </div>
-                            <div className="text-[10px] font-semibold tracking-wider text-slate-500 uppercase">
-                              Books
-                            </div>
+                            <span>Published Works</span>
                           </div>
-                          <div className="pl-2">
-                            <div className="text-base font-bold text-slate-900 flex items-center justify-center gap-1">
-                              <Users className="h-3.5 w-3.5 text-indigo-500" />
-                              <span>{happyReaders}</span>
-                            </div>
-                            <div className="text-[10px] font-semibold tracking-wider text-slate-500 uppercase">
-                              Readers
-                            </div>
-                          </div>
+                          <span className="rounded-md border border-slate-200/80 bg-white px-2 py-0.5 text-xs font-bold text-slate-900 shadow-2xs">
+                            {booksCount} {booksCount === 1 ? "Book" : "Books"}
+                          </span>
                         </div>
                       </div>
 
                       {/* Action Link */}
-                      <div className="mt-5 pt-3">
+                      <div className="mt-5 pt-1">
                         <Link
                           href={`/authors/${author.id}`}
-                          className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-indigo-600 hover:text-white hover:border-indigo-600 shadow-2xs"
+                          className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-700 shadow-2xs transition-all duration-200 hover:border-[#1749A0] hover:bg-[#1749A0] hover:text-white group/btn"
                         >
-                          <span>View Details</span>
-                          <ArrowRight className="h-3.5 w-3.5" />
+                          <span>View Profile & Books</span>
+                          <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover/btn:translate-x-1" />
                         </Link>
                       </div>
                     </div>

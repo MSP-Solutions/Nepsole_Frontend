@@ -16,8 +16,10 @@ import {
   Clock,
   CreditCard,
   Loader2,
+  Lock,
   Mail,
   MapPin,
+  Package,
   PackageCheck,
   Phone,
   RefreshCw,
@@ -25,19 +27,13 @@ import {
   Truck,
   User,
   XCircle,
-  Lock,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import React, { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
-import {
-  ORDER_STATUS_ENUM,
-  Order as AdminOrder,
-  OrderItem as AdminOrderItem,
-  OrderStatus,
-} from "@/types";
+import { Order as AdminOrder, ORDER_STATUS_ENUM } from "@/types";
 
 const STATUS_FLOW = [
   "PENDING",
@@ -307,14 +303,18 @@ export default function AdminOrderDetailsPage() {
     ? order.guestCustomer?.phone
     : order.user?.phoneNumber || order.deliveryAddress?.phoneNumber;
 
-  const deliveryAddress = order.deliveryAddress || (order.guestCustomer ? {
-    streetAddress: order.guestCustomer.streetAddress,
-    landmark: order.guestCustomer.landmark,
-    city: order.guestCustomer.city,
-    district: order.guestCustomer.district,
-    province: order.guestCustomer.province,
-    phoneNumber: order.guestCustomer.phone,
-  } : null);
+  const deliveryAddress =
+    order.deliveryAddress ||
+    (order.guestCustomer
+      ? {
+          streetAddress: order.guestCustomer.streetAddress,
+          landmark: order.guestCustomer.landmark,
+          city: order.guestCustomer.city,
+          district: order.guestCustomer.district,
+          province: order.guestCustomer.province,
+          phoneNumber: order.guestCustomer.phone,
+        }
+      : null);
 
   const formattedDate = order.createdAt
     ? new Date(order.createdAt).toLocaleDateString("en-US", {
@@ -424,14 +424,14 @@ export default function AdminOrderDetailsPage() {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-[#1749A0]">
-                  <BookOpen className="h-4 w-4" />
+                  <ShoppingBag className="h-4 w-4" />
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">
                     Items Ordered ({order.items?.length || 0})
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    Publisher Fulfillment Package
+                    Order Fulfillment Package
                   </p>
                 </div>
               </div>
@@ -439,9 +439,31 @@ export default function AdminOrderDetailsPage() {
 
             <div className="divide-y divide-slate-100">
               {order.items?.map((item) => {
-                const cover =
-                  item.book?.images?.find((img) => img.type === "COVER")?.url ||
-                  item.book?.images?.[0]?.url;
+                const isStat =
+                  item.itemType === "STATIONERY" ||
+                  Boolean(item.stationeryId) ||
+                  Boolean(item.stationery);
+
+                const cover = isStat
+                  ? item.stationery?.images?.[0]?.imageUrl ||
+                    item.stationery?.images?.[0]?.url ||
+                    item.stationery?.imageUrl ||
+                    item.stationery?.coverImage
+                  : item.book?.images?.find((img) => img.type === "COVER")?.url ||
+                    item.book?.images?.[0]?.url;
+
+                const title = isStat
+                  ? item.stationery?.name || "Stationery Item"
+                  : item.book?.title || "Book";
+
+                const productHref = isStat
+                  ? `/stationery/${item.stationery?.slug || item.stationeryId || item.stationery?.id}`
+                  : item.bookId || item.book?.id
+                    ? `/books/${item.bookId || item.book?.id}`
+                    : null;
+
+                const categoryName = item.stationery?.category?.name;
+                const subCategoryName = item.stationery?.subCategory?.name;
 
                 return (
                   <div
@@ -449,39 +471,95 @@ export default function AdminOrderDetailsPage() {
                     className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-4 first:pt-0 last:pb-0"
                   >
                     <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="h-20 w-14 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center">
+                      <div className="h-20 w-16 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center p-1">
                         {cover ? (
                           /* eslint-disable-next-line @next/next/no-img-element */
                           <img
                             src={cover}
-                            alt={item.book?.title || "Book"}
-                            className="h-full w-full object-cover"
+                            alt={title}
+                            className="h-full w-full object-contain rounded"
                             onError={(e) => {
                               (e.currentTarget as HTMLElement).style.display =
                                 "none";
                             }}
                           />
                         ) : (
-                          <BookOpen className="h-5 w-5 text-slate-400" />
+                          <div className="flex h-full flex-col items-center justify-center text-slate-400">
+                            {isStat ? (
+                              <Package className="h-5 w-5 mb-0.5" />
+                            ) : (
+                              <BookOpen className="h-5 w-5 mb-0.5" />
+                            )}
+                            <span className="text-[8px] font-bold uppercase text-slate-400">
+                              {isStat ? "Stationery" : "Book"}
+                            </span>
+                          </div>
                         )}
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <h4 className="font-bold text-sm text-slate-900 truncate">
-                          {item.book?.title || "Book"}
-                        </h4>
+                        {/* Badges */}
+                        <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                          {isStat ? (
+                            <>
+                              <span className="inline-block text-[9px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60">
+                                Stationery
+                              </span>
+                              {categoryName && (
+                                <span className="inline-block text-[9px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                  {categoryName}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <span className="inline-block text-[9px] font-bold uppercase tracking-wider text-[#1749A0] bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100/60">
+                                Book
+                              </span>
+                              {item.book?.genres?.[0]?.name && (
+                                <span className="inline-block text-[9px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                  {item.book.genres[0].name}
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </div>
 
-                        {item.book?.authors?.length ? (
-                          <p className="mt-0.5 text-xs text-slate-500">
-                            by {item.book.authors.map((a) => a.name).join(", ")}
-                          </p>
-                        ) : null}
+                        {productHref ? (
+                          <Link
+                            href={productHref}
+                            className="font-bold text-sm text-slate-900 hover:text-[#1749A0] transition truncate block"
+                          >
+                            {title}
+                          </Link>
+                        ) : (
+                          <h4 className="font-bold text-sm text-slate-900 truncate">
+                            {title}
+                          </h4>
+                        )}
 
-                        {item.book?.publisher?.name ? (
-                          <p className="mt-0.5 text-[11px] text-slate-400">
-                            Publisher: {item.book.publisher.name}
-                          </p>
-                        ) : null}
+                        {isStat ? (
+                          <div className="mt-0.5 text-xs text-slate-500">
+                            {subCategoryName && (
+                              <span>Subcategory: {subCategoryName} • </span>
+                            )}
+                            <span>ID: #{item.stationeryId || item.stationery?.id}</span>
+                          </div>
+                        ) : (
+                          <>
+                            {item.book?.authors?.length ? (
+                              <p className="mt-0.5 text-xs text-slate-500">
+                                by {item.book.authors.map((a) => a.name).join(", ")}
+                              </p>
+                            ) : null}
+
+                            {item.book?.publisher?.name ? (
+                              <p className="mt-0.5 text-[11px] text-slate-400">
+                                Publisher: {item.book.publisher.name}
+                              </p>
+                            ) : null}
+                          </>
+                        )}
 
                         <p className="mt-1 text-xs font-medium text-slate-600">
                           Rs. {Number(item.unitPrice || 0).toLocaleString()} ×{" "}
@@ -605,6 +683,20 @@ export default function AdminOrderDetailsPage() {
                       <span>{deliveryAddress.phoneNumber}</span>
                     </p>
                   )}
+
+                  {order.deliveryOption && (
+                    <div className="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                      <span className="flex items-center gap-1 font-semibold text-slate-700 capitalize">
+                        <Truck className="h-3.5 w-3.5 text-slate-400" />
+                        {order.deliveryOption.name} Delivery
+                      </span>
+                      {order.deliveryOption.estimatedDays && (
+                        <span className="text-slate-500 font-medium">
+                          Est: {order.deliveryOption.estimatedDays}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <p className="text-xs text-slate-500">
@@ -708,20 +800,23 @@ export default function AdminOrderDetailsPage() {
                 <div className="flex items-start gap-2 p-3 bg-emerald-50/80 border border-emerald-200/80 rounded-xl text-xs text-emerald-800 leading-relaxed">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                   <span>
-                    This order is <strong>Delivered</strong>. Fulfillment is complete and status cannot be modified.
+                    This order is <strong>Delivered</strong>. Fulfillment is
+                    complete and status cannot be modified.
                   </span>
                 </div>
               ) : isCancelled ? (
                 <div className="flex items-start gap-2 p-3 bg-rose-50/80 border border-rose-200/80 rounded-xl text-xs text-rose-800 leading-relaxed">
                   <XCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                   <span>
-                    This order is <strong>Cancelled</strong>. The status is permanently locked and cannot be modified.
+                    This order is <strong>Cancelled</strong>. The status is
+                    permanently locked and cannot be modified.
                   </span>
                 </div>
               ) : (
                 <p className="text-[11px] text-slate-500 leading-relaxed bg-blue-50/60 p-2.5 rounded-xl border border-blue-100/80">
-                  Selecting a status advances fulfillment and automatically marks
-                  payment status as <strong>PAID</strong>. Statuses cannot be reverted backwards.
+                  Selecting a status advances fulfillment and automatically
+                  marks payment status as <strong>PAID</strong>. Statuses cannot
+                  be reverted backwards.
                 </p>
               )}
             </div>

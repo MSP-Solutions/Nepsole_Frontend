@@ -10,6 +10,7 @@ import {
   Clock3,
   Eye,
   Loader2,
+  Package,
   RefreshCw,
   Search,
   ShoppingBag,
@@ -499,9 +500,20 @@ export default function UserOrdersPage() {
                   <div className="flex items-center gap-3.5 min-w-0 flex-1">
                     <div className="flex -space-x-3 overflow-hidden shrink-0">
                       {order.items?.slice(0, 3).map((item, i) => {
-                        const cover =
-                          item.book?.images?.find((img) => img.type === "COVER")
-                            ?.url || item.book?.images?.[0]?.url;
+                        const isStat =
+                          item.itemType === "STATIONERY" ||
+                          Boolean(item.stationeryId) ||
+                          Boolean(item.stationery);
+                        const cover = isStat
+                          ? item.stationery?.images?.[0]?.imageUrl ||
+                            item.stationery?.images?.[0]?.url ||
+                            item.stationery?.imageUrl ||
+                            null
+                          : item.book?.images?.find((img) => img.type === "COVER")
+                              ?.url || item.book?.images?.[0]?.url;
+                        const title = isStat
+                          ? item.stationery?.name || "Stationery Item"
+                          : item.book?.title || "Book";
                         return (
                           <div
                             key={item.id || i}
@@ -511,12 +523,14 @@ export default function UserOrdersPage() {
                               /* eslint-disable-next-line @next/next/no-img-element */
                               <img
                                 src={cover}
-                                alt={item.book?.title || "Book"}
+                                alt={title}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
                                   e.currentTarget.style.display = "none";
                                 }}
                               />
+                            ) : isStat ? (
+                              <Package className="w-4 h-4 text-slate-400" />
                             ) : (
                               <BookOpen className="w-4 h-4 text-slate-400" />
                             )}
@@ -527,7 +541,17 @@ export default function UserOrdersPage() {
 
                     <div className="min-w-0 flex-1">
                       <h4 className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-                        {order.items?.[0]?.book?.title || "Book Package"}
+                        {(() => {
+                          const first = order.items?.[0];
+                          if (!first) return "Package";
+                          const isStat =
+                            first.itemType === "STATIONERY" ||
+                            Boolean(first.stationeryId) ||
+                            Boolean(first.stationery);
+                          return isStat
+                            ? first.stationery?.name || "Stationery Item"
+                            : first.book?.title || "Book Package";
+                        })()}
                         {order.items && order.items.length > 1 && (
                           <span className="text-slate-500 font-normal ml-1">
                             +{order.items.length - 1} more

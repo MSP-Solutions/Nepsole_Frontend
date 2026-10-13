@@ -51,7 +51,9 @@ export interface CheckoutDialogProps {
   onClose: () => void;
   items: Array<{
     id: string | number;
-    bookId: string | number;
+    bookId?: string | number;
+    stationeryId?: string | number;
+    itemType?: string;
     quantity: number;
     unitPrice: number;
     originalPrice?: number;
@@ -62,6 +64,14 @@ export interface CheckoutDialogProps {
       stock?: number;
       images?: Array<{ url: string; type?: string }>;
     };
+    stationery?: {
+      id?: string | number;
+      name?: string;
+      stock?: number;
+      images?: Array<{ imageUrl?: string; url?: string }>;
+      [key: string]: any;
+    };
+    [key: string]: any;
   }>;
   summary: {
     distinctItems: number;
@@ -305,10 +315,33 @@ export default function CheckoutDialog({
             province: cleanProvince,
             landmark: guestLandmark.trim(),
           },
-          items: items.map((it) => ({
-            bookId: Number(it.bookId ?? it.book?.id ?? it.id),
-            quantity: Number(it.quantity) || 1,
-          })),
+          items: items.map((it) => {
+            const isStat =
+              it.itemType === "STATIONERY" ||
+              it.format === "Stationery" ||
+              Boolean(it.stationeryId) ||
+              Boolean(it.stationery) ||
+              String(it.id).toLowerCase().includes("stationery") ||
+              Boolean(it.isStationery);
+            if (isStat) {
+              const rawStatId =
+                it.stationeryId ?? it.stationery?.id ?? it.bookId;
+              const numStatId = Number(rawStatId);
+              const validStatId =
+                !isNaN(numStatId) && numStatId > 0
+                  ? numStatId
+                  : Number(String(it.id).replace(/\D+/g, "")) || Number(it.id);
+
+              return {
+                stationeryId: validStatId,
+                quantity: Number(it.quantity) || 1,
+              };
+            }
+            return {
+              bookId: Number(it.bookId ?? it.book?.id ?? it.id),
+              quantity: Number(it.quantity) || 1,
+            };
+          }),
           paymentMethod,
           deliveryOptionId: Number(selectedDeliveryOptionId),
         };
@@ -951,7 +984,10 @@ export default function CheckoutDialog({
                             >
                               <div className="min-w-0 flex-1">
                                 <p className="font-semibold text-slate-900 truncate">
-                                  {item.book?.title || `Item ${idx + 1}`}
+                                  {item.stationery?.name ||
+                                    (item as any)?.title ||
+                                    item.book?.title ||
+                                    `Item ${idx + 1}`}
                                 </p>
                                 <p className="text-[11px] text-slate-500">
                                   Qty: {item.quantity} × Rs.{" "}

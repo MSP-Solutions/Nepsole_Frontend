@@ -214,7 +214,9 @@ export default function StationeryDetailPage({ params }: PageProps) {
         const cartItems = JSON.parse(raw);
         if (Array.isArray(cartItems)) {
           const found = cartItems.find(
-            (it: any) => String(it.bookId ?? it.id) === String(product.id),
+            (it: any) =>
+              String(it.stationeryId ?? it.bookId ?? it.id) ===
+              String(product.id),
           );
           setInCartQuantity(found ? Number(found.quantity) || 0 : 0);
         }
@@ -323,6 +325,8 @@ export default function StationeryDetailPage({ params }: PageProps) {
     try {
       const user = await getUserCookie();
       const primaryImage = activeImageUrl || getStationeryImageUrl(product);
+      const numId = Number(product.id);
+      const targetStationeryId = !isNaN(numId) ? numId : product.id;
 
       // 1. Update localStorage cart
       try {
@@ -336,7 +340,8 @@ export default function StationeryDetailPage({ params }: PageProps) {
         if (!Array.isArray(cartItems)) cartItems = [];
 
         const existingIdx = cartItems.findIndex(
-          (c: any) => String(c.bookId ?? c.id) === String(product.id),
+          (c: any) =>
+            String(c.stationeryId ?? c.bookId ?? c.id) === String(product.id),
         );
 
         if (existingIdx >= 0) {
@@ -344,8 +349,9 @@ export default function StationeryDetailPage({ params }: PageProps) {
             (Number(cartItems[existingIdx].quantity) || 1) + quantity;
         } else {
           cartItems.push({
-            id: `item-${product.id}-${Date.now()}`,
-            bookId: product.id,
+            id: `stationery-${targetStationeryId}-${Date.now()}`,
+            stationeryId: targetStationeryId,
+            bookId: targetStationeryId,
             title: product.name,
             author: categoryName,
             price: effectivePrice,
@@ -372,8 +378,7 @@ export default function StationeryDetailPage({ params }: PageProps) {
       // 3. Sync with server if logged in
       if (user?.accessToken) {
         const payload = {
-          bookId: product.id,
-          stationeryId: product.id,
+          stationeryId: targetStationeryId,
           quantity: quantity,
         };
 
@@ -446,36 +451,62 @@ export default function StationeryDetailPage({ params }: PageProps) {
 
       setIsWishlistLoading(true);
 
-      if (isWishlisted) {
-        // Remove from wishlist
-        try {
-          await axiosAuthInstance.delete(`/v1/wishlist/${product.id}`);
-        } catch {
-          await axiosAuthInstance.delete(`/api/v1/wishlist/${product.id}`);
+      const numId = Number(product.id);
+      const targetStationeryId = !isNaN(numId) ? numId : product.id;
+      const prevWishlisted = isWishlisted;
+
+      // Optimistic update
+      setIsWishlisted(!prevWishlisted);
+
+      const payload = {
+        stationeryId: targetStationeryId,
+      };
+
+      let res;
+      try {
+        res = await axiosAuthInstance.post("/v1/wishlist/toggle", payload);
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          try {
+            res = await axiosAuthInstance.post(
+              "/api/v1/wishlist/toggle",
+              payload,
+            );
+          } catch (err2) {
+            throw err2;
+          }
+        } else {
+          throw err;
         }
-        setIsWishlisted(false);
-        toast.success("Removed from wishlist.");
-      } else {
-        // Add to wishlist
-        const payload = {
-          stationeryId: product.id,
-          bookId: product.id,
-        };
-        try {
-          await axiosAuthInstance.post("/v1/wishlist", payload);
-        } catch {
-          await axiosAuthInstance.post("/api/v1/wishlist", payload);
-        }
-        setIsWishlisted(true);
+      }
+
+      const msg = res?.data?.message;
+      if (typeof res?.data?.isWishlisted === "boolean") {
+        setIsWishlisted(res.data.isWishlisted);
+      } else if (typeof res?.data?.data?.isWishlisted === "boolean") {
+        setIsWishlisted(res.data.data.isWishlisted);
+      }
+
+      toast.dismiss();
+      if (msg && typeof msg === "string") {
+        toast.success(msg);
+      } else if (!prevWishlisted) {
         toast.success("Saved to your wishlist!");
+      } else {
+        toast.success("Removed from wishlist.");
       }
 
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event(WISHLIST_CHANGE_EVENT));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Wishlist action error:", err);
-      toast.error("Could not update wishlist.");
+      // Revert optimistic update
+      setIsWishlisted((prev) => !prev);
+      toast.dismiss();
+      toast.error(
+        err?.response?.data?.message || "Could not update wishlist.",
+      );
     } finally {
       setIsWishlistLoading(false);
     }

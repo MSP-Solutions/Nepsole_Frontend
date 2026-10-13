@@ -34,7 +34,15 @@ export default function AddToCartButton({
   initialAddQuantity = 1,
   onQuantityChange,
 }: AddToCartButtonProps) {
-  const bookId = book?.id ?? book?.bookId;
+  const isStat = Boolean(
+    book?.itemType === "STATIONERY" ||
+    book?.format === "Stationery" ||
+    book?.stationeryId ||
+    book?.isStationery ||
+    book?.stationery,
+  );
+  const bookId = book?.stationeryId ?? book?.id ?? book?.bookId;
+  const itemTitle = book?.name || book?.title || (isStat ? "Stationery" : "Book");
   const [quantity, setQuantity] = useState<number>(0);
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -97,8 +105,8 @@ export default function AddToCartButton({
         toast.dismiss();
         toast.success(
           addQty > 1
-            ? `Added ${addQty} copies of "${book.title || "Book"}" to cart!`
-            : `"${book.title || "Book"}" added to cart!`,
+            ? `Added ${addQty} ${isStat ? "units" : "copies"} of "${itemTitle}" to cart!`
+            : `"${itemTitle}" added to cart!`,
         );
         return;
       }
@@ -108,12 +116,12 @@ export default function AddToCartButton({
       updateLocalStorageItem(book, addQty);
       onQuantityChange?.(addQty);
 
-      await addToCartInitialApi(bookId, addQty);
+      await addToCartInitialApi(bookId, addQty, isStat);
       toast.dismiss();
       toast.success(
         addQty > 1
-          ? `Added ${addQty} copies of "${book.title || "Book"}" to cart!`
-          : `"${book.title || "Book"}" added to cart!`,
+          ? `Added ${addQty} ${isStat ? "units" : "copies"} of "${itemTitle}" to cart!`
+          : `"${itemTitle}" added to cart!`,
       );
     } catch (err: any) {
       console.error("Add to cart error:", err);
@@ -123,7 +131,7 @@ export default function AddToCartButton({
       onQuantityChange?.(0);
       toast.dismiss();
       toast.error(
-        err?.response?.data?.message || "Failed to add book to cart.",
+        err?.response?.data?.message || "Failed to add item to cart.",
       );
     } finally {
       setIsUpdating(false);
@@ -147,7 +155,7 @@ export default function AddToCartButton({
           // Guest mode: localStorage is already updated in handleIncrement / handleDecrement
           if (targetQty <= 0) {
             toast.dismiss();
-            toast.success(`Removed "${book.title || "Book"}" from cart`);
+            toast.success(`Removed "${itemTitle}" from cart`);
           }
           return;
         }
@@ -155,10 +163,10 @@ export default function AddToCartButton({
         if (targetQty <= 0) {
           await removeCartItemApi(bookId);
           toast.dismiss();
-          toast.success(`Removed "${book.title || "Book"}" from cart`);
+          toast.success(`Removed "${itemTitle}" from cart`);
         } else {
-          // Send { bookId: 14, quantity: 2 } to /api/v1/cart/quantity
-          await updateCartQuantityApi(bookId, targetQty);
+          // Send { stationeryId } or { bookId } to /v1/cart/quantity
+          await updateCartQuantityApi(bookId, targetQty, isStat);
         }
       } catch (err: any) {
         console.error("Failed to update cart quantity:", err);

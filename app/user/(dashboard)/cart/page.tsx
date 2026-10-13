@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Loader2,
   Minus,
+  Package,
   Plus,
   ShoppingBag,
   ShoppingCart,
@@ -73,10 +74,50 @@ export interface BackendBook {
   [key: string]: any;
 }
 
+export interface BackendStationeryCategory {
+  id: number | string;
+  name: string;
+  slug?: string;
+}
+
+export interface BackendStationerySubCategory {
+  id: number | string;
+  name: string;
+  slug?: string;
+  categoryId?: number | string;
+}
+
+export interface BackendStationeryImage {
+  id?: number | string;
+  imageUrl?: string;
+  url?: string;
+  [key: string]: any;
+}
+
+export interface BackendStationery {
+  id: number | string;
+  name: string;
+  slug?: string;
+  description?: string;
+  price: number;
+  discountPercent?: number;
+  stock?: number;
+  categoryId?: number | string;
+  subCategoryId?: number | string;
+  category?: BackendStationeryCategory;
+  subCategory?: BackendStationerySubCategory;
+  images?: BackendStationeryImage[];
+  imageUrl?: string;
+  unitPrice?: number;
+  [key: string]: any;
+}
+
 export interface BackendCartItem {
   id: number | string;
   cartId?: number | string;
-  bookId: number | string;
+  itemType?: "BOOK" | "STATIONERY" | string;
+  bookId?: number | string;
+  stationeryId?: number | string;
   quantity: number;
   unitPrice: number;
   originalPrice: number;
@@ -84,7 +125,8 @@ export interface BackendCartItem {
   itemTotal: number;
   originalTotal: number;
   discountTotal: number;
-  book: BackendBook;
+  book?: BackendBook;
+  stationery?: BackendStationery;
 }
 
 export interface CartSummary {
@@ -130,8 +172,44 @@ export default function CartPage() {
           const oTotal = oPrice * qty;
           const dTotal = Math.max(0, oTotal - iTotal);
 
+          const isStat =
+            it.format === "Stationery" ||
+            Boolean(it.stationeryId) ||
+            it.itemType === "STATIONERY";
+
+          if (isStat) {
+            const statId = it.stationeryId ?? it.id;
+            return {
+              id: it.id || `local-stat-${statId}`,
+              itemType: "STATIONERY",
+              stationeryId: statId,
+              quantity: qty,
+              unitPrice: uPrice,
+              originalPrice: oPrice,
+              discountPercent: dPercent,
+              itemTotal: iTotal,
+              originalTotal: oTotal,
+              discountTotal: dTotal,
+              stationery: {
+                id: statId,
+                name: it.title || "Stationery Item",
+                price: oPrice,
+                unitPrice: uPrice,
+                discountPercent: dPercent,
+                stock: Number(it.stock) || 500,
+                category: it.category
+                  ? { id: 1, name: it.category }
+                  : undefined,
+                images: it.coverImage
+                  ? [{ id: 1, imageUrl: it.coverImage }]
+                  : [],
+              },
+            };
+          }
+
           return {
-            id: it.id || `local-${it.bookId}`,
+            id: it.id || `local-${it.bookId ?? it.id}`,
+            itemType: "BOOK",
             bookId: it.bookId ?? it.id,
             quantity: qty,
             unitPrice: uPrice,
@@ -254,14 +332,42 @@ export default function CartPage() {
     };
   }, []);
 
-  // Cover image helper from book.images
-  const getBookCoverUrl = (book: BackendBook): string | null => {
+  // Helper to determine if an item is stationery
+  const isStationeryItem = (item: BackendCartItem): boolean => {
+    return (
+      item.itemType === "STATIONERY" ||
+      Boolean(item.stationeryId) ||
+      Boolean(item.stationery)
+    );
+  };
+
+  // Cover image helper from item (works for both Book and Stationery)
+  const getItemCoverUrl = (item: BackendCartItem): string | null => {
+    if (isStationeryItem(item)) {
+      const stat = item.stationery;
+      if (
+        stat?.images &&
+        Array.isArray(stat.images) &&
+        stat.images.length > 0
+      ) {
+        const first = stat.images[0];
+        return first?.imageUrl || first?.url || null;
+      }
+      return (
+        stat?.imageUrl ||
+        (stat as any)?.image ||
+        (item as any)?.coverImage ||
+        null
+      );
+    }
+
+    const book = item.book;
     if (
       !book?.images ||
       !Array.isArray(book.images) ||
       book.images.length === 0
     ) {
-      return null;
+      return (item as any)?.coverImage || null;
     }
 
     const cover = book.images.find(
@@ -269,7 +375,25 @@ export default function CartPage() {
     );
     if (cover?.url) return cover.url;
 
-    return book.images[0]?.url || null;
+    return book.images[0]?.url || (item as any)?.coverImage || null;
+  };
+
+  // Title helper
+  const getItemTitle = (item: BackendCartItem): string => {
+    if (isStationeryItem(item)) {
+      return (
+        item.stationery?.name || (item as any)?.title || "Stationery Item"
+      );
+    }
+    return item.book?.title || (item as any)?.title || "Untitled Book";
+  };
+
+  // Stock helper
+  const getItemStock = (item: BackendCartItem): number => {
+    if (isStationeryItem(item)) {
+      return Number(item.stationery?.stock) || 500;
+    }
+    return Number(item.book?.stock) || 500;
   };
 
   // Primary author helper
@@ -336,19 +460,41 @@ export default function CartPage() {
 
   const updateGuestCartStorage = (updatedItems: BackendCartItem[]) => {
     if (typeof window === "undefined") return;
-    const localCart = updatedItems.map((it) => ({
-      id: it.id,
-      bookId: it.bookId,
-      title: it.book?.title,
-      author: it.book?.authors?.[0]?.name,
-      price: it.unitPrice,
-      originalPrice: it.originalPrice,
-      discountPercent: it.discountPercent,
-      quantity: it.quantity,
-      coverImage: it.book?.images?.[0]?.url,
-      format: "Paperback",
-      stock: it.book?.stock || 500,
-    }));
+    const localCart = updatedItems.map((it) => {
+      const isStat = isStationeryItem(it);
+      if (isStat) {
+        const statId = it.stationeryId ?? it.stationery?.id;
+        return {
+          id: it.id,
+          stationeryId: statId,
+          bookId: statId,
+          title: it.stationery?.name || (it as any).title,
+          author: it.stationery?.category?.name || "Stationery",
+          price: it.unitPrice,
+          originalPrice: it.originalPrice,
+          discountPercent: it.discountPercent,
+          quantity: it.quantity,
+          coverImage: getItemCoverUrl(it),
+          format: "Stationery",
+          stock: it.stationery?.stock || 500,
+          category: it.stationery?.category?.name,
+        };
+      }
+
+      return {
+        id: it.id,
+        bookId: it.bookId ?? it.book?.id,
+        title: it.book?.title,
+        author: it.book?.authors?.[0]?.name,
+        price: it.unitPrice,
+        originalPrice: it.originalPrice,
+        discountPercent: it.discountPercent,
+        quantity: it.quantity,
+        coverImage: getItemCoverUrl(it),
+        format: "Paperback",
+        stock: it.book?.stock || 500,
+      };
+    });
     localStorage.setItem("nepsole_cart", JSON.stringify(localCart));
     window.dispatchEvent(new Event(CART_CHANGE_EVENT));
   };
@@ -358,7 +504,7 @@ export default function CartPage() {
     // Get latest quantity in state to allow rapid clicks to accumulate to final quantity
     const currentItem = items.find((it) => it.id === item.id) || item;
     const currentQty = Number(currentItem.quantity) || 1;
-    const maxStock = Number(item.book?.stock) || 500;
+    const maxStock = getItemStock(item);
     const finalQty = currentQty + delta;
     if (finalQty < 1 || finalQty > maxStock) return;
 
@@ -420,18 +566,27 @@ export default function CartPage() {
     debounceTimersRef.current[timerKey] = setTimeout(async () => {
       setUpdatingId(item.id);
 
+      const isStat = isStationeryItem(item);
+      const statId = Number(item.stationeryId ?? item.stationery?.id);
+      const bId = Number(item.bookId ?? item.book?.id);
+
+      const payload = isStat
+        ? {
+            stationeryId:
+              !isNaN(statId) && statId > 0 ? statId : item.stationeryId,
+            quantity: finalQty,
+          }
+        : {
+            bookId: !isNaN(bId) && bId > 0 ? bId : item.bookId,
+            quantity: finalQty,
+          };
+
       try {
         try {
-          await axiosAuthInstance.patch("/v1/cart/quantity", {
-            bookId: Number(item.bookId) || item.bookId,
-            quantity: finalQty,
-          });
+          await axiosAuthInstance.patch("/v1/cart/quantity", payload);
         } catch (err: any) {
           if (err?.response?.status === 404) {
-            await axiosAuthInstance.patch("/api/v1/cart/quantity", {
-              bookId: Number(item.bookId) || item.bookId,
-              quantity: finalQty,
-            });
+            await axiosAuthInstance.patch("/api/v1/cart/quantity", payload);
           } else {
             throw err;
           }
@@ -461,7 +616,12 @@ export default function CartPage() {
   };
 
   const handleRemoveItem = async (item: BackendCartItem) => {
-    const bookId = item.bookId ?? item.book?.id ?? item.id;
+    const isStat = isStationeryItem(item);
+    const targetId = isStat
+      ? (item.stationeryId ?? item.stationery?.id ?? item.id)
+      : (item.bookId ?? item.book?.id ?? item.id);
+    const itemTitle = getItemTitle(item);
+
     setRemovingId(item.id);
 
     try {
@@ -472,7 +632,7 @@ export default function CartPage() {
         setItems(updated);
         setSummary(calculateSummary(updated));
         updateGuestCartStorage(updated);
-        toast.success(`Removed "${item.book?.title || "Book"}" from cart`);
+        toast.success(`Removed "${itemTitle}" from cart`);
         return;
       }
 
@@ -483,16 +643,28 @@ export default function CartPage() {
       }
 
       try {
-        await axiosAuthInstance.delete(`/v1/cart/${bookId}`);
+        await axiosAuthInstance.delete(`/v1/cart/${targetId}`);
       } catch (err: any) {
         if (err?.response?.status === 404) {
-          await axiosAuthInstance.delete(`/api/v1/cart/${bookId}`);
+          try {
+            await axiosAuthInstance.delete(`/api/v1/cart/${targetId}`);
+          } catch {
+            if (item.id && String(item.id) !== String(targetId)) {
+              await axiosAuthInstance.delete(`/v1/cart/${item.id}`);
+            }
+          }
+        } else if (item.id && String(item.id) !== String(targetId)) {
+          try {
+            await axiosAuthInstance.delete(`/v1/cart/${item.id}`);
+          } catch {
+            throw err;
+          }
         } else {
           throw err;
         }
       }
 
-      toast.success(`Removed "${item.book?.title || "Book"}" from cart`);
+      toast.success(`Removed "${itemTitle}" from cart`);
 
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event(CART_CHANGE_EVENT));
@@ -563,8 +735,15 @@ export default function CartPage() {
           {items.length > 0 && (
             <div className="flex items-center gap-2.5">
               <span className="text-xs font-bold text-[#1749A0] bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-100/80">
-                {totalItemsCount} {totalItemsCount === 1 ? "Book" : "Books"} (
-                {totalQuantityCount}{" "}
+                {totalItemsCount}{" "}
+                {items.some((it) => isStationeryItem(it))
+                  ? totalItemsCount === 1
+                    ? "Product"
+                    : "Products"
+                  : totalItemsCount === 1
+                    ? "Book"
+                    : "Books"}{" "}
+                ({totalQuantityCount}{" "}
                 {totalQuantityCount === 1 ? "Item" : "Items"})
               </span>
             </div>
@@ -583,25 +762,48 @@ export default function CartPage() {
           <div className="mt-5 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             <div className="lg:col-span-8 space-y-3.5">
               {items.map((item) => {
-                const book = item.book || {};
-                const coverUrl = getBookCoverUrl(book);
-                const authorName = getBookAuthorName(book);
-                const genreName = getBookGenreName(book);
-                const publisherName = book.publisher?.name;
-                const languageName = book.languages?.[0]?.name;
+                const isStat = isStationeryItem(item);
+                const book = item.book;
+                const stationery = item.stationery;
+
+                const title = getItemTitle(item);
+                const coverUrl = getItemCoverUrl(item);
+                const stockCount = getItemStock(item);
+
+                const authorName = book
+                  ? getBookAuthorName(book)
+                  : "Nepsole Author";
+                const genreName = book ? getBookGenreName(book) : "";
+                const publisherName = book?.publisher?.name;
+                const languageName = book?.languages?.[0]?.name;
+
+                const categoryName =
+                  stationery?.category?.name ||
+                  (isStat ? "Stationery" : null);
+                const subCategoryName = stationery?.subCategory?.name;
 
                 const unitPrice =
-                  Number(item.unitPrice) || Number(book.price) || 0;
+                  Number(item.unitPrice) ||
+                  Number(isStat ? stationery?.price : book?.price) ||
+                  0;
                 const originalPrice =
-                  Number(item.originalPrice) || Number(book.price) || unitPrice;
+                  Number(item.originalPrice) ||
+                  Number(isStat ? stationery?.price : book?.price) ||
+                  unitPrice;
                 const discountPercent =
                   Number(item.discountPercent) ||
-                  Number(book.discountPercent) ||
+                  Number(
+                    isStat ? stationery?.discountPercent : book?.discountPercent,
+                  ) ||
                   0;
                 const itemTotal =
                   Number(item.itemTotal) || unitPrice * item.quantity;
                 const originalTotal =
                   Number(item.originalTotal) || originalPrice * item.quantity;
+
+                const productHref = isStat
+                  ? `/stationery/${stationery?.slug || item.stationeryId || stationery?.id}`
+                  : `/books/${item.bookId ?? book?.id}`;
 
                 const isUpdating = updatingId === item.id;
                 const isRemoving = removingId === item.id;
@@ -611,19 +813,23 @@ export default function CartPage() {
                     key={item.id}
                     className="bg-white rounded-2xl border border-slate-200/90 p-3.5 sm:p-4 shadow-2xs hover:shadow-xs transition-shadow flex flex-col sm:flex-row gap-4 relative"
                   >
-                    {/* Book Cover Container */}
+                    {/* Book / Stationery Cover Container */}
                     <div className="relative w-20 h-28 sm:w-24 sm:h-32 shrink-0 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden flex items-center justify-center p-1 self-center sm:self-start">
                       {coverUrl ? (
                         <img
                           src={coverUrl}
-                          alt={book.title || "Book"}
+                          alt={title}
                           className="max-h-full max-w-full object-contain rounded drop-shadow-xs"
                         />
                       ) : (
                         <div className="flex flex-col items-center justify-center text-slate-300">
-                          <BookOpen className="w-8 h-8 mb-1" />
+                          {isStat ? (
+                            <Package className="w-8 h-8 mb-1" />
+                          ) : (
+                            <BookOpen className="w-8 h-8 mb-1" />
+                          )}
                           <span className="text-[8px] font-bold uppercase text-slate-400">
-                            Book
+                            {isStat ? "Stationery" : "Book"}
                           </span>
                         </div>
                       )}
@@ -635,45 +841,75 @@ export default function CartPage() {
                       )}
                     </div>
 
-                    {/* Book Info & Details */}
+                    {/* Info & Details */}
                     <div className="flex-1 flex flex-col justify-between space-y-2">
                       <div>
                         <div className="flex items-start justify-between gap-2">
                           <div className="space-y-1">
-                            {/* Badges: Genre & Language */}
+                            {/* Badges */}
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              {genreName && (
-                                <span className="inline-block text-[9px] font-bold uppercase tracking-wider text-[#1749A0] bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100/60">
-                                  {genreName}
-                                </span>
-                              )}
-                              {languageName && (
-                                <span className="inline-block text-[9px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                                  {languageName}
-                                </span>
+                              {isStat ? (
+                                <>
+                                  <span className="inline-block text-[9px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60">
+                                    Stationery
+                                  </span>
+                                  {categoryName && (
+                                    <span className="inline-block text-[9px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                      {categoryName}
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  {genreName && (
+                                    <span className="inline-block text-[9px] font-bold uppercase tracking-wider text-[#1749A0] bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100/60">
+                                      {genreName}
+                                    </span>
+                                  )}
+                                  {languageName && (
+                                    <span className="inline-block text-[9px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                      {languageName}
+                                    </span>
+                                  )}
+                                </>
                               )}
                             </div>
 
-                            {/* Book Title */}
-                            <Link href={`/books/${item.bookId}`}>
+                            {/* Product Title */}
+                            <Link href={productHref}>
                               <h3 className="text-sm sm:text-base font-bold text-slate-900 hover:text-[#1749A0] transition-colors leading-snug line-clamp-2">
-                                {book.title || "Untitled Book"}
+                                {title}
                               </h3>
                             </Link>
 
-                            {/* Author & Publisher */}
-                            <p className="text-xs text-slate-500">
-                              by{" "}
-                              <span className="text-slate-800 font-medium">
-                                {authorName}
-                              </span>
-                              {publisherName && (
-                                <span className="text-slate-400">
-                                  {" "}
-                                  • {publisherName}
+                            {/* Author & Publisher / Category & SubCategory */}
+                            {isStat ? (
+                              <p className="text-xs text-slate-500">
+                                Category:{" "}
+                                <span className="text-slate-800 font-medium">
+                                  {categoryName || "General Stationery"}
                                 </span>
-                              )}
-                            </p>
+                                {subCategoryName && (
+                                  <span className="text-slate-400">
+                                    {" "}
+                                    • {subCategoryName}
+                                  </span>
+                                )}
+                              </p>
+                            ) : (
+                              <p className="text-xs text-slate-500">
+                                by{" "}
+                                <span className="text-slate-800 font-medium">
+                                  {authorName}
+                                </span>
+                                {publisherName && (
+                                  <span className="text-slate-400">
+                                    {" "}
+                                    • {publisherName}
+                                  </span>
+                                )}
+                              </p>
+                            )}
                           </div>
 
                           {/* Item Price Breakdown (Right Side) */}
@@ -696,7 +932,7 @@ export default function CartPage() {
                         <div className="flex items-center gap-1.5 mt-2 text-[11px] text-emerald-600 font-medium">
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           <span>
-                            In Stock • {Number(book.stock || 500)} available in
+                            In Stock • {stockCount} available in
                             warehouse
                           </span>
                         </div>
@@ -730,7 +966,7 @@ export default function CartPage() {
                               type="button"
                               onClick={() => handleUpdateQuantity(item, 1)}
                               disabled={
-                                item.quantity >= (Number(book.stock) || 500) ||
+                                item.quantity >= stockCount ||
                                 isUpdating
                               }
                               className="px-2.5 py-1.5 text-slate-600 hover:bg-slate-200 disabled:opacity-30 transition cursor-pointer"

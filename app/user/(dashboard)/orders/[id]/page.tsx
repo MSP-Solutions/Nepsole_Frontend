@@ -10,6 +10,7 @@ import {
   CreditCard,
   Loader2,
   MapPin,
+  Package,
   Phone,
   ShieldCheck,
   ShoppingBag,
@@ -235,7 +236,7 @@ export default function OrderDetailsPage() {
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-4 flex items-center gap-3 border-b border-slate-100 pb-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-[#1749A0]">
-                <BookOpen className="h-4 w-4" />
+                <ShoppingBag className="h-4 w-4" />
               </div>
 
               <div>
@@ -244,56 +245,136 @@ export default function OrderDetailsPage() {
                 </h3>
                 <p className="text-xs text-slate-500">
                   {order.items?.length || 0}{" "}
-                  {order.items?.length === 1 ? "book" : "books"}
+                  {order.items?.length === 1 ? "item" : "items"}
                 </p>
               </div>
             </div>
 
             <div className="divide-y divide-slate-100">
               {order.items?.map((item) => {
-                const cover =
-                  item.book?.images?.find((image) => image.type === "COVER")
-                    ?.url || item.book?.images?.[0]?.url;
+                const isStat =
+                  item.itemType === "STATIONERY" ||
+                  Boolean(item.stationeryId) ||
+                  Boolean(item.stationery);
+
+                const cover = isStat
+                  ? item.stationery?.images?.[0]?.imageUrl ||
+                    item.stationery?.images?.[0]?.url ||
+                    item.stationery?.imageUrl ||
+                    null
+                  : item.book?.images?.find((image) => image.type === "COVER")
+                      ?.url ||
+                    item.book?.images?.[0]?.url ||
+                    null;
+
+                const title = isStat
+                  ? item.stationery?.name || "Stationery Item"
+                  : item.book?.title || "Book";
+
+                const productHref = isStat
+                  ? `/stationery/${item.stationery?.slug || item.stationeryId || item.stationery?.id}`
+                  : item.bookId || item.book?.id
+                    ? `/books/${item.bookId || item.book?.id}`
+                    : null;
+
+                const categoryName = item.stationery?.category?.name;
+                const subCategoryName = item.stationery?.subCategory?.name;
 
                 return (
                   <div
                     key={item.id}
                     className="flex gap-4 py-4 first:pt-0 last:pb-0"
                   >
-                    <div className="h-20 w-14 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+                    <div className="h-20 w-16 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center p-1">
                       {cover ? (
                         <img
                           src={cover}
-                          alt={item.book?.title || "Book"}
-                          className="h-full w-full object-cover"
+                          alt={title}
+                          className="h-full w-full object-contain rounded"
                         />
                       ) : (
-                        <div className="flex h-full items-center justify-center">
-                          <BookOpen className="h-5 w-5 text-slate-400" />
+                        <div className="flex h-full flex-col items-center justify-center text-slate-400">
+                          {isStat ? (
+                            <Package className="h-5 w-5 mb-0.5" />
+                          ) : (
+                            <BookOpen className="h-5 w-5 mb-0.5" />
+                          )}
+                          <span className="text-[8px] font-bold uppercase text-slate-400">
+                            {isStat ? "Stationery" : "Book"}
+                          </span>
                         </div>
                       )}
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <h4 className="font-semibold text-slate-900">
-                        {item.book?.title || "Book"}
-                      </h4>
+                      {/* Badge */}
+                      <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                        {isStat ? (
+                          <>
+                            <span className="inline-block text-[9px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60">
+                              Stationery
+                            </span>
+                            {categoryName && (
+                              <span className="inline-block text-[9px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                {categoryName}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {item.book?.genres?.[0]?.name && (
+                              <span className="inline-block text-[9px] font-bold uppercase tracking-wider text-[#1749A0] bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100/60">
+                                {item.book.genres[0].name}
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </div>
 
-                      {item.book?.authors?.length ? (
+                      {productHref ? (
+                        <Link href={productHref}>
+                          <h4 className="font-semibold text-slate-900 hover:text-[#1749A0] transition leading-snug line-clamp-2">
+                            {title}
+                          </h4>
+                        </Link>
+                      ) : (
+                        <h4 className="font-semibold text-slate-900 leading-snug line-clamp-2">
+                          {title}
+                        </h4>
+                      )}
+
+                      {isStat ? (
                         <p className="mt-1 text-xs text-slate-500">
-                          by{" "}
-                          {item.book.authors
-                            .map((author) => author.name)
-                            .filter(Boolean)
-                            .join(", ")}
+                          Category:{" "}
+                          <span className="text-slate-800 font-medium">
+                            {categoryName || "General Stationery"}
+                          </span>
+                          {subCategoryName && (
+                            <span className="text-slate-400">
+                              {" "}
+                              • {subCategoryName}
+                            </span>
+                          )}
                         </p>
-                      ) : null}
+                      ) : (
+                        <>
+                          {item.book?.authors?.length ? (
+                            <p className="mt-1 text-xs text-slate-500">
+                              by{" "}
+                              {item.book.authors
+                                .map((author) => author.name)
+                                .filter(Boolean)
+                                .join(", ")}
+                            </p>
+                          ) : null}
 
-                      {item.book?.publisher?.name ? (
-                        <p className="mt-1 text-[11px] text-slate-400">
-                          {item.book.publisher.name}
-                        </p>
-                      ) : null}
+                          {item.book?.publisher?.name ? (
+                            <p className="mt-1 text-[11px] text-slate-400">
+                              {item.book.publisher.name}
+                            </p>
+                          ) : null}
+                        </>
+                      )}
 
                       <p className="mt-2 text-xs font-medium text-slate-500">
                         {money(item.unitPrice)} × {item.quantity}

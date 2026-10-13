@@ -10,6 +10,7 @@ import {
   Eye,
   Loader2,
   Mail,
+  Package,
   PackageCheck,
   Phone,
   RefreshCw,
@@ -310,8 +311,10 @@ export default function AdminOrdersPage() {
           order.deliveryAddress?.phoneNumber ||
           "";
         const orderIdStr = String(order.id);
-        const hasMatchingBook = order.items?.some((it) =>
-          it.book?.title?.toLowerCase().includes(query),
+        const hasMatchingProduct = order.items?.some(
+          (it) =>
+            it.book?.title?.toLowerCase().includes(query) ||
+            it.stationery?.name?.toLowerCase().includes(query),
         );
         const hasMatchingCity =
           order.guestCustomer?.city?.toLowerCase().includes(query) ||
@@ -325,7 +328,7 @@ export default function AdminOrdersPage() {
           customerPhone.includes(query) ||
           orderIdStr.includes(query) ||
           `ord-${orderIdStr}`.includes(query) ||
-          hasMatchingBook ||
+          hasMatchingProduct ||
           hasMatchingCity
         );
       }
@@ -550,37 +553,58 @@ export default function AdminOrdersPage() {
 
                           {/* Items Ordered */}
                           <td className="px-5 py-4 min-w-[220px]">
-                            <div className="flex items-start gap-2.5">
-                              <div className="w-8 h-10 rounded-md bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
-                                {order.items?.[0]?.book?.images?.[0]?.url ? (
-                                  /* eslint-disable-next-line @next/next/no-img-element */
-                                  <img
-                                    src={
-                                      order.items[0].book.images.find(
-                                        (i) => i.type === "COVER",
-                                      )?.url ||
-                                      order.items[0].book.images[0].url
-                                    }
-                                    alt="Book cover"
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <BookOpen className="w-3.5 h-3.5 text-slate-400" />
-                                )}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="font-semibold text-slate-900 truncate max-w-[180px]">
-                                  {order.items?.[0]?.book?.title ||
-                                    "Book Package"}
-                                </p>
-                                <p className="text-[11px] text-slate-400 mt-0.5">
-                                  {totalQty} {totalQty === 1 ? "item" : "items"}{" "}
-                                  {order.items && order.items.length > 1 && (
-                                    <span>({order.items.length} titles)</span>
-                                  )}
-                                </p>
-                              </div>
-                            </div>
+                            {(() => {
+                              const firstItem = order.items?.[0];
+                              const isFirstStat =
+                                firstItem?.itemType === "STATIONERY" ||
+                                Boolean(firstItem?.stationeryId) ||
+                                Boolean(firstItem?.stationery);
+                              const firstCover = isFirstStat
+                                ? firstItem?.stationery?.images?.[0]?.imageUrl ||
+                                  firstItem?.stationery?.images?.[0]?.url ||
+                                  firstItem?.stationery?.imageUrl ||
+                                  firstItem?.stationery?.coverImage
+                                : firstItem?.book?.images?.find(
+                                    (i) => i.type === "COVER",
+                                  )?.url || firstItem?.book?.images?.[0]?.url;
+                              const firstTitle = isFirstStat
+                                ? firstItem?.stationery?.name || "Stationery Item"
+                                : firstItem?.book?.title || "Book Package";
+
+                              return (
+                                <div className="flex items-start gap-2.5">
+                                  <div className="w-8 h-10 rounded-md bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+                                    {firstCover ? (
+                                      /* eslint-disable-next-line @next/next/no-img-element */
+                                      <img
+                                        src={firstCover}
+                                        alt={firstTitle}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          (e.currentTarget as HTMLElement).style.display =
+                                            "none";
+                                        }}
+                                      />
+                                    ) : isFirstStat ? (
+                                      <Package className="w-3.5 h-3.5 text-slate-400" />
+                                    ) : (
+                                      <BookOpen className="w-3.5 h-3.5 text-slate-400" />
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-slate-900 truncate max-w-[180px]">
+                                      {firstTitle}
+                                    </p>
+                                    <p className="text-[11px] text-slate-400 mt-0.5">
+                                      {totalQty} {totalQty === 1 ? "item" : "items"}{" "}
+                                      {order.items && order.items.length > 1 && (
+                                        <span>({order.items.length} items)</span>
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </td>
 
                           {/* Price & Payment */}
@@ -680,50 +704,81 @@ export default function AdminOrdersPage() {
                       <hr className="border-slate-100" />
 
                       {/* Customer Info */}
-                      <div className="space-y-1 text-xs">
-                        <div className="font-semibold text-slate-900 flex items-center gap-1.5">
-                          <User className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{order.user?.name || "Customer"}</span>
-                        </div>
-                        {order.user?.email && (
-                          <div className="flex items-center gap-1.5 text-slate-500 text-[11px]">
-                            <Mail className="w-3 h-3 text-slate-400 shrink-0" />
-                            <span className="truncate">{order.user.email}</span>
-                          </div>
-                        )}
-                        {(order.user?.phoneNumber ||
-                          order.deliveryAddress?.phoneNumber) && (
-                          <div className="flex items-center gap-1.5 text-slate-500 text-[11px]">
-                            <Phone className="w-3 h-3 text-slate-400 shrink-0" />
-                            <span>
-                              {order.user?.phoneNumber ||
-                                order.deliveryAddress?.phoneNumber}
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                      {(() => {
+                        const isGuest =
+                          order.orderType === "GUEST" ||
+                          Boolean(order.guestCustomer) ||
+                          Boolean(order.guestCustomerId);
+                        const name = isGuest
+                          ? order.guestCustomer?.name || "Guest Customer"
+                          : order.user?.name || "Customer";
+                        const email = isGuest
+                          ? order.guestCustomer?.email
+                          : order.user?.email;
+                        const phone = isGuest
+                          ? order.guestCustomer?.phone
+                          : order.user?.phoneNumber ||
+                            order.deliveryAddress?.phoneNumber;
 
-                      <hr className="border-slate-100" />
+                        const firstItem = order.items?.[0];
+                        const isFirstStat =
+                          firstItem?.itemType === "STATIONERY" ||
+                          Boolean(firstItem?.stationeryId) ||
+                          Boolean(firstItem?.stationery);
+                        const firstTitle = isFirstStat
+                          ? firstItem?.stationery?.name || "Stationery Item"
+                          : firstItem?.book?.title || "Book Package";
 
-                      {/* Book & Price */}
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="min-w-0 pr-2">
-                          <p className="font-semibold text-slate-900 truncate">
-                            {order.items?.[0]?.book?.title || "Book Package"}
-                          </p>
-                          <p className="text-[10px] text-slate-400">
-                            Qty: {totalQty}
-                          </p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="font-bold text-slate-900">
-                            Rs. {Number(order.total || 0).toLocaleString()}
-                          </p>
-                          <p className="text-[10px] text-slate-400 uppercase">
-                            {order.payment?.method || "COD"}
-                          </p>
-                        </div>
-                      </div>
+                        return (
+                          <>
+                            <div className="space-y-1 text-xs">
+                              <div className="font-semibold text-slate-900 flex items-center gap-1.5 flex-wrap">
+                                <User className="w-3.5 h-3.5 text-slate-400" />
+                                <span>{name}</span>
+                                {isGuest && (
+                                  <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                                    Guest
+                                  </span>
+                                )}
+                              </div>
+                              {email && (
+                                <div className="flex items-center gap-1.5 text-slate-500 text-[11px]">
+                                  <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                                  <span className="truncate">{email}</span>
+                                </div>
+                              )}
+                              {phone && (
+                                <div className="flex items-center gap-1.5 text-slate-500 text-[11px]">
+                                  <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+                                  <span>{phone}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            <hr className="border-slate-100" />
+
+                            {/* Product & Price */}
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="min-w-0 pr-2">
+                                <p className="font-semibold text-slate-900 truncate">
+                                  {firstTitle}
+                                </p>
+                                <p className="text-[10px] text-slate-400">
+                                  Qty: {totalQty}
+                                </p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="font-bold text-slate-900">
+                                  Rs. {Number(order.total || 0).toLocaleString()}
+                                </p>
+                                <p className="text-[10px] text-slate-400 uppercase">
+                                  {order.payment?.method || "COD"}
+                                </p>
+                              </div>
+                            </div>
+                          </>
+                        );
+                      })()}
 
                       {/* Bottom Action */}
                       <div className="pt-2 flex items-center justify-end border-t border-slate-100">

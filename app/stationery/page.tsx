@@ -25,6 +25,9 @@ import {
   CheckCircle2,
   AlertCircle,
   Eye,
+  Heart,
+  Loader2,
+  ShoppingCart,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -33,9 +36,14 @@ import toast from "react-hot-toast";
 import TopHeader from "@/components/topHeader";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
-import { axiosInstance } from "@/utils/axiosInstances";
+import AddToCartButton from "@/components/AddToCartButton";
+import { axiosAuthInstance, axiosInstance } from "@/utils/axiosInstances";
+import {
+  CART_CHANGE_EVENT,
+  getUserCookie,
+  WISHLIST_CHANGE_EVENT,
+} from "@/utils/cookies";
 import { StationeryItem, PaginationMeta, getStationeryImageUrl } from "@/types";
-import { Button } from "@/components/ui/button";
 
 interface CategoryOption {
   id: number | string;
@@ -90,6 +98,131 @@ function StationeryContent() {
     limit: urlLimit,
     totalPages: 1,
   });
+
+  // Wishlist State
+  const [wishlistedMap, setWishlistedMap] = useState<Record<string, boolean>>(
+    {},
+  );
+
+  // Fetch Wishlist for authenticated user
+  const fetchWishlist = useCallback(async () => {
+    try {
+      const user = await getUserCookie();
+      if (!user?.accessToken) {
+        setWishlistedMap({});
+        return;
+      }
+
+      let res;
+      try {
+        res = await axiosAuthInstance.get("/v1/wishlist");
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          res = await axiosAuthInstance.get("/api/v1/wishlist");
+        } else {
+          return;
+        }
+      }
+
+      const data =
+        res?.data?.data ||
+        res?.data?.wishlist ||
+        res?.data?.items ||
+        (Array.isArray(res?.data) ? res.data : []);
+
+      if (Array.isArray(data)) {
+        const map: Record<string, boolean> = {};
+        data.forEach((item: any) => {
+          const isStat =
+            item.itemType === "STATIONERY" ||
+            Boolean(item.stationery) ||
+            Boolean(item.stationeryId);
+          if (isStat) {
+            const statId = item.stationeryId ?? item.stationery?.id ?? item.id;
+            if (statId) map[String(statId)] = true;
+          }
+        });
+        setWishlistedMap(map);
+      }
+    } catch {
+      // Ignore if failed or unauthenticated
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchWishlist();
+    const handleWishlistChange = () => fetchWishlist();
+    window.addEventListener(WISHLIST_CHANGE_EVENT, handleWishlistChange);
+    return () => {
+      window.removeEventListener(WISHLIST_CHANGE_EVENT, handleWishlistChange);
+    };
+  }, [fetchWishlist]);
+
+  // Wishlist Toggle
+  const handleToggleWishlist = async (
+    e: React.MouseEvent,
+    item: StationeryItem,
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    try {
+      const user = await getUserCookie();
+      toast.dismiss();
+      if (!user?.accessToken) {
+        toast.error("Please login first to manage your wishlist");
+        return;
+      }
+
+      const strId = String(item.id);
+      const isCurrentlyWishlisted = Boolean(wishlistedMap[strId]);
+
+      // Optimistic update
+      setWishlistedMap((prev) => ({
+        ...prev,
+        [strId]: !isCurrentlyWishlisted,
+      }));
+
+      const numId = Number(item.id);
+      const targetId = !isNaN(numId) ? numId : item.id;
+      const payload = { stationeryId: targetId };
+
+      let response;
+      try {
+        response = await axiosAuthInstance.post("/v1/wishlist/toggle", payload);
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          response = await axiosAuthInstance.post(
+            "/api/v1/wishlist/toggle",
+            payload,
+          );
+        } else {
+          throw err;
+        }
+      }
+
+      const msg = response?.data?.message;
+      if (msg) {
+        toast.success(msg);
+      } else if (!isCurrentlyWishlisted) {
+        toast.success("Added to wishlist!");
+      } else {
+        toast.success("Removed from wishlist");
+      }
+
+      window.dispatchEvent(new Event(WISHLIST_CHANGE_EVENT));
+    } catch (err: any) {
+      setWishlistedMap((prev) => ({
+        ...prev,
+        [String(item.id)]: !prev[String(item.id)],
+      }));
+      toast.error(
+        err?.response?.data?.message || "Failed to update wishlist.",
+      );
+    }
+  };
+
+
 
   // Debounce search query (350ms)
   useEffect(() => {
@@ -614,22 +747,24 @@ function StationeryContent() {
 
               {/* Products Grid */}
               {isLoading ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                   {Array.from({ length: 8 }).map((_, i) => (
                     <div
                       key={i}
-                      className="rounded-2xl border border-slate-200 bg-white p-3 space-y-3 animate-pulse"
+                      className="rounded-2xl border border-slate-200/80 bg-white p-3 space-y-3 animate-pulse flex flex-col justify-between"
                     >
-                      <div className="aspect-square w-full rounded-xl bg-slate-200" />
-                      <div className="h-3 w-1/3 bg-slate-200 rounded" />
-                      <div className="h-4 w-4/5 bg-slate-200 rounded" />
-                      <div className="h-3 w-1/2 bg-slate-200 rounded" />
+                      <div className="h-[175px] sm:h-[200px] w-full rounded-xl bg-slate-100" />
+                      <div className="space-y-2">
+                        <div className="h-3 w-1/3 bg-slate-200 rounded" />
+                        <div className="h-3.5 w-4/5 bg-slate-200 rounded" />
+                        <div className="h-3 w-1/2 bg-slate-100 rounded" />
+                      </div>
                       <div className="h-8 w-full bg-slate-200 rounded-xl mt-2" />
                     </div>
                   ))}
                 </div>
               ) : stationeryList.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                   {stationeryList.map((item) => {
                     const imgUrl = getStationeryImageUrl(item);
                     const priceNum = Number(item.price) || 0;
@@ -647,14 +782,19 @@ function StationeryContent() {
                       item.category?.name ||
                       item.Category?.name ||
                       "Stationery";
+                    const subCatName =
+                      item.subCategory?.name ||
+                      item.SubCategory?.name ||
+                      "";
 
                     const productSlug = item.slug || item.id;
+                    const isWishlisted = Boolean(wishlistedMap[String(item.id)]);
 
                     return (
                       <Link
                         key={item.id}
                         href={`/stationery/${productSlug}`}
-                        className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xs transition-all duration-200 hover:-translate-y-1 hover:border-slate-300 hover:shadow-md"
+                        className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white transition duration-200 hover:-translate-y-1 hover:border-slate-300 hover:shadow-md"
                       >
                         {/* Discount Badge */}
                         {discountNum > 0 && (
@@ -663,59 +803,120 @@ function StationeryContent() {
                           </div>
                         )}
 
-                        {/* Top: Image Section */}
-                        <div className="relative aspect-square w-full overflow-hidden bg-slate-50 p-4 flex items-center justify-center">
+                        {/* Wishlist Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleToggleWishlist(e, item)}
+                          aria-label="Add to wishlist"
+                          className={`absolute right-2.5 top-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full backdrop-blur-xs transition shadow-2xs cursor-pointer ${
+                            isWishlisted
+                              ? "bg-rose-50 text-rose-600"
+                              : "bg-white/80 text-slate-400 hover:text-rose-500 hover:bg-white"
+                          }`}
+                        >
+                          <Heart
+                            size={14}
+                            className={
+                              isWishlisted ? "fill-rose-500 text-rose-500" : ""
+                            }
+                          />
+                        </button>
+
+                        {/* Cover Image */}
+                        <div className="flex h-[175px] sm:h-[200px] items-center justify-center overflow-hidden bg-slate-50/70 p-3 relative">
                           {imgUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={imgUrl}
                               alt={item.name}
-                              className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
+                              className="h-full w-auto max-w-full object-contain transition duration-300 group-hover:scale-105"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLElement).style.display =
+                                  "none";
+                              }}
                             />
                           ) : (
-                            <div className="flex flex-col items-center gap-1.5 text-slate-300">
+                            <div className="flex flex-col items-center justify-center text-slate-300">
                               <Package size={36} />
-                              <span className="text-[10px] text-slate-400">
-                                No image
-                              </span>
                             </div>
                           )}
 
                           {isOutOfStock && (
-                            <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] flex items-center justify-center">
-                              <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200">
+                            <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
+                              <span className="px-2 py-0.5 rounded bg-rose-600 text-white text-[9px] font-bold uppercase tracking-wider">
                                 Out of Stock
                               </span>
                             </div>
                           )}
                         </div>
 
-                        {/* Content Section */}
-                        <div className="p-3.5 flex flex-col justify-between flex-1 space-y-2.5">
-                          <div>
-                            <span className="text-[10px] font-bold uppercase tracking-wide text-[#1749A0]">
-                              {catName}
-                            </span>
-                            <h3 className="line-clamp-2 text-xs sm:text-sm font-bold text-slate-900 group-hover:text-[#1749A0] transition mt-0.5 leading-snug">
-                              {item.name}
-                            </h3>
-                          </div>
-
-                          {/* Price Block */}
-                          <div className="pt-1 border-t border-slate-100 flex items-center justify-between">
-                            <div>
-                              <div className="text-sm sm:text-base font-extrabold text-slate-900">
-                                Rs. {effectivePrice.toLocaleString()}
-                              </div>
-                              {discountNum > 0 && (
-                                <div className="text-[11px] text-slate-400 line-through">
-                                  Rs. {priceNum.toLocaleString()}
-                                </div>
+                        {/* Details */}
+                        <div className="flex flex-1 flex-col justify-between border-t border-slate-100 p-3">
+                          <div className="space-y-1.5">
+                            {/* Category Badges */}
+                            <div className="flex items-center gap-1">
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-50 border border-amber-100/80 text-[9px] font-semibold text-amber-700 uppercase tracking-wider truncate max-w-[120px]">
+                                {catName}
+                              </span>
+                              {subCatName && (
+                                <span className="text-[10px] text-slate-400 truncate">
+                                  • {subCatName}
+                                </span>
                               )}
                             </div>
 
-                            <Button className="text-xs font-bold">
-                              View Details
-                            </Button>
+                            {/* Title */}
+                            <h3 className="line-clamp-1 text-xs sm:text-sm font-bold text-slate-900 group-hover:text-[#1749A0] transition-colors">
+                              {item.name}
+                            </h3>
+
+                            {/* Subtitle / Subcategory */}
+                            <p className="truncate text-[11px] text-slate-400">
+                              {subCatName || catName}
+                            </p>
+
+                            {/* Price */}
+                            <div className="flex items-baseline justify-between gap-1.5 pt-0.5">
+                              <div className="flex items-baseline gap-1.5">
+                                <span className="text-xs sm:text-sm font-black text-[#1749A0]">
+                                  Rs. {Math.round(effectivePrice).toLocaleString()}
+                                </span>
+                                {discountNum > 0 && (
+                                  <span className="text-[10px] text-slate-400 line-through">
+                                    Rs. {Math.round(priceNum).toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
+                              {item.stock !== undefined &&
+                                item.stock !== null &&
+                                Number(item.stock) > 0 && (
+                                  <span className="text-[9px] text-emerald-600 font-medium whitespace-nowrap">
+                                    In Stock
+                                  </span>
+                                )}
+                            </div>
+                          </div>
+
+                          {/* Bottom Actions */}
+                          <div className="mt-3">
+                            <AddToCartButton
+                              book={{
+                                ...item,
+                                id: item.id,
+                                stationeryId: item.id,
+                                itemType: "STATIONERY",
+                                isStationery: true,
+                                format: "Stationery",
+                                title: item.name,
+                                name: item.name,
+                                category: item.category,
+                                stock: item.stock,
+                                images:
+                                  item.images ||
+                                  (imgUrl ? [{ url: imgUrl }] : []),
+                              }}
+                              isOutOfStock={isOutOfStock}
+                            />
                           </div>
                         </div>
                       </Link>

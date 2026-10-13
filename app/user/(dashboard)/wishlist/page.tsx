@@ -11,6 +11,7 @@ import {
   BookOpen,
   Heart,
   Loader2,
+  Package,
   Search,
   ShoppingCart,
   X,
@@ -29,17 +30,29 @@ export interface WishlistBook {
   bookImages?: any[];
   coverImage?: string;
   image?: string;
+  imageUrl?: string;
   authors?: any[];
   authorBooks?: any[];
   genres?: any[];
   genreBooks?: any[];
+  category?: any;
+  subCategory?: any;
+  itemType?: "BOOK" | "EBOOK" | "STATIONERY" | string;
+  isStationery?: boolean;
+  stationeryId?: number | string;
+  stationery?: any;
+  slug?: string;
   [key: string]: any;
 }
 
 export interface WishlistItem {
   id?: number | string;
   bookId?: number | string;
+  stationeryId?: number | string;
+  itemType?: "BOOK" | "EBOOK" | "STATIONERY" | string;
   book?: WishlistBook;
+  stationery?: any;
+  ebook?: any;
   [key: string]: any;
 }
 
@@ -92,7 +105,38 @@ export default function WishlistPage() {
   }, []);
 
   const extractBook = (item: WishlistItem): WishlistBook => {
-    const isEBook = item.itemType === "EBOOK" || Boolean(item.ebook);
+    const isStat =
+      item.itemType === "STATIONERY" ||
+      Boolean(item.stationery) ||
+      Boolean(item.stationeryId);
+
+    if (isStat) {
+      const content = item.stationery || item;
+      const realId =
+        item.stationeryId ?? item.stationery?.id ?? content.id;
+      return {
+        ...content,
+        id: realId,
+        title: content.name || content.title || "Stationery Item",
+        name: content.name || content.title || "Stationery Item",
+        price: content.price ?? 0,
+        discountPercent: content.discountPercent ?? 0,
+        stock: content.stock ?? 0,
+        slug: content.slug,
+        category: content.category,
+        subCategory: content.subCategory,
+        images: content.images || [],
+        wishlistRecordId: item.id,
+        itemType: "STATIONERY",
+        isStationery: true,
+        stationeryId: realId,
+      };
+    }
+
+    const isEBook =
+      item.itemType === "EBOOK" ||
+      Boolean(item.ebook) ||
+      Boolean(item.ebookId);
     const content = isEBook ? item.ebook || item : item.book || item;
     const realId = isEBook
       ? item.ebookId || item.ebook?.id || content.id
@@ -101,11 +145,12 @@ export default function WishlistPage() {
     return {
       ...content,
       id: realId,
+      title: content.title || content.name || "Book Title",
       wishlistRecordId: item.id,
       itemType: isEBook ? "EBOOK" : "BOOK",
       isEBook,
-      ebookId: item.ebookId || (isEBook ? realId : undefined),
-      bookId: item.bookId || (!isEBook ? realId : undefined),
+      ebookId: isEBook ? realId : undefined,
+      bookId: !isEBook ? realId : undefined,
     };
   };
 
@@ -124,13 +169,21 @@ export default function WishlistPage() {
     const coverObj: any = imgs.find(
       (img: any) => img?.type === "COVER" || img?.imageType === "COVER",
     );
-    if (coverObj) return coverObj.url || coverObj.imageUrl || null;
+    if (coverObj) return coverObj.imageUrl || coverObj.url || null;
     const first: any = imgs[0];
     if (typeof first === "string") return first;
-    return first?.url || first?.imageUrl || null;
+    return first?.imageUrl || first?.url || null;
   };
 
   const getAuthorName = (book: WishlistBook): string => {
+    if (book.isStationery || book.itemType === "STATIONERY") {
+      const cat = book.category?.name;
+      const sub = book.subCategory?.name;
+      if (cat && sub) return `${cat} • ${sub}`;
+      if (cat) return cat;
+      if (sub) return sub;
+      return "Stationery";
+    }
     if (book.authors && book.authors.length > 0) {
       const names = book.authors
         .map((a: any) =>
@@ -153,6 +206,9 @@ export default function WishlistPage() {
   };
 
   const getGenreName = (book: WishlistBook): string => {
+    if (book.isStationery || book.itemType === "STATIONERY") {
+      return book.category?.name || "Stationery";
+    }
     const list = book.genres || book.genreBooks || [];
     if (!list.length) return "";
     const first = list[0];
@@ -210,45 +266,69 @@ export default function WishlistPage() {
     try {
       const itemObj = items.find((i) => {
         const b = extractBook(i);
-        const bId = b.id || i.bookId || i.id;
+        const bId = b.id || i.stationeryId || i.bookId || i.id;
         return String(bId) === String(bookId);
       });
 
-      const isEBook = Boolean(
-        itemObj?.ebookId ||
-        itemObj?.eBookId ||
-        itemObj?.isEbook ||
-        itemObj?.type === "EBOOK" ||
-        itemObj?.book?.ebookId ||
-        itemObj?.book?.type === "EBOOK",
+      const isStat = Boolean(
+        itemObj?.itemType === "STATIONERY" ||
+        itemObj?.stationery ||
+        itemObj?.stationeryId,
       );
 
-      const typeParam = isEBook ? "type=EBOOK" : "type=BOOK";
+      const isEBook =
+        !isStat &&
+        Boolean(
+          itemObj?.ebookId ||
+          itemObj?.eBookId ||
+          itemObj?.isEbook ||
+          itemObj?.type === "EBOOK" ||
+          itemObj?.itemType === "EBOOK" ||
+          itemObj?.book?.ebookId ||
+          itemObj?.book?.type === "EBOOK",
+        );
+
       const id = Number(bookId);
       const targetId = Number.isNaN(id) ? bookId : id;
-      const payload = isEBook ? { ebookId: targetId } : { bookId: targetId };
 
-      try {
-        await axiosAuthInstance.post(
-          `/v1/wishlist/toggle?${typeParam}`,
-          payload,
-        );
-      } catch {
+      if (isStat) {
+        const payload = { stationeryId: targetId };
         try {
-          await axiosAuthInstance.delete(
-            `/v1/wishlist/remove/${targetId}?${typeParam}`,
+          await axiosAuthInstance.post("/v1/wishlist/toggle", payload);
+        } catch (err: any) {
+          if (err?.response?.status === 404) {
+            await axiosAuthInstance.post("/api/v1/wishlist/toggle", payload);
+          } else {
+            throw err;
+          }
+        }
+      } else {
+        const typeParam = isEBook ? "type=EBOOK" : "type=BOOK";
+        const payload = isEBook ? { ebookId: targetId } : { bookId: targetId };
+
+        try {
+          await axiosAuthInstance.post(
+            `/v1/wishlist/toggle?${typeParam}`,
+            payload,
           );
         } catch {
-          await axiosAuthInstance.delete(
-            `/v1/wishlist/${targetId}?${typeParam}`,
-          );
+          try {
+            await axiosAuthInstance.delete(
+              `/v1/wishlist/remove/${targetId}?${typeParam}`,
+            );
+          } catch {
+            await axiosAuthInstance.delete(
+              `/v1/wishlist/${targetId}?${typeParam}`,
+            );
+          }
         }
       }
 
       setItems((prev) =>
         prev.filter((item) => {
           const book = extractBook(item);
-          const currentId = book.id || item.bookId || item.id;
+          const currentId =
+            book.id || item.stationeryId || item.bookId || item.id;
           return String(currentId) !== String(bookId);
         }),
       );
@@ -280,7 +360,7 @@ export default function WishlistPage() {
     try {
       const user = await getUserCookie();
       if (!user?.accessToken) {
-        toast.error("Please login first to add books to your cart", {
+        toast.error("Please login first to add items to your cart", {
           position: "top-center",
         });
         return;
@@ -292,6 +372,72 @@ export default function WishlistPage() {
       const finalPrice =
         discountNum > 0 ? priceNum - (priceNum * discountNum) / 100 : priceNum;
       const numId = Number(book.id);
+
+      if (book.isStationery || book.itemType === "STATIONERY") {
+        const statPayload = {
+          stationeryId: !isNaN(numId) ? numId : book.id,
+          quantity: 1,
+        };
+        try {
+          await axiosAuthInstance.post("/v1/cart", statPayload);
+        } catch (err: any) {
+          if (err?.response?.status === 404) {
+            await axiosAuthInstance.post("/api/v1/cart", statPayload);
+          } else {
+            throw err;
+          }
+        }
+
+        // Sync local storage for stationery
+        try {
+          const coverImg = getCoverImage(book);
+          const saved = localStorage.getItem("nepsole_cart");
+          let currentCart: any[] = [];
+          if (saved) {
+            try {
+              currentCart = JSON.parse(saved);
+            } catch {}
+          }
+          if (!Array.isArray(currentCart)) currentCart = [];
+
+          const existingIdx = currentCart.findIndex(
+            (c: any) =>
+              String(c.stationeryId ?? c.bookId ?? c.id) === String(book.id),
+          );
+
+          if (existingIdx >= 0) {
+            currentCart[existingIdx].quantity =
+              (currentCart[existingIdx].quantity || 1) + 1;
+          } else {
+            currentCart.push({
+              id: `stationery-${book.id}-${Date.now()}`,
+              stationeryId: book.id,
+              bookId: book.id,
+              title: book.title || book.name,
+              price: finalPrice,
+              originalPrice: priceNum,
+              discountPercent: discountNum,
+              quantity: 1,
+              coverImage: coverImg,
+              imageUrl: coverImg,
+              format: "Stationery",
+              category: book.category?.name || "Stationery",
+              stock: Number(book.stock) || 10,
+            });
+          }
+
+          localStorage.setItem("nepsole_cart", JSON.stringify(currentCart));
+        } catch {}
+
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event(CART_CHANGE_EVENT));
+        }
+
+        toast.success(`"${book.title}" added to cart!`, {
+          position: "top-center",
+        });
+        return;
+      }
 
       try {
         await axiosAuthInstance.post("/v1/cart", {
@@ -361,7 +507,7 @@ export default function WishlistPage() {
       console.error("Cart error:", error);
       toast.dismiss();
       toast.error(
-        error?.response?.data?.message || "Failed to add book to cart.",
+        error?.response?.data?.message || "Failed to add item to cart.",
         { position: "top-center" },
       );
     } finally {
@@ -380,16 +526,16 @@ export default function WishlistPage() {
               <span>My Wishlist</span>
             </h1>
             <span className="bg-rose-50 text-rose-700 text-xs font-bold px-2.5 py-0.5 rounded-full border border-rose-200/80">
-              {items.length} {items.length === 1 ? "Book" : "Books"}
+              {items.length} {items.length === 1 ? "Item" : "Items"}
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Your saved reading list • Tap any book to view details or order
+            Your saved wishlist • Tap any item to view details or order
           </p>
         </div>
       </div>
 
-      {/* Book Grid matching components/books.tsx */}
+      {/* Grid matching books and stationery */}
       {isLoading ? (
         <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -419,15 +565,25 @@ export default function WishlistPage() {
                 ? priceNum - (priceNum * discountNum) / 100
                 : priceNum;
 
-            const bookId = book.id || book.bookId || book.ebookId;
+            const isStationery = Boolean(
+              book.isStationery || book.itemType === "STATIONERY",
+            );
+            const bookId =
+              book.id || book.stationeryId || book.bookId || book.ebookId;
             const isRemoving = removingId === bookId;
             const isAdding = addingCartId === book.id;
-            const isEBook = Boolean(book.isEBook || book.itemType === "EBOOK");
+            const isEBook =
+              !isStationery &&
+              Boolean(book.isEBook || book.itemType === "EBOOK");
             const isFree =
               isEBook &&
               ((book.plan && String(book.plan).toUpperCase() === "FREE") ||
                 priceNum === 0);
-            const itemUrl = isEBook ? `/eBooks/${bookId}` : `/books/${bookId}`;
+            const itemUrl = isStationery
+              ? `/stationery/${book.slug || bookId}`
+              : isEBook
+                ? `/eBooks/${bookId}`
+                : `/books/${bookId}`;
 
             return (
               <Link
@@ -436,7 +592,18 @@ export default function WishlistPage() {
                 className="group relative flex flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white transition duration-200 hover:-translate-y-1 hover:border-slate-300 hover:shadow-md"
               >
                 {/* Badges */}
-                {isEBook ? (
+                {isStationery ? (
+                  <div className="absolute left-2.5 top-2.5 z-10 flex flex-col gap-1 items-start">
+                    <span className="rounded-lg bg-amber-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs">
+                      STATIONERY
+                    </span>
+                    {discountNum > 0 && (
+                      <span className="rounded-lg bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs">
+                        -{discountNum}%
+                      </span>
+                    )}
+                  </div>
+                ) : isEBook ? (
                   <div className="absolute left-2.5 top-2.5 z-10 rounded-lg bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs">
                     {isFree ? "FREE" : "E-BOOK"}
                   </div>
@@ -463,7 +630,7 @@ export default function WishlistPage() {
                   )}
                 </button>
 
-                {/* Book Image */}
+                {/* Cover Image */}
                 <div className="flex h-[175px] sm:h-[195px] items-center justify-center overflow-hidden bg-slate-50/70 p-3 relative">
                   {cover ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
@@ -477,7 +644,11 @@ export default function WishlistPage() {
                     />
                   ) : (
                     <div className="flex flex-col items-center justify-center text-slate-300">
-                      <BookOpen size={36} />
+                      {isStationery ? (
+                        <Package size={36} />
+                      ) : (
+                        <BookOpen size={36} />
+                      )}
                     </div>
                   )}
                 </div>
@@ -490,7 +661,7 @@ export default function WishlistPage() {
                       {book.title}
                     </h3>
 
-                    {/* Author */}
+                    {/* Author / Category */}
                     <p className="mt-0.5 truncate text-[11px] text-slate-400">
                       {authorName}
                     </p>
@@ -519,7 +690,29 @@ export default function WishlistPage() {
 
                   {/* Bottom Actions */}
                   <div className="mt-3">
-                    {isEBook ? (
+                    {isStationery ? (
+                      <button
+                        type="button"
+                        onClick={(e) => handleAddToCart(e, book)}
+                        disabled={isAdding || Number(book.stock) <= 0}
+                        className={`w-full h-8 rounded-xl text-white text-[11px] font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50 ${
+                          Number(book.stock) <= 0
+                            ? "bg-slate-400 cursor-not-allowed"
+                            : "bg-[#1749A0] hover:bg-[#0F2557] active:scale-[0.98]"
+                        }`}
+                      >
+                        {isAdding ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : Number(book.stock) <= 0 ? (
+                          <span>Out of Stock</span>
+                        ) : (
+                          <>
+                            <ShoppingCart size={12} />
+                            <span>Add to Cart</span>
+                          </>
+                        )}
+                      </button>
+                    ) : isEBook ? (
                       <button
                         type="button"
                         onClick={(e) => handleAddToCart(e, book)}
@@ -555,13 +748,13 @@ export default function WishlistPage() {
           </div>
 
           <h2 className="text-base sm:text-lg font-bold text-slate-900">
-            {searchQuery ? "No matching books found" : "Your Wishlist is Empty"}
+            {searchQuery ? "No matching items found" : "Your Wishlist is Empty"}
           </h2>
 
           <p className="mt-1 max-w-sm text-xs text-slate-500 leading-relaxed">
             {searchQuery
-              ? `No saved books match "${searchQuery}". Try clearing the search query.`
-              : "Discover bestsellers, trending titles, and tap the heart icon on any book to save it for later."}
+              ? `No saved items match "${searchQuery}". Try clearing the search query.`
+              : "Discover bestsellers, trending titles, stationery and tap the heart icon on any item to save it for later."}
           </p>
 
           <div className="mt-4 flex items-center gap-2">
@@ -574,13 +767,22 @@ export default function WishlistPage() {
                 Clear Search
               </button>
             ) : (
-              <Link
-                href="/books"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-[#1749A0] hover:bg-[#0F2557] px-4 py-2 text-xs font-bold text-white transition shadow-sm cursor-pointer"
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>Explore Books Catalog</span>
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/books"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#1749A0] hover:bg-[#0F2557] px-4 py-2 text-xs font-bold text-white transition shadow-sm cursor-pointer"
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>Explore Books</span>
+                </Link>
+                <Link
+                  href="/stationery"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 px-4 py-2 text-xs font-bold text-white transition shadow-sm cursor-pointer"
+                >
+                  <Package className="w-3.5 h-3.5" />
+                  <span>Stationery</span>
+                </Link>
+              </div>
             )}
           </div>
         </div>

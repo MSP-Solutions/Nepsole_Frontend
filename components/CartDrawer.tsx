@@ -33,6 +33,9 @@ import toast from "react-hot-toast";
 export interface DrawerCartItem {
   id: string | number;
   bookId: string | number;
+  stationeryId?: string | number;
+  itemType?: string;
+  format?: string;
   title: string;
   author: string;
   price: number;
@@ -44,6 +47,7 @@ export interface DrawerCartItem {
   itemTotal: number;
   originalTotal: number;
   book?: any;
+  stationery?: any;
 }
 
 export interface DrawerSummary {
@@ -120,35 +124,56 @@ export default function CartDrawer() {
         if (!Array.isArray(localCart)) localCart = [];
 
         const mappedItems: DrawerCartItem[] = localCart.map((it: any) => {
+          const isStat =
+            it.itemType === "STATIONERY" ||
+            it.format === "Stationery" ||
+            Boolean(it.stationeryId) ||
+            Boolean(it.stationery);
           const qty = Number(it.quantity) || 1;
-          const uPrice = Number(it.price) || 0;
-          const oPrice = Number(it.originalPrice) || uPrice;
-          const dPercent = Number(it.discountPercent) || 0;
+          const uPrice = Number(it.price || 0);
+          const oPrice = Number(it.originalPrice || it.price || uPrice);
+          const dPercent = Number(it.discountPercent || 0);
           const iTotal = uPrice * qty;
           const oTotal = oPrice * qty;
+          const pId = isStat
+            ? (it.stationeryId ?? it.bookId ?? it.id)
+            : (it.bookId ?? it.id);
 
           return {
-            id: it.id || `local-${it.bookId}`,
-            bookId: it.bookId ?? it.id,
-            title: it.title || "Book",
-            author: it.author || "",
+            id: it.id || `local-${pId}`,
+            bookId: pId,
+            stationeryId: isStat ? pId : undefined,
+            itemType: isStat ? "STATIONERY" : "BOOK",
+            title: it.name || it.title || (isStat ? "Stationery Item" : "Book"),
+            author: it.author || (isStat ? it.category || "Stationery" : ""),
             price: uPrice,
             originalPrice: oPrice,
             discountPercent: dPercent,
             quantity: qty,
-            coverImage: it.coverImage || null,
+            coverImage: it.coverImage || it.imageUrl || null,
             stock: Number(it.stock) || 500,
             itemTotal: iTotal,
             originalTotal: oTotal,
             book: {
-              id: it.bookId ?? it.id,
-              title: it.title || "Book",
+              id: pId,
+              title: it.name || it.title || (isStat ? "Stationery Item" : "Book"),
               price: oPrice,
               stock: Number(it.stock) || 500,
-              images: it.coverImage
-                ? [{ id: 1, url: it.coverImage, type: "COVER" }]
+              images: (it.coverImage || it.imageUrl)
+                ? [{ id: 1, url: it.coverImage || it.imageUrl, type: "COVER" }]
                 : [],
             },
+            stationery: isStat
+              ? {
+                  id: pId,
+                  name: it.name || it.title || "Stationery Item",
+                  price: oPrice,
+                  stock: Number(it.stock) || 500,
+                  images: (it.coverImage || it.imageUrl)
+                    ? [{ id: 1, imageUrl: it.coverImage || it.imageUrl }]
+                    : [],
+                }
+              : undefined,
           };
         });
 
@@ -177,44 +202,80 @@ export default function CartDrawer() {
         : [];
 
       const mappedList: DrawerCartItem[] = rawList.map((it: any) => {
+        const isStat =
+          it.itemType === "STATIONERY" ||
+          Boolean(it.stationeryId) ||
+          Boolean(it.stationery);
         const book = it.book || {};
-        const bId = it.bookId ?? book.id ?? it.id;
+        const stationery = it.stationery || {};
+        const pId = isStat
+          ? (it.stationeryId ?? stationery.id ?? it.id)
+          : (it.bookId ?? book.id ?? it.id);
         const qty = Number(it.quantity) || 1;
-        const uPrice = Number(it.unitPrice || it.price || book.price || 0);
-        const oPrice = Number(it.originalPrice || book.price || uPrice);
-        const dPercent = Number(it.discountPercent || book.discountPercent || 0);
+        const uPrice = Number(
+          it.unitPrice ||
+            it.price ||
+            (isStat ? stationery.price : book.price) ||
+            0,
+        );
+        const oPrice = Number(
+          it.originalPrice ||
+            (isStat ? stationery.price : book.price) ||
+            uPrice,
+        );
+        const dPercent = Number(
+          it.discountPercent ||
+            (isStat ? stationery.discountPercent : book.discountPercent) ||
+            0,
+        );
         const iTotal = Number(it.itemTotal) || uPrice * qty;
         const oTotal = Number(it.originalTotal) || oPrice * qty;
 
-        const coverImg =
-          book.images?.find((img: any) => img.type === "COVER")?.url ||
-          book.images?.[0]?.url ||
-          it.coverImage ||
-          null;
+        const coverImg = isStat
+          ? stationery.images?.[0]?.imageUrl ||
+            stationery.images?.[0]?.url ||
+            stationery.imageUrl ||
+            it.coverImage ||
+            null
+          : book.images?.find((img: any) => img.type === "COVER")?.url ||
+            book.images?.[0]?.url ||
+            it.coverImage ||
+            null;
 
-        const authorName =
-          book.authors?.[0]?.name ||
-          book.author?.name ||
-          it.author ||
-          "";
+        const authorName = isStat
+          ? stationery.category?.name || "Stationery"
+          : book.authors?.[0]?.name ||
+            book.author?.name ||
+            it.author ||
+            "";
+
+        const titleName = isStat
+          ? stationery.name || it.title || "Stationery Item"
+          : book.title || it.title || "Book";
+
+        const stockCount = isStat
+          ? Number(stationery.stock || 500)
+          : Number(book.stock || 500);
 
         return {
-          id: it.id || `item-${bId}`,
-          bookId: bId,
-          title: book.title || it.title || "Book",
+          id: it.id || `item-${pId}`,
+          bookId: pId,
+          stationeryId: isStat ? pId : undefined,
+          itemType: isStat ? "STATIONERY" : "BOOK",
+          title: titleName,
           author: authorName,
           price: uPrice,
           originalPrice: oPrice,
           discountPercent: dPercent,
           quantity: qty,
           coverImage: coverImg,
-          stock: Number(book.stock || 500),
+          stock: stockCount,
           itemTotal: iTotal,
           originalTotal: oTotal,
           book: {
-            id: bId,
-            title: book.title || it.title || "Book",
-            stock: Number(book.stock || 500),
+            id: pId,
+            title: titleName,
+            stock: stockCount,
             images: coverImg ? [{ url: coverImg, type: "COVER" }] : [],
           },
         };
@@ -327,18 +388,24 @@ export default function CartDrawer() {
 
     debounceTimersRef.current[timerKey] = setTimeout(async () => {
       setUpdatingId(item.id);
+      const isStat =
+        item.itemType === "STATIONERY" || Boolean(item.stationeryId);
+      const payload = isStat
+        ? {
+            stationeryId: Number(item.stationeryId ?? item.bookId),
+            quantity: finalQty,
+          }
+        : {
+            bookId: Number(item.bookId),
+            quantity: finalQty,
+          };
+
       try {
         try {
-          await axiosAuthInstance.patch("/v1/cart/quantity", {
-            bookId: Number(item.bookId) || item.bookId,
-            quantity: finalQty,
-          });
+          await axiosAuthInstance.patch("/v1/cart/quantity", payload);
         } catch (err: any) {
           if (err?.response?.status === 404) {
-            await axiosAuthInstance.patch("/api/v1/cart/quantity", {
-              bookId: Number(item.bookId) || item.bookId,
-              quantity: finalQty,
-            });
+            await axiosAuthInstance.patch("/api/v1/cart/quantity", payload);
           } else {
             throw err;
           }
@@ -375,11 +442,29 @@ export default function CartDrawer() {
         updateLocalStorageItem(item.book, 0);
       }
 
+      const isStat =
+        item.itemType === "STATIONERY" || Boolean(item.stationeryId);
+      const targetId = isStat
+        ? (item.stationeryId ?? item.bookId ?? item.id)
+        : (item.bookId ?? item.id);
+
       try {
-        await axiosAuthInstance.delete(`/v1/cart/${item.bookId}`);
+        await axiosAuthInstance.delete(`/v1/cart/${targetId}`);
       } catch (err: any) {
         if (err?.response?.status === 404) {
-          await axiosAuthInstance.delete(`/api/v1/cart/${item.bookId}`);
+          try {
+            await axiosAuthInstance.delete(`/api/v1/cart/${targetId}`);
+          } catch {
+            if (item.id && String(item.id) !== String(targetId)) {
+              await axiosAuthInstance.delete(`/v1/cart/${item.id}`);
+            }
+          }
+        } else if (item.id && String(item.id) !== String(targetId)) {
+          try {
+            await axiosAuthInstance.delete(`/v1/cart/${item.id}`);
+          } catch {
+            throw err;
+          }
         } else {
           throw err;
         }
@@ -670,13 +755,12 @@ export default function CartDrawer() {
         isOpen={isCheckoutOpen}
         onClose={() => setIsCheckoutOpen(false)}
         items={items.map((it) => ({
-          id: it.id,
-          bookId: it.bookId,
-          quantity: it.quantity,
+          ...it,
+          stationeryId: it.stationeryId,
+          itemType: it.itemType,
+          format: it.format,
+          stationery: it.stationery,
           unitPrice: it.price,
-          originalPrice: it.originalPrice,
-          itemTotal: it.itemTotal,
-          book: it.book,
         }))}
         summary={summary}
         onOrderSuccess={() => {

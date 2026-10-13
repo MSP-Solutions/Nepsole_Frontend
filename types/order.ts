@@ -54,11 +54,14 @@ export interface OrderPayment {
 export interface OrderItem {
   id: number;
   orderId: number;
-  bookId: number;
+  itemType?: "BOOK" | "STATIONERY" | string;
+  bookId?: number;
+  stationeryId?: number;
   quantity: number;
   unitPrice: number;
   subtotal: number;
   book?: BookItem;
+  stationery?: any;
 }
 
 export interface GuestCustomer {

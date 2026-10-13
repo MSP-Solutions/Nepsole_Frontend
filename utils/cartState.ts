@@ -4,14 +4,19 @@ import toast from "react-hot-toast";
 
 export interface StoredCartItem {
   id?: string | number;
-  bookId: string | number;
+  bookId?: string | number;
+  stationeryId?: string | number;
+  itemType?: "BOOK" | "STATIONERY" | string;
   title?: string;
+  name?: string;
   author?: string;
+  category?: string;
   price?: number;
   originalPrice?: number;
   discountPercent?: number;
   quantity: number;
   coverImage?: string | null;
+  imageUrl?: string | null;
   format?: string;
   stock?: number;
   [key: string]: any;
@@ -19,7 +24,7 @@ export interface StoredCartItem {
 
 /**
  * Read the current cart map from localStorage
- * Returns a dictionary mapping String(bookId) -> quantity
+ * Returns a dictionary mapping String(bookId/stationeryId) -> quantity
  */
 export const getLocalCartMap = (): Record<string, number> => {
   if (typeof window === "undefined") return {};
@@ -31,7 +36,7 @@ export const getLocalCartMap = (): Record<string, number> => {
 
     const map: Record<string, number> = {};
     items.forEach((it) => {
-      const bId = String(it.bookId ?? it.id ?? "");
+      const bId = String(it.stationeryId ?? it.bookId ?? it.id ?? "");
       if (bId) {
         map[bId] = Number(it.quantity) || 1;
       }
@@ -88,31 +93,52 @@ export const syncServerCart = async (force = false): Promise<Record<string, numb
     const map: Record<string, number> = {};
 
     rawItems.forEach((it) => {
-      const bId = it.bookId ?? it.book?.id ?? it.id;
+      const isStat =
+        it.itemType === "STATIONERY" ||
+        Boolean(it.stationeryId) ||
+        Boolean(it.stationery);
+      const bId = isStat
+        ? (it.stationeryId ?? it.stationery?.id ?? it.id)
+        : (it.bookId ?? it.book?.id ?? it.id);
+
       if (bId !== undefined && bId !== null) {
         const qty = Number(it.quantity) || 1;
         map[String(bId)] = qty;
 
+        const statObj = it.stationery || {};
+        const bookObj = it.book || {};
+
         serverCart.push({
           id: it.id || `item-${bId}`,
           bookId: bId,
-          title: it.book?.title || it.title || "Book",
-          author:
-            it.book?.authors?.[0]?.name ||
-            it.book?.author?.name ||
-            it.author ||
-            "",
-          price: Number(it.unitPrice || it.price || 0),
-          originalPrice: Number(it.originalPrice || it.unitPrice || 0),
-          discountPercent: Number(it.discountPercent || 0),
+          stationeryId: isStat ? bId : undefined,
+          itemType: isStat ? "STATIONERY" : "BOOK",
+          title: isStat
+            ? statObj.name || it.title || "Stationery Item"
+            : bookObj.title || it.title || "Book",
+          author: isStat
+            ? statObj.category?.name || "Stationery"
+            : bookObj.authors?.[0]?.name ||
+              bookObj.author?.name ||
+              it.author ||
+              "",
+          category: isStat ? statObj.category?.name || "Stationery" : undefined,
+          price: Number(it.unitPrice || it.price || (isStat ? statObj.price : bookObj.price) || 0),
+          originalPrice: Number(it.originalPrice || it.unitPrice || (isStat ? statObj.price : bookObj.price) || 0),
+          discountPercent: Number(it.discountPercent || (isStat ? statObj.discountPercent : bookObj.discountPercent) || 0),
           quantity: qty,
-          coverImage:
-            it.book?.coverImageUrl ||
-            it.book?.images?.[0]?.url ||
-            it.coverImage ||
-            null,
-          format: it.format || "Paperback",
-          stock: Number(it.book?.stock || 10),
+          coverImage: isStat
+            ? statObj.images?.[0]?.imageUrl ||
+              statObj.images?.[0]?.url ||
+              statObj.imageUrl ||
+              it.coverImage ||
+              null
+            : bookObj.coverImageUrl ||
+              bookObj.images?.[0]?.url ||
+              it.coverImage ||
+              null,
+          format: isStat ? "Stationery" : it.format || "Paperback",
+          stock: Number((isStat ? statObj.stock : bookObj.stock) || 10),
         });
       }
     });
@@ -133,18 +159,18 @@ export const syncServerCart = async (force = false): Promise<Record<string, numb
 
 /**
  * Call the quantity update API:
- * Endpoint: /api/v1/cart/quantity (with /v1/cart/quantity fallback)
- * Body: { bookId: 14, quantity: 2 }
+ * Body: { bookId: 14, quantity: 2 } or { stationeryId: 2, quantity: 2 }
  */
 export const updateCartQuantityApi = async (
-  bookId: number | string,
+  itemId: number | string,
   quantity: number,
+  isStationery: boolean = false,
 ) => {
-  const numId = Number(bookId);
-  const payload = {
-    bookId: !isNaN(numId) ? numId : bookId,
-    quantity,
-  };
+  const numId = Number(itemId);
+  const targetId = !isNaN(numId) ? numId : itemId;
+  const payload = isStationery
+    ? { stationeryId: targetId, quantity }
+    : { bookId: targetId, quantity };
 
   try {
     return await axiosAuthInstance.patch("/v1/cart/quantity", payload);
@@ -167,9 +193,9 @@ export const updateCartQuantityApi = async (
 /**
  * Remove an item from the cart
  */
-export const removeCartItemApi = async (bookId: number | string) => {
-  const numId = Number(bookId);
-  const targetId = !isNaN(numId) ? numId : bookId;
+export const removeCartItemApi = async (itemId: number | string) => {
+  const numId = Number(itemId);
+  const targetId = !isNaN(numId) ? numId : itemId;
   try {
     return await axiosAuthInstance.delete(`/v1/cart/${targetId}`);
   } catch (err: any) {
@@ -181,17 +207,18 @@ export const removeCartItemApi = async (bookId: number | string) => {
 };
 
 /**
- * Add a book to cart initially (/v1/cart)
+ * Add a book/stationery to cart initially (/v1/cart)
  */
 export const addToCartInitialApi = async (
-  bookId: number | string,
+  itemId: number | string,
   quantity: number = 1,
+  isStationery: boolean = false,
 ) => {
-  const numId = Number(bookId);
-  const payload = {
-    bookId: !isNaN(numId) ? numId : bookId,
-    quantity,
-  };
+  const numId = Number(itemId);
+  const targetId = !isNaN(numId) ? numId : itemId;
+  const payload = isStationery
+    ? { stationeryId: targetId, quantity }
+    : { bookId: targetId, quantity };
 
   try {
     return await axiosAuthInstance.post("/v1/cart", payload);
@@ -204,15 +231,16 @@ export const addToCartInitialApi = async (
 };
 
 /**
- * Extract book cover image safely
+ * Extract book/stationery cover image safely
  */
 export const extractCoverImage = (book: any): string | null => {
   if (typeof book?.coverImage === "string") return book.coverImage;
   if (typeof book?.coverImageUrl === "string") return book.coverImageUrl;
   if (typeof book?.imageUrl === "string") return book.imageUrl;
+  if (typeof book?.image === "string") return book.image;
   if (Array.isArray(book?.images) && book.images.length > 0) {
     const first = book.images[0];
-    return typeof first === "string" ? first : first?.url || null;
+    return typeof first === "string" ? first : first?.imageUrl || first?.url || null;
   }
   return null;
 };
@@ -242,9 +270,17 @@ export const updateLocalStorageItem = (
     let currentCart: StoredCartItem[] = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(currentCart)) currentCart = [];
 
-    const bId = String(book.id ?? book.bookId ?? "");
+    const isStat = Boolean(
+      book.itemType === "STATIONERY" ||
+      book.format === "Stationery" ||
+      book.stationeryId ||
+      book.isStationery ||
+      book.stationery,
+    );
+
+    const bId = String(book.stationeryId ?? book.id ?? book.bookId ?? "");
     const existingIdx = currentCart.findIndex(
-      (c) => String(c.bookId ?? c.id ?? "") === bId,
+      (c) => String(c.stationeryId ?? c.bookId ?? c.id ?? "") === bId,
     );
 
     if (newQuantity <= 0) {
@@ -261,16 +297,23 @@ export const updateLocalStorageItem = (
         currentCart[existingIdx].quantity = newQuantity;
       } else {
         currentCart.push({
-          id: `item-${bId}-${Date.now()}`,
+          id: `${isStat ? "stationery" : "item"}-${bId}-${Date.now()}`,
           bookId: !isNaN(Number(bId)) ? Number(bId) : bId,
-          title: book.title || "Book",
-          author: extractAuthorName(book),
+          stationeryId: isStat ? (!isNaN(Number(bId)) ? Number(bId) : bId) : undefined,
+          itemType: isStat ? "STATIONERY" : "BOOK",
+          title: book.name || book.title || (isStat ? "Stationery Item" : "Book"),
+          name: book.name || book.title || (isStat ? "Stationery Item" : "Book"),
+          author: isStat
+            ? book.category?.name || book.Category?.name || book.author || "Stationery"
+            : extractAuthorName(book),
+          category: isStat ? book.category?.name || book.Category?.name || "Stationery" : undefined,
           price: finalPrice,
           originalPrice: priceNum,
           discountPercent: discountNum,
           quantity: newQuantity,
           coverImage: extractCoverImage(book),
-          format: book.format || "Paperback",
+          imageUrl: extractCoverImage(book),
+          format: isStat ? "Stationery" : (book.format || "Paperback"),
           stock: Number(book.stock) || 10,
         });
       }
